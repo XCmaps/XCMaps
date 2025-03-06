@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Display a map</title>
+    <meta property="og:description" content="Initialize a map in an HTML element with MapLibre GL JS." />
+    <meta charset='utf-8'>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+
+    <!-- MapTiler SDK -->
+    <script src="https://cdn.maptiler.com/maptiler-sdk-js/v3.0.0/maptiler-sdk.umd.min.js"></script>
+    <link href="https://cdn.maptiler.com/maptiler-sdk-js/v3.0.0/maptiler-sdk.css" rel="stylesheet" />
+
+    <!-- Leaflet plugin for MapTiler SDK Layers -->
+    <script src="https://cdn.maptiler.com/leaflet-maptilersdk/v3.0.0/leaflet-maptilersdk.js"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+        html, body, #map { height: 100%; }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+    function initMap(lat, lon) {
+        const map = L.map('map').setView([lat, lon], 13);
+
+        // Add MapTiler Layer
+        new L.MaptilerLayer({
+            apiKey: "c49iG8J3xvAkgCSZ8M8v",
+            style: 'maptiler_terrain_wob_testxc.json'
+        }).addTo(map);
+
+        // Add user marker
+        L.marker([lat, lon]).addTo(map).bindPopup("You are here").openPopup();
+    }
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                initMap(position.coords.latitude, position.coords.longitude);
+            },
+            error => {
+                console.error("Geolocation error:", error.message);
+                // Fallback to default location if geolocation fails
+                initMap(40.7468, -73.98775);
+            }
+        );
+    } else {
+        console.error("Geolocation is not supported by this browser.");
+        // Fallback to default location if geolocation is not supported
+        initMap(40.7468, -73.98775);
+    }
+</script>
+</body>
+</html>

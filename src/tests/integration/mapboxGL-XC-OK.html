@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XCmaps - Open Data for Gliders</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="L.Control.Layers.Tree.css" />
+    <script src="L.Control.Layers.Tree.js"></script>
+
+    <!-- Mapbox GL -->
+    // <link href="https://api.tiles.mapbox.com/mapbox-gl-js/v1.2.0/mapbox-gl.css" rel='stylesheet' />
+    // <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v1.2.0/mapbox-gl.js"></script>
+
+    <script src="https://unpkg.com/maplibre-gl@^5.1.0/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@^5.1.0/dist/maplibre-gl.css" rel="stylesheet" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol/dist/L.Control.Locate.min.js" charset="utf-8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans&display=swap" rel="stylesheet">
+    
+    <style>
+        html, body { height: 100%; margin: 0; }
+        #map { width: 100%; height: 100%; }
+        .leaflet-popup-content { min-width: 500px; }
+
+        /* Apply blending mode to the xcontest layer */
+        .leaflet-tile-pane .xcontest-layer {
+            mix-blend-mode: overlay; /* Adjust blending mode as needed */
+        }
+                /* Isolate the place_label_other layer */
+        .place_label_other {
+            isolation: isolate;
+        }
+        .maplibregl-canvas {
+            mix-blend-mode: screen; /* Experiment with other blend modes */
+            isolation: isolate;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/mapbox-gl-leaflet/leaflet-mapbox-gl.js"></script>
+    <script>
+        const windLayer = L.layerGroup();
+        
+        var map = L.map('map', {
+            center: [50, 6],
+            zoom: 6,
+            zoomControl: false,
+            layers: [windLayer] 
+        });
+        
+        // Base Layers
+        var awgTerrain = L.tileLayer('https://tile.jawg.io/jawg-terrain/{z}/{x}/{y}{r}.png?access-token=qBDXRu1KSlZGhx4ROlceBD9hcxmrumL34oj29tUkzDVkafqx08tFWPeRNb0KSoKa', {
+            attribution: 'Jawg.io terrain'
+        }).addTo(map);
+        
+        var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        });
+        
+        // MapLibre GL layer
+        var mapTilerTerrain = L.mapboxGL({
+            style: 'maptiler_terrain_wob_testxc.json', // Your MapLibre GL style URL
+            apiKey: "c49iG8J3xvAkgCSZ8M8v"
+//            className: 'xcmap-layer' // Add a class for CSS targeting
+        });
+
+        var xcontest = L.tileLayer('https://topo.xcontest.app/elev/{z}/{x}/{y}.jpg', {
+            attribution: 'XContest&copy; <a href="https://www.xcontest.org">XContest</a>',
+            className: 'xcontest-layer' // Add a class for CSS targeting
+        });
+
+        // Tree structure
+        var baseTree = {
+            label: 'Base Maps',
+            children: [
+                { label: 'Terrain', layer: awgTerrain },
+                { label: 'OpenStreetMap', layer: osm },
+                { label: 'XContest + LibTerrain', layer: L.layerGroup([xcontest, mapTilerTerrain]) }
+            ]
+        };
+        
+        // Add locate control 
+        var lc = L.control.locate({
+            drawCircle: false, 
+            keepCurrentZoomLevel: true,
+            position: 'bottomright',
+        }).addTo(map);
+        
+        // Add layer control tree
+        var treeLayersControl = L.control.layers.tree(baseTree, {
+            namedToggle: true,
+            collapsed: false
+        }).addTo(map);
+        
+        treeLayersControl.collapseTree().expandSelected();
+        
+        navigator.geolocation.getCurrentPosition(position => {
+            const userLat = position.coords.latitude;
+            const userLng = position.coords.longitude;
+            map.setView([userLat, userLng], 10);
+            fetchWindStations(userLat, userLng);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Wind Stations Map with Responsive Popup</title>
+    <!-- Leaflet CSS & JS -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js"></script>
+    <!-- Responsive Popup Plugin CSS & JS -->
+    <link
+      rel="stylesheet"
+      href="https://yafred.github.io/leaflet-responsive-popup/assets/leaflet.responsive.popup.css"
+    />
+    <script src="https://yafred.github.io/leaflet-responsive-popup/assets/leaflet.responsive.popup.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      #map {
+        height: 800px;
+        width: 100%;
+      }
+      /* Popup inner content styles */
+      .tab-container {
+        display: flex;
+        border-bottom: 2px solid #ddd;
+      }
+      .tab {
+        padding: 5px 20px;
+        cursor: pointer;
+        border: 1px solid #ddd;
+        border-bottom: none;
+        background: #f5f5f5;
+        margin-right: 5px;
+      }
+      .tab.active {
+        background: white;
+        border-top: 2px solid blue;
+        font-weight: bold;
+      }
+      .tab-content {
+        padding: 5px;
+        height: 250px;
+        overflow-y: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <!-- Include your custom JavaScript after external libraries -->
+    <script src="../js/windstations.js"></script>
+  </body>
+</html>
