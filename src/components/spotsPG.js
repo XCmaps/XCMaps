@@ -1,45 +1,19 @@
+import { 
+    getAngleRange, 
+    loadPlaceDetails, 
+    showFeebackForm, 
+    cancelFeedback 
+} from './spotsHelper.js';
+
 document.addEventListener("DOMContentLoaded", function () {
     if (typeof placesLayerPG === "undefined") {
         console.error("placesLayerPG is not defined in index.html");
         return;
     }
 
-    // Mapping wind directions to angles
-    function getAngleRange(direction) {
-        const dirToAngle = {
-            "N": 0, "NNE": 22.5, "NE": 45, "ENE": 67.5,
-            "E": 90, "ESE": 112.5, "SE": 135, "SSE": 157.5,
-            "S": 180, "SSW": 202.5, "SW": 225, "WSW": 247.5,
-            "W": 270, "WNW": 292.5, "NW": 315, "NNW": 337.5
-        };
-
-        let angleRanges = [];
-        let parts = direction.split(',').map(part => part.trim());
-
-        parts.forEach(part => {
-            let range = part.split('-').map(dir => dir.trim());
-            if (range.length === 1) {
-                let angle = dirToAngle[range[0]];
-                if (angle !== undefined) {
-                    angleRanges.push([angle - 22.5, angle + 22.5]);
-                }
-            } else if (range.length === 2) {
-                let start = dirToAngle[range[0]];
-                let end = dirToAngle[range[1]];
-                if (start !== undefined && end !== undefined) {
-                    if (end < start) {
-                        [start, end] = [end, start];
-                    }
-                    if (end - start > 180) {
-                        [start, end] = [end, start];
-                    }
-                    angleRanges.push([start, end]);
-                }
-            }
-        });
-
-        return angleRanges;
-    }
+    // Expose needed functions to global scope for event handlers
+    window.showFeebackForm = showFeebackForm;
+    window.cancelFeedback = cancelFeedback;
 
     // Fetch places without descriptions
     function fetchPlaces() {
@@ -101,7 +75,7 @@ document.addEventListener("DOMContentLoaded", function () {
                                 hasTip: true,
                                 autoPan: false,
                                 offset: [15, 25],
-                                maxWidth: 800,
+                                maxWidth: 900,
                                 maxHeight: 780
                             }).setContent(popupContent);
 
@@ -118,37 +92,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
             })
             .catch(error => console.error("Error fetching places:", error));
-    }
-
-    // Fetch full place details when a popup is opened
-    async function loadPlaceDetails(layer, placeId) {
-        try {
-            const response = await fetch(`/api/place/${placeId}`);
-            const data = await response.json();
-
-            if (data.error) {
-                console.error("Error fetching place details:", data.error);
-                return;
-            }
-
-            let regex1 = /<center><b><a href="http:\/\/www\.paraglidingearth\.com\/index\.php\?site=\d+">More information on ParaglidingEarth<\/a><\/b><\/center>\n?/g;
-            let regex2 = /<br>\n<b>Take off : <\/b><br>\n?/g;
-
-            let description = (data.properties.description || "")
-                .replace(regex1, "")
-                .replace(regex2, "")
-                .trim();
-
-            let popupContent = `<b>${data.properties.name}</b><br>
-                                Type: ${data.properties.type}<br>
-                                Direction: ${data.properties.direction}<br>
-                                Description: ${description}`;
-
-            layer.setPopupContent(popupContent);
-
-        } catch (error) {
-            console.error("Error fetching place details:", error);
-        }
     }
 
     // Fetch places when the map stops moving

@@ -11,7 +11,8 @@ function fetchAirspaces() {
   const lat = center.lat.toFixed(6);
   const lng = center.lng.toFixed(6);
 
-  const apiUrl = `https://api.core.openaip.net/api/airspaces?pos=${lat},${lng}&dist=200000&type=0&type=1&type=3&type=4&type=5&type=7&type=26&type=28&apiKey=171189a4d43c6578ce63758f28363cb3`;
+  // Use your proxy endpoint instead
+  const apiUrl = `/api/airspaces?lat=${lat}&lng=${lng}&dist=200000`;
 
   fetch(apiUrl)
     .then(response => response.json())
