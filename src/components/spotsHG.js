@@ -213,7 +213,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             window.currentPlaceName = data.properties.name;
 
-            let popupContent = `<b>Name: ${data.properties.name}</b><br>
+            let popupContent = `<span style="color: #0087F7;"><h5>${data.properties.name}</h5></span>
                                 <b>Type:</b> ${data.properties.type}<br>
                                 <b>Direction:</b> ${data.properties.direction}<br><br>
                                 <b>Description:</b> ${description}
@@ -303,7 +303,7 @@ document.addEventListener("DOMContentLoaded", function () {
         let feedbackFormHtml = `
             <div id="feedbackFormHtml">
             <div class="feedback-modal">
-                <h5>Feedback for ${window.currentPlaceName}</h5>
+                <span style="color: #0087F7;"><h5>Feedback for ${window.currentPlaceName}</h5></span>
                 <form id="feedbackForm">
                     <div class="form-group">
                         <label for="feedbackText">Feedback / Correction / Comment:</label>

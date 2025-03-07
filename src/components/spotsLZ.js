@@ -21,9 +21,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     pointToLayer: function (feature, latlng) {
                         return L.marker(latlng, {
                             icon: L.icon({
-                                iconUrl: 'https://winds.mobi/static/web/img/windmobile.png', // Replace with the actual path to your PNG
-                                iconSize: [30, 30], // Adjust size as needed
-                                iconAnchor: [25, 25] // Adjust anchor to center the image properly
+                                iconUrl: '../assets/images/windsock.png', // Replace with the actual path to your PNG
+                                iconSize: [20, 20], // Adjust size as needed
+                                iconAnchor: [20, 20] // Adjust anchor to center the image properly
                             })
                         });
                     },

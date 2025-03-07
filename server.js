@@ -70,14 +70,14 @@ const pool = new Pool({
 });
 
 // Serve static files from "public" folder
-app.use(express.static(path.join(process.cwd(), "public")));
+app.use(express.static(path.join(process.cwd(), "src/public")));
 
 // Serve static files from "js" folder under the "/js" route
-app.use("/js", express.static(path.join(process.cwd(), "js")));
+app.use("/components", express.static(path.join(process.cwd(), "src/components")));
 
 // Serve index.html on root request
 app.get("/", (req, res) => {
-    res.sendFile(path.join(process.cwd(), "public", "index.html"));
+    res.sendFile(path.join(process.cwd(), "src/public", "index.html"));
 });
 
 
