@@ -5,28 +5,51 @@ import {
     cancelFeedback 
 } from './spotsHelper.js';
 
-document.addEventListener("DOMContentLoaded", function () {
-    if (typeof placesLayerPG === "undefined") {
-        console.error("placesLayerPG is not defined in index.html");
+// Use a module initialization function that waits for map to be ready
+export function initSpotPG() {
+    // Check if map and placesLayerPG are available in the window object
+    if (!window.map || !window.placesLayerPG) {
+        console.error("Map or placesLayerPG is not defined. Retrying in 500ms...");
+        setTimeout(initSpotPG, 500);
         return;
     }
+
+    console.log("Initializing PG spots module...");
 
     // Expose needed functions to global scope for event handlers
     window.showFeebackForm = showFeebackForm;
     window.cancelFeedback = cancelFeedback;
 
+    // Create cluster group and nest it in the existing layer group
+    const clusterGroup = L.markerClusterGroup({
+        disableClusteringAtZoom: 9,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: true,
+        zoomToBoundsOnClick: true,
+        maxClusterRadius: 250,
+        iconCreateFunction: function(cluster) {
+            return L.divIcon({ 
+                html: `<div class="cluster-marker">${cluster.getChildCount()}</div>`,
+                className: 'pg-cluster-icon',
+                iconSize: L.point(30, 30)
+            });
+        }
+    });
+
+    window.placesLayerPG.addLayer(clusterGroup);
+
     // Fetch places without descriptions
     function fetchPlaces() {
-        const bounds = map.getBounds();
+        const bounds = window.map.getBounds();
         const nw_lat = bounds.getNorthWest().lat;
         const nw_lng = bounds.getNorthWest().lng;
         const se_lat = bounds.getSouthEast().lat;
         const se_lng = bounds.getSouthEast().lng;
 
-        fetch(`/api/places?nw_lat=${nw_lat}&nw_lng=${nw_lng}&se_lat=${se_lat}&se_lng=${se_lng}&type=TO&type=TOW&type=TH`)
+        fetch(`http://localhost:3000/api/places?nw_lat=${nw_lat}&nw_lng=${nw_lng}&se_lat=${se_lat}&se_lng=${se_lng}&type=TO&type=TOW&type=TH`)
             .then(response => response.json())
             .then(data => {
-                placesLayerPG.clearLayers();
+                clusterGroup.clearLayers();
 
                 L.geoJSON(data, {
                     pointToLayer: function (feature, latlng) {
@@ -81,22 +104,36 @@ document.addEventListener("DOMContentLoaded", function () {
 
                             layer.bindPopup(responsivePopup);
 
-                            // Fetch details when popup is opened
                             layer.on("popupopen", async function () {
                                 await loadPlaceDetails(layer, feature.properties.id);
                             });
-
-                            placesLayerPG.addLayer(layer);
                         }
+                        
+                        clusterGroup.addLayer(layer);
                     }
                 });
             })
-            .catch(error => console.error("Error fetching places:", error));
+            .catch(error => console.error("Error fetching PG places:", error));
     }
 
     // Fetch places when the map stops moving
-    map.on("moveend", fetchPlaces);
+    window.map.on("moveend", fetchPlaces);
 
     // Initial load
     fetchPlaces();
+    console.log("PG spots module initialized");
+}
+
+// Listen for map initialization event
+document.addEventListener("map_initialized", function() {
+    console.log("Map initialized event received in PG spots module");
+    setTimeout(initSpotPG, 100);
 });
+
+// Alternative initialization approach
+setTimeout(() => {
+    if (window.mapInitialized) {
+        console.log("Backup initialization for PG spots module");
+        initSpotPG();
+    }
+}, 1000);

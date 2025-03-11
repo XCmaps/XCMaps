@@ -5,28 +5,51 @@ import {
     cancelFeedback 
 } from './spotsHelper.js';
 
-document.addEventListener("DOMContentLoaded", function () {
-    if (typeof placesLayerHG === "undefined") {
-        console.error("placesLayerHG is not defined in index.html");
+// Use a module initialization function that waits for map to be ready
+export function initSpotHG() {
+    // Check if map and placesLayerHG are available in the window object
+    if (!window.map || !window.placesLayerHG) {
+        console.error("Map or placesLayerHG is not defined. Retrying in 500ms...");
+        setTimeout(initSpotHG, 500);
         return;
     }
+
+    console.log("Initializing HG spots module...");
 
     // Expose needed functions to global scope for event handlers
     window.showFeebackForm = showFeebackForm;
     window.cancelFeedback = cancelFeedback;
 
+    // Create cluster group and nest it in the existing layer group
+    const clusterGroup = L.markerClusterGroup({
+        disableClusteringAtZoom: 9,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: true,
+        zoomToBoundsOnClick: true,
+        maxClusterRadius: 250,
+        iconCreateFunction: function(cluster) {
+            return L.divIcon({ 
+                html: `<div class="cluster-marker">${cluster.getChildCount()}</div>`,
+                className: 'hg-cluster-icon',
+                iconSize: L.point(30, 30)
+            });
+        }
+    });
+
+    window.placesLayerHG.addLayer(clusterGroup);
+
     // Fetch places without descriptions
     function fetchPlaces() {
-        const bounds = map.getBounds();
+        const bounds = window.map.getBounds();
         const nw_lat = bounds.getNorthWest().lat;
         const nw_lng = bounds.getNorthWest().lng;
         const se_lat = bounds.getSouthEast().lat;
         const se_lng = bounds.getSouthEast().lng;
 
-        fetch(`/api/places?nw_lat=${nw_lat}&nw_lng=${nw_lng}&se_lat=${se_lat}&se_lng=${se_lng}&type=TO-HG&type=TOW-HG`)
+        fetch(`http://localhost:3000/api/places?nw_lat=${nw_lat}&nw_lng=${nw_lng}&se_lat=${se_lat}&se_lng=${se_lng}&type=TO-HG&type=TOW-HG`)
             .then(response => response.json())
             .then(data => {
-                placesLayerHG.clearLayers();
+                clusterGroup.clearLayers();
 
                 L.geoJSON(data, {
                     pointToLayer: function (feature, latlng) {
@@ -81,22 +104,36 @@ document.addEventListener("DOMContentLoaded", function () {
 
                             layer.bindPopup(responsivePopup);
 
-                            // Fetch details when popup is opened
                             layer.on("popupopen", async function () {
                                 await loadPlaceDetails(layer, feature.properties.id);
                             });
-
-                            placesLayerHG.addLayer(layer);
                         }
+                        
+                        clusterGroup.addLayer(layer);
                     }
                 });
             })
-            .catch(error => console.error("Error fetching places:", error));
+            .catch(error => console.error("Error fetching HG places:", error));
     }
 
     // Fetch places when the map stops moving
-    map.on("moveend", fetchPlaces);
+    window.map.on("moveend", fetchPlaces);
 
     // Initial load
     fetchPlaces();
+    console.log("HG spots module initialized");
+}
+
+// Listen for map initialization event
+document.addEventListener("map_initialized", function() {
+    console.log("Map initialized event received in HG spots module");
+    setTimeout(initSpotHG, 100);
 });
+
+// Alternative initialization approach
+setTimeout(() => {
+    if (window.mapInitialized) {
+        console.log("Backup initialization for HG spots module");
+        initSpotHG();
+    }
+}, 1000);

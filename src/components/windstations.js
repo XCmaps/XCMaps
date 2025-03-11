@@ -1,4 +1,4 @@
-// ... (other helper functions remain unchanged)
+
 
 function getCompassDirection(deg) {
   const directions = [
@@ -66,7 +66,13 @@ function processHistoricalData(data) {
 
 // Main function to fetch and display wind stations.
 function fetchWindStations() {
-  const bounds = map.getBounds();
+    // Make sure the map exists before trying to use it
+    if (!window.map || typeof window.map.getBounds !== 'function') {
+      console.error('Map not properly initialized');
+      return;
+    }
+
+  const bounds = window.map.getBounds();
   const nwLat = bounds.getNorthWest().lat;
   const nwLng = bounds.getNorthWest().lng;
   const seLat = bounds.getSouthEast().lat;
@@ -81,6 +87,7 @@ function fetchWindStations() {
       }
       // Clear previous markers.
       windLayer.clearLayers();
+      console.log('Wind layers cleared'); // Add this
 
       responseData.forEach((station) => {
         const [lon, lat] = station.loc.coordinates;
@@ -378,30 +385,53 @@ function fetchWindStations() {
 }
 
 // Enhanced tab switching function.
-function showTab(tabId, element) {
-  document.querySelectorAll(".tab-content").forEach((tab) => (tab.style.display = "none"));
-  document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
+window.showTab = function (tabId, element) {
+  console.log("Switching to tab:", tabId);
+
+  document.querySelectorAll(".tab-content").forEach((tab) => {
+    tab.style.display = "none";
+  });
+
+  document.querySelectorAll(".tab").forEach((tab) => {
+    tab.classList.remove("active");
+  });
 
   const targetTab = document.getElementById(tabId);
   if (targetTab) {
     targetTab.style.display = "block";
+  } else {
+    console.error("Tab not found:", tabId);
   }
-  element.classList.add("active");
+
+  if (element) {
+    element.classList.add("active");
+  } else {
+    console.error("Element is null or undefined");
+  }
 
   if (tabId.startsWith("chart-")) {
     const stationId = tabId.split("chart-")[1];
+    console.log("Station ID:", stationId);
+
     const canvas = document.getElementById(`canvas-${stationId}`);
-    if (canvas && canvas.chartInstance) {
-      canvas.chartInstance.resize();
-      canvas.chartInstance.update();
+    if (canvas) {
+      console.log("Canvas found:", canvas);
+
+      if (canvas.chartInstance) {
+        console.log("Updating chart...");
+        canvas.chartInstance.resize();
+        canvas.chartInstance.update();
+      } else {
+        console.warn("Chart instance not found on canvas:", canvas);
+      }
+    } else {
+      console.error("Canvas not found for station ID:", stationId);
     }
   }
-}
+};
+
+
 
 // Initial fetch of wind stations.
-fetchWindStations();
+window.fetchWindStations = fetchWindStations;
 
-// Update wind stations on map move or zoom.
-map.on("moveend", function () {
-  fetchWindStations();
-});

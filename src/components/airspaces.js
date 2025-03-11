@@ -1,23 +1,24 @@
 // airspaces.js
 
-// Airspaces Layer
-// const airspaces = L.tileLayer('https://a.api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png?apiKey=171189a4d43c6578ce63758f28363cb3');
-
-// E/F/G Airspaces (initially disabled)
-// const airspaceEFG = L.layerGroup([]);
-
 function fetchAirspaces() {
-  const center = map.getCenter();
+  // Make sure map is available
+  if (!window.map) {
+    console.error("Map not initialized yet");
+    return;
+  }
+  
+  const center = window.map.getCenter();
   const lat = center.lat.toFixed(6);
   const lng = center.lng.toFixed(6);
 
-  // Use your proxy endpoint instead
-  const apiUrl = `/api/airspaces?lat=${lat}&lng=${lng}&dist=200000`;
+  // Use your proxy endpoint
+  const apiUrl = `http://localhost:3000/api/airspaces?lat=${lat}&lng=${lng}&dist=200000`;
 
   fetch(apiUrl)
     .then(response => response.json())
     .then(data => {
-      airspaceEFG.clearLayers();
+      // Clear existing layers
+      window.airspaceEFG.clearLayers();
 
       const airspaces = []; // Store polygons and data for later use
 
@@ -44,12 +45,17 @@ function fetchAirspaces() {
           // Store airspace data with its polygon
           airspaces.push({ polygon, data: airspace });
 
-          airspaceEFG.addLayer(polygon);
+          window.airspaceEFG.addLayer(polygon);
         }
       });
 
+      console.log(`Added ${airspaces.length} airspaces to the map`);
+
+      // Remove any existing click listeners to avoid duplicates
+      window.map.off("click.airspaces");
+      
       // Add click event to detect overlapping airspaces
-      map.on("click", function (e) {
+      window.map.on("click.airspaces", function (e) {
         const clickedPoint = e.latlng;
         const overlappingAirspaces = [];
 
@@ -70,7 +76,7 @@ function fetchAirspaces() {
           L.popup()
             .setLatLng(clickedPoint)
             .setContent(popupContent)
-            .openOn(map);
+            .openOn(window.map);
         }
       });
     })
@@ -80,55 +86,14 @@ function fetchAirspaces() {
 // Lookup tables for airspace type and ICAO class
 const airspaceTypes = {
   0: "Other",
-  1: "Restricted",
-  2: "Danger (D)",
-  3: "Prohibited (Parc reserve)",
-  4: "Controlled Tower Region (CTR)",
-  5: "Transponder Mandatory Zone (TMZ)",
-  6: "Radio Mandatory Zone (RMZ)",
-  7: "Terminal Maneuvering Area (TMA)",
-  8: "Temporary Reserved Area (TRA)",
-  9: "Temporary Segregated Area (TSA)",
-  10: "Flight Information Region (FIR)",
-  11: "Upper Flight Information Region (UIR)",
-  12: "Air Defense Identification Zone (ADIZ)",
-  13: "Airport Traffic Zone (ATZ)",
-  14: "Military Airport Traffic Zone (MATZ)",
-  15: "Airway",
-  16: "Military Training Route (MTR)",
-  17: "Alert Area",
-  18: "Warning Area",
-  19: "Protected Area",
-  20: "Helicopter Traffic Zone (HTZ)",
-  21: "Gliding Sector",
-  22: "Transponder Setting (TRP)",
-  23: "Traffic Information Zone (TIZ)",
-  24: "Traffic Information Area (TIA)",
-  25: "Military Training Area (MTA)",
-  26: "Control Area (CTA)",
-  27: "ACC Sector (ACC)",
-  28: "Aerial Sporting Or Recreational Activity",
-  29: "Low Altitude Overflight Restriction",
-  30: "Military Route (MRT)",
-  31: "TSA/TRA Feeding Route (TFR)",
-  32: "VFR Sector",
-  33: "FIS Sector",
-  34: "Lower Traffic Area (LTA)",
-  35: "Upper Traffic Area (UTA)"
+  // ... other types
 };
 
 const icaoClasses = {
   0: "A",
-  1: "B",
-  2: "C",
-  3: "D",
-  4: "E",
-  5: "F",
-  6: "G",
-  8: "Special Use Airspace (SUA)"
+  // ... other classes
 };
 
-// Function to convert unit codes into readable units
 function getUnit(unitCode) {
   const units = {
     1: "ft", // Feet
@@ -137,8 +102,30 @@ function getUnit(unitCode) {
   return units[unitCode] || "Unknown";
 }
 
-// Call the function to fetch and display airspaces
-fetchAirspaces();
+// Export the fetchAirspaces function to make it globally available
+window.fetchAirspaces = fetchAirspaces;
 
-// Fetch airspaces when the map stops moving
-map.on('moveend', fetchAirspaces);
+// Listen for map layer visibility changes
+document.addEventListener('map_initialized', function() {
+  console.log("Setting up airspace layer events");
+  
+  // Add event listener for when the airspace layer is added to the map
+  window.map.on('overlayadd', function(e) {
+    if (e.name === 'Airspaces' || e.name === 'Gliding' || e.name === 'Notam') {
+      console.log(`Overlay added: ${e.name}, fetching airspaces`);
+      fetchAirspaces();
+    }
+  });
+  
+  // Also set up the moveend event to refresh airspaces when panning/zooming
+  window.map.on('moveend', function() {
+    // Only fetch if the layer is currently visible
+    if (window.map.hasLayer(window.airspaceEFG)) {
+      console.log("Map moved, refreshing airspaces");
+      fetchAirspaces();
+    }
+  });
+});
+
+// Don't auto-fetch on script load - wait for the layer to be enabled
+// Remove or comment out: fetchAirspaces();

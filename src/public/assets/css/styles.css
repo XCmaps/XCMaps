@@ -1,149 +1,229 @@
 /* || Leaflet styles */
+/* Prevent default browser behavior for drag-and-drop */
+html, body {
+  height: 100%;
+  margin: 0;
+}
 
-    /* Prevent default browser behavior for drag-and-drop */
+#map {
+  width: 100%;
+  height: 100%;
+}
 
-    html, body { height: 100%; margin: 0; }
-    #map { width: 100%; height: 100%; }
+.leaflet-popup-content {
+  min-width: 500px;
+  pointer-events: auto !important;
+}
 
-    .leaflet-popup-content {
-        min-width: 500px;
-        pointer-events: auto !important;
-    }
+.leaflet-layerstree-header-label {
+  margin-bottom: 0px;
+}
 
-    .leaflet-layerstree-header-label {
-        margin-bottom: 0px;
-    }
+.leaflet-control-layers-selector {
+  margin-right: 4px;
+}
 
-    .leaflet-control-layers-selector {
-        margin-right: 4px;
-    }
+.leaflet-layerstree-header-pointer {
+  font-weight: bold;
+}
 
-    .leaflet-layerstree-header-pointer {
-        font-weight: bold;
-    }
+.leaflet-control-locate a.leaflet-bar-part div {
+  background-position: left 8px top 8px;
+  background-repeat: no-repeat;
+  width: 30px;
+  height: 30px;
+}
 
-    .leaflet-control-locate a.leaflet-bar-part div {
-        background-position: left 8px top 8px;
-        background-repeat: no-repeat;
-        width: 30px;
-        height: 30px;
-    }
-    .leaflet-control-locate a.leaflet-bar-part div.loading {
-        background-image: url(/assets/images/crosshair-3.svg);
-    }
-    .leaflet-control-locate a.leaflet-bar-part div.locate {
-        background-image: url(/assets/images/crosshair-3.svg);
-    }
+.leaflet-control-locate a.leaflet-bar-part div.loading {
+  background-image: url(../images/crosshair-3.svg);
+}
 
-    .leaflet-div-icon {
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-    
-    .leaflet-popup-content img {
-        max-width: 100%; /* Make sure images fit within the popup */
-        height: auto;    /* Maintain aspect ratio */
-    }
+.leaflet-control-locate a.leaflet-bar-part div.locate {
+  background-image: url(../images/crosshair-3.svg);
+}
+
+.leaflet-div-icon {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content img {
+  max-width: 100%; /* Make sure images fit within the popup */
+  height: auto; /* Maintain aspect ratio */
+}
+
 /* Popup inner content styles */
-    .tab-container {
-    display: flex;
-    border-bottom: 2px solid #ddd;
-    }
-    .tab {
-    padding: 5px 20px;
-    cursor: pointer;
-    border: 1px solid #ddd;
-    border-bottom: none;
-    background: #f5f5f5;
-    margin-right: 5px;
-    }
-    .tab.active {
-    background: white;
-    border-top: 2px solid blue;
-    font-weight: bold;
-    }
-    .tab-content {
-    padding: 5px;
-    max-height: 800px;
-    overflow-y: auto;
-    }
+.tab-container {
+  display: flex;
+  border-bottom: 2px solid #ddd;
+}
 
-    /* Dropzone styling fixes */
-    #feedbackDropzone {
-        border: 2px dashed #0087F7;
-        padding: 20px;
-        margin: 10px 0;
-        min-height: 100px;
-    }
+.tab {
+  padding: 5px 20px;
+  cursor: pointer;
+  border: 1px solid #ddd;
+  border-bottom: none;
+  background: #f5f5f5;
+  margin-right: 5px;
+}
 
-    .dz-message {
-        text-align: center;
-        margin: 2em 0;
-    }
+.tab.active {
+  background: white;
+  border-top: 2px solid blue;
+  font-weight: bold;
+}
 
-    .dz-progress {
-    /* progress bar covers file name */
-    display: none !important;
-    }
+.tab-content {
+  padding: 5px;
+  max-height: 800px;
+  overflow-y: auto;
+}
 
-    .dz-button {
-        background: none;
-        border: none;
-        color: #0087F7;
-        cursor: pointer;
-    }
-    /* Add these if missing */
-    .needsclick { cursor: pointer; }
-    .dz-clickable { cursor: default; }
+/* Dropzone styling fixes */
+#feedbackDropzone {
+  border: 2px dashed #0087F7;
+  padding: 20px;
+  margin: 10px 0;
+  min-height: 100px;
+}
 
-    .dropzone .dz-preview:hover .dz-image img {
-        -webkit-transform: scale(1.05, 1.05);
-        -moz-transform: scale(1.05, 1.05);
-        -ms-transform: scale(1.05, 1.05);
-        -o-transform: scale(1.05, 1.05);
-        transform: scale(1.05, 1.05);
-        -webkit-filter: blur(8px);
-        filter: blur(0px);
-    }
+.dz-message {
+  text-align: center;
+  margin: 2em 0;
+}
 
-    .dz-preview:hover .dz-details {
-        display: none !important; /* Hide file name and size on hover */
-        transition: none !important; /* Disable unwanted hover effects */
-    }
-            
-    .delete-icon {
-        position: absolute;
-        top: 5px;
-        right: 5px;
-        width: 24px;
-        height: 24px;
-        cursor: pointer;
-        background-color: rgba(255, 255, 255, 0.8);
-        border-radius: 50%;
-        padding: 4px;
-        box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.2);
-        z-index: 1000; /* Ensure it's above other elements */
-        pointer-events: auto !important; /* Ensure clicks are detected */
-    }
+.dz-progress {
+  /* progress bar covers file name */
+  display: none !important;
+}
 
-    .dz-button {
-        background-color: #007bff;
-        color: white;
-        border: none;
-        padding: 10px 15px;
-        cursor: pointer;
-        border-radius: 5px;
-    }
+.dz-button {
+  background: none;
+  border: none;
+  color: #0087F7;
+  cursor: pointer;
+}
 
-    .dz-button:hover {
-        background-color: #0056b3;
-    }
+/* Add these if missing */
+.needsclick {
+  cursor: pointer;
+}
 
-    .dz-default.dz-message {
-        padding-top: 20px;
-        font-weight: bold;
-        color: #007bff;  
-    }
+.dz-clickable {
+  cursor: default;
+}
 
-    .btn-primary.me-2 {margin-right: 5px;}
+.dropzone .dz-preview:hover .dz-image img {
+  transform: scale(1.05, 1.05);
+  filter: blur(0px);
+}
 
+.dz-preview:hover .dz-details {
+  display: none !important; /* Hide file name and size on hover */
+  transition: none !important; /* Disable unwanted hover effects */
+}
+
+.delete-icon {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  padding: 4px;
+  box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.2);
+  z-index: 1000; /* Ensure it's above other elements */
+  pointer-events: auto !important; /* Ensure clicks are detected */
+}
+
+.dz-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.dz-button:hover {
+  background-color: #0056b3;
+}
+
+.dz-default.dz-message {
+  padding-top: 20px;
+  font-weight: bold;
+  color: #007bff;
+}
+
+.btn-primary.me-2 {
+  margin-right: 5px;
+}
+
+/* MarkerCluster */
+.lz-cluster-icon {
+  background-color: rgba(255, 0, 0, 0.712);
+  color: white;
+  text-align: center;
+  border-radius: 50%;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+}
+
+.hg-cluster-icon {
+  background-color: orange;
+  color: green;
+  text-align: center;
+  border-radius: 50%;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4px solid green;
+}
+
+.pg-cluster-icon {
+  background-color: orange;
+  color: green;
+  text-align: center;
+  border-radius: 50%;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4px solid green;
+}
+
+.cluster-marker {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Info Control */
+.info-control .leaflet-control-button {
+  background-color: white !important;
+  border-radius: 4px !important;
+  padding: 3px !important;
+}
+
+.info-control-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+.info-popup .leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.info-popup .leaflet-popup-content {
+  margin: 8px;
+}/*# sourceMappingURL=styles.css.map */

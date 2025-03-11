@@ -111,7 +111,7 @@ function getAngleRange(direction) {
 // Fetch full place details when a popup is opened
 async function loadPlaceDetails(layer, placeId) {
     try {
-        const response = await fetch(`/api/places/${placeId}`);
+        const response = await fetch(`http://localhost:3000/api/places/${placeId}`);
         const data = await response.json();
 
         if (data.error) {
@@ -132,7 +132,8 @@ async function loadPlaceDetails(layer, placeId) {
         let popupContent = `<span style="color: #0087F7;"><h5>${data.properties.name}</h5></span>
                             <b>Type:</b> ${data.properties.type}<br>
                             <b>Direction:</b> ${data.properties.direction}<br><br>
-                            <b>Description:</b> ${description}
+                            <b>Description:</b> ${description}<br>
+                            <b>© <a href="https://paraglidingspots.com" target="_blank">paraglidingspots.com</a></b>
                             <div class="modal-footer d-flex justify-content-between">
                             <div id="feedback-message" class="text-start"></div> <!-- Message on the left -->
                             <div class="d-flex ms-auto">
@@ -327,7 +328,7 @@ function showFeebackForm() {
             formData.append("images", file);
         });
 
-        let response = await fetch("/api/send-feedback", {
+        let response = await fetch("http://localhost:3000/api/send-feedback", {
             method: "POST",
             body: formData
         });

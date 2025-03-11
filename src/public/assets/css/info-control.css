@@ -1,0 +1,39 @@
+/* Info Control */
+.info-control .leaflet-control-button {
+    background-color: white;
+    border-radius: 4px;
+    padding: 5px;
+    transition: background-color 0.2s;
+}
+
+.info-control .leaflet-control-button:hover {
+    background-color: #f8f9fa;
+}
+
+.info-control-icon {
+    width: 20px;
+    height: 20px;
+    display: block;
+}
+
+/* Info Popup */
+.info-popup .leaflet-popup-content-wrapper {
+    border-radius: 8px;
+    padding: 2px;
+}
+
+.info-popup-content {
+    padding: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.info-popup-content h3 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+}
+
+.info-popup-content ul {
+    margin: 8px 0;
+    padding-left: 20px;
+}

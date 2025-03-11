@@ -5,36 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XCmaps - Open Data for Gliders</title>
 
-    <link rel="stylesheet" href="./assets/css/styles.css" />
-
+    <!-- Leaflet Core -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="./assets/js/L.Control.Layers.Tree.css" />
-    <script src="./assets/js/L.Control.Layers.Tree.js"></script>
+
+    <!-- Leaflet Plugins -->
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol/dist/L.Control.Locate.min.js" charset="utf-8"></script>
-
+    <script src="https://unpkg.com/leaflet-responsive-popup@1.0.0/leaflet.responsive.popup.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-responsive-popup@1.0.0/leaflet.responsive.popup.css" />
+    <script src="https://sashakavun.github.io/leaflet-canvasicon/leaflet-canvasicon.js"></script>
     
+    <!-- MapBox/MapLibre -->
     <link href="https://api.tiles.mapbox.com/mapbox-gl-js/v1.2.0/mapbox-gl.css" rel='stylesheet' />
     <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v1.2.0/mapbox-gl.js"></script> 
-
+    <script src="https://unpkg.com/mapbox-gl-leaflet/leaflet-mapbox-gl.js"></script>
     <script src="https://unpkg.com/maplibre-gl@^5.1.0/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@^5.1.0/dist/maplibre-gl.css" rel="stylesheet" />
 
-    <script src="https://unpkg.com/leaflet-responsive-popup@1.0.0/leaflet.responsive.popup.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-responsive-popup@1.0.0/leaflet.responsive.popup.css" />
-
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <script src="https://sashakavun.github.io/leaflet-canvasicon/leaflet-canvasicon.js"></script>
 
-    <!-- Swiper CSS -->
+    <!-- Swiper -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
-
-    <!-- Swiper JS -->
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 
+    <!-- ParaglidingSpots -->
     <link rel="stylesheet" href="https://paraglidingspots.com/online/css/libs/nouislider.css">
     <link rel="stylesheet" type="text/css" media="screen" href="https://paraglidingspots.com/online/css/pgs.css">
 
@@ -47,168 +48,16 @@
     <!-- Dropzone -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.1.1/min/dropzone.min.css" rel="stylesheet" type="text/css"/>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.1.1/min/dropzone.min.js"></script>
+
+    <!-- Markercluster -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+
 </head>
 
 <body>
     <div id="map"></div>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-    <script src="https://unpkg.com/mapbox-gl-leaflet/leaflet-mapbox-gl.js"></script>
-    <script>
-
-        var map = L.map('map', {
-            center: [50, 6],
-            zoom: 11,
-            zoomControl: false,
-            layers: [] // Add windLayer here to activate it by default
-        });
-		
-        L.control.zoom({
-        position: 'bottomright',
-        }).addTo(map);
-
-
-        // Base Layers
-        
-		var awgTerrain = L.tileLayer('https://tile.jawg.io/jawg-terrain/{z}/{x}/{y}{r}.png?access-token=qBDXRu1KSlZGhx4ROlceBD9hcxmrumL34oj29tUkzDVkafqx08tFWPeRNb0KSoKa', {
-            attribution: 'Jawg.io terrain'
-        }).addTo(map);
-		
-		var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        });
-        
-        var xcontest = L.tileLayer('https://topo.xcontest.app/elev/{z}/{x}/{y}.jpg', {
-            attribution: 'XContest&copy; <a href="https://www.xcontest.org">XContest</a>',
-            className: 'xcontest-layer' // Add a class for CSS targeting
-        });
-
-        // MapLibre GL layer
-        var mapTilerTerrain = L.mapboxGL({
-            style: '/assets/maps/maptiler_terrain_wob_testxc.json', // Your MapLibre GL style URL
-            apiKey: "c49iG8J3xvAkgCSZ8M8v",
-            className: 'xcmap-layer' // Add a class for CSS targeting
-        });
-        var sat = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{
-            maxZoom: 20,
-            subdomains:['mt0','mt1','mt2','mt3']
-        });
-         
-        // Wind Stations Overlay
-         var windLayer = L.layerGroup().addTo(map);
-
-        // Airspaces Layer
-        var oaipMap = L.tileLayer('https://a.api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png?apiKey=${process.env.OAIP_KEY}', {
-            attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
-            className: 'oaip-layer' // Add a class for CSS targeting
-        });
-
-        var airspaceEFG = L.layerGroup([]);
-
-        var placesLayerPG = L.layerGroup(); 
-        var placesLayerHG = L.layerGroup(); 
-        var placesLayerLZ = L.layerGroup(); 
-
-        // Tree structure
-        var baseTree = {
-            label: 'Base Maps',
-                children: [
-                    { label: 'Terrain', layer: awgTerrain },
-                    { label: 'XContest', layer: L.layerGroup([xcontest, mapTilerTerrain])},
-                    { label: 'OpenStreetMap', layer: osm },
-                    //{ label: 'XContest + LibTerrain', layer: L.layerGroup([xcontest, mapTilerTerrain])}
-                    { label: 'Satellite', layer: L.layerGroup([mapTilerTerrain, sat])}
-                ]
-        };
-
-        var overlayTree = {
-            label: 'Overlays',
-            children: [
-                { label: 'Wind Stations', layer: windLayer, checked: true },
-                { label: 'Spots', 
-                    children: [
-                                { label: 'Take-off PG', layer: placesLayerPG },
-                                { label: 'Take-off HG', layer: placesLayerHG },
-                                { label: 'Landing Zones', layer: placesLayerLZ },
-                            ]},
-                { label: 'Airspaces', 
-                  children: [
-                            { label: 'Airspaces', layer: airspaceEFG },
-                            { label: 'Gliding', layer: airspaceEFG },
-                            { label: 'Notam', layer: airspaceEFG },
-                            { label: 'OpenAIP Map', layer: oaipMap},
-                        ]}
-            ]
-        };
-
-        // Ensure the layer toggles visibility
-            map.on('overlayadd', function (event) {
-                if (event.name === "Places") {
-                    map.addLayer(placesLayerPG);
-                }
-            });
-            map.on('overlayremove', function (event) {
-                if (event.name === "Places") {
-                    map.removeLayer(placesLayerPG);
-                }
-            });
-            map.on('overlayadd', function (event) {
-                if (event.name === "Places") {
-                    map.addLayer(placesLayerHG);
-                }
-            });
-            map.on('overlayremove', function (event) {
-                if (event.name === "Places") {
-                    map.removeLayer(placesLayerHG);
-                }
-            });
-            map.on('overlayadd', function (event) {
-                if (event.name === "Places") {
-                    map.addLayer(placesLayerLZ);
-                }
-            });
-            map.on('overlayremove', function (event) {
-                if (event.name === "Places") {
-                    map.removeLayer(placesLayerLZ);
-                }
-            });
-
-        // Add locate control 
-
-        var lc = L.control
-            .locate({  
-                drawCircle: false, 
-                keepCurrentZoomLevel:true,
-                position: 'bottomright',
-                icon: 'locate',
-                iconLoading: 'loading',
-                iconElementTag: 'div'
-            }).addTo(map);
-
-        // Add layer control tree
-        var treeLayersControl = L.control.layers.tree(baseTree, overlayTree, {
-            namedToggle: true,
-            //collapseAll: 'Collapse all',
-            //expandAll: 'Expand all',
-            collapsed: false
-        }).addTo(map);
-
-        treeLayersControl.collapseTree().expandSelected();
-		
-        // Center map on user's location
-		navigator.geolocation.getCurrentPosition(position => {
-            const userLat = position.coords.latitude;
-            const userLng = position.coords.longitude;
-            map.setView([userLat, userLng], 10);
-            fetchWindStations(userLat, userLng);
-        });
-
-
-    </script>
-    <script src="../components/windstations.js"></script>
-    <script src="../components/airspaces.js"></script>
-    <script type="module" src="../components/spotsPG.js"></script>
-    <script type="module" src="../components/spotsHG.js"></script>
-    <script type="module" src="../components/spotsLZ.js"></script>
-
+    
 </body>
 </html>
