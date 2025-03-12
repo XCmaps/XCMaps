@@ -12,7 +12,7 @@ function fetchAirspaces() {
   const lng = center.lng.toFixed(6);
 
   // Use your proxy endpoint
-  const apiUrl = `http://localhost:3000/api/airspaces?lat=${lat}&lng=${lng}&dist=200000`;
+  const apiUrl = `${process.env.APP_DOMAIN}/api/airspaces?lat=${lat}&lng=${lng}&dist=200000`;
 
   fetch(apiUrl)
     .then(response => response.json())

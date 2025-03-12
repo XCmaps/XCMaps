@@ -78,7 +78,7 @@ function fetchWindStations() {
   const seLat = bounds.getSouthEast().lat;
   const seLng = bounds.getSouthEast().lng;
   fetch(
-    `http://localhost:3000/api/wind-data-getCurrent?nwLat=${nwLat}&nwLng=${nwLng}&seLat=${seLat}&seLng=${seLng}`
+    `${process.env.APP_DOMAIN}/api/wind-data-getCurrent?nwLat=${nwLat}&nwLng=${nwLng}&seLat=${seLat}&seLng=${seLng}`
   )
     .then((response) => response.json())
     .then((responseData) => {

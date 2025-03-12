@@ -36,14 +36,11 @@ const pool = new Pool({
 });
 
 // Serve static files from "public" folder
-app.use(express.static(path.join(process.cwd(), "src/public")));
-
-// Serve static files from "js" folder under the "/js" route
-app.use("/components", express.static(path.join(process.cwd(), "src/components")));
+app.use(express.static(path.join(process.cwd(), "build")));
 
 // Serve index.html on root request
 app.get("/", (req, res) => {
-    res.sendFile(path.join(process.cwd(), "src/public", "index.html"));
+    res.sendFile(path.join(process.cwd(), "build", "index.html"));
 });
 
 // Use the API routers

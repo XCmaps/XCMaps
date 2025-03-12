@@ -41,7 +41,7 @@ export function initSpotLZ() {
         const se_lat = bounds.getSouthEast().lat;
         const se_lng = bounds.getSouthEast().lng;
 
-        fetch(`http://localhost:3000/api/places?nw_lat=${nw_lat}&nw_lng=${nw_lng}&se_lat=${se_lat}&se_lng=${se_lng}&type=LZ`)
+        fetch(`${process.env.APP_DOMAIN}/api/places?nw_lat=${nw_lat}&nw_lng=${nw_lng}&se_lat=${se_lat}&se_lng=${se_lng}&type=LZ`)
             .then(response => response.json())
             .then(data => {
                 clusterGroup.clearLayers(); // Clear the cluster group
