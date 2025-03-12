@@ -108,7 +108,7 @@ function fetchWindStations() {
 
         // Create the SVG arrow icon.
         const arrowSvg = `
-          <svg width="40" height="40" viewBox="0 0 800 900" xmlns="http://www.w3.org/2000/svg">
+          <svg width="30" height="30" viewBox="0 0 800 900" xmlns="http://www.w3.org/2000/svg">
             <g transform="rotate(${windDirection + 90}, 400, 400)" stroke="${strokeColor}" stroke-width="60">
               <path d="M203,391 L75,144 L738,391 L75,637 L203,391 Z" fill="${fillColor}"/>
             </g>
@@ -120,7 +120,7 @@ function fetchWindStations() {
         const arrowIcon = L.divIcon({
           className: "wind-arrow",
           html: arrowSvg,
-          iconSize: [40, 40],
+          iconSize: [30, 30],
           iconAnchor: [12, 15],
         });
 

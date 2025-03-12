@@ -1,15 +1,13 @@
-// With these
 import './L.Control.Layers.Tree.js';
 import '../css/L.Control.Layers.Tree.css';
 import '../css/styles.css';
-
+import InfoControl from './../../../components/InfoControl.js';
 
 import './../../../components/airspaces.js';
 import './../../../components/windstations.js';
 import './../../../components/spotsPG.js';
 import './../../../components/spotsHG.js';
 import './../../../components/spotsLZ.js';
-
 
 // Initialize map and make necessary objects globally available
 function initMap() {
@@ -95,44 +93,6 @@ function initMap() {
       ]
   };
 
-  // Add info control
-  var InfoControl = L.Control.extend({
-      onAdd: function(map) {
-          var container = L.DomUtil.create('div', 'info-control leaflet-bar leaflet-control');
-          var link = L.DomUtil.create('a', 'leaflet-control-button', container);
-          link.href = '#';
-          // Create image element instead of text
-          var img = L.DomUtil.create('img', 'info-control-icon', link);
-          img.src = 'assets/images/info.png';
-          img.alt = 'Information';
-          img.style.width = '24px';
-          img.style.height = '24px';
-          img.style.padding = '4px';
-
-          L.DomEvent.disableClickPropagation(container);
-          L.DomEvent.on(link, 'click', function(e) {
-              L.DomEvent.stop(e);
-              var popupContent = '<div style="padding: 10px; max-width: 800px;"><h3>About XC Maps</h3>' +
-                  '<p><strong>Data Sources:</strong></p>' +
-                  '<ul>' +
-                  '<li>Terrain tiles by <a href="https://www.jawg.io" target="_blank">Jawg</a></li>' +
-                  '<li>OpenStreetMap contributors</li>' +
-                  '<li>XContest terrain data</li>' +
-                  '<li>MapTiler for GL layer</li>' +
-                  '<li>OpenAIP airspace data: Airspaces are imported from openaip:"OpenAIP data is not certified and must not be used for primary navigation or flight planning. Never rely on openAIP data! OpenAIP data contains errors. Using openAIP data may result in serious injury or death."</li>' +
-                  '</ul>' +
-                  '<p>This map combines various data sources for aerial sports navigation.</p></div>';
-              
-              L.popup({ className: 'info-popup', autoPan: true })
-                  .setLatLng(map.getCenter())
-                  .setContent(popupContent)
-                  .openOn(map);
-          });
-
-          return container;
-      }
-  });
-
   new InfoControl({ position: 'bottomright' }).addTo(window.map);
 
   // Add locate control
@@ -154,6 +114,58 @@ function initMap() {
 
   treeLayersControl.collapseTree().expandSelected();
   
+  // Central event handler for map movements
+  // This will be the ONLY moveend handler for fetching data
+  window.map.on('moveend', function() {
+    console.log('Map moveend event triggered');
+    
+    // Check if windLayer is on the map and fetchWindStations exists
+    if (window.map.hasLayer(window.windLayer) && typeof window.fetchWindStations === 'function') {
+      console.log('Fetching wind stations after map move...');
+      window.fetchWindStations();
+    }
+    
+    // Only trigger fetch for visible spot layers
+    if (window.map.hasLayer(window.placesLayerPG) && window.fetchPlacesPG) {
+      console.log('Fetching PG spots after map move...');
+      window.fetchPlacesPG();
+    }
+    
+    if (window.map.hasLayer(window.placesLayerHG) && window.fetchPlacesHG) {
+      console.log('Fetching HG spots after map move...');
+      window.fetchPlacesHG();
+    }
+    
+    if (window.map.hasLayer(window.placesLayerLZ) && window.fetchPlacesLZ) {
+      console.log('Fetching LZ spots after map move...');
+      window.fetchPlacesLZ();
+    }
+    
+    // Airspaces
+    if (window.map.hasLayer(window.airspaceEFG) && typeof window.fetchAirspaces === 'function') {
+      console.log('Fetching airspaces after map move...');
+      window.fetchAirspaces();
+    }
+  });
+  
+  // Add layer change event listeners to fetch data when layers are added
+  window.map.on('layeradd', function(e) {
+    const layer = e.layer;
+    
+    // When a layer is added, fetch its data if needed
+    if (layer === window.windLayer && typeof window.fetchWindStations === 'function') {
+      window.fetchWindStations();
+    } else if (layer === window.placesLayerPG && window.fetchPlacesPG) {
+      window.fetchPlacesPG();
+    } else if (layer === window.placesLayerHG && window.fetchPlacesHG) {
+      window.fetchPlacesHG();
+    } else if (layer === window.placesLayerLZ && window.fetchPlacesLZ) {
+      window.fetchPlacesLZ();
+    } else if (layer === window.airspaceEFG && typeof window.fetchAirspaces === 'function') {
+      window.fetchAirspaces();
+    }
+  });
+  
   // Signal that the map is fully initialized
   window.mapInitialized = true;
   console.log("Map initialization complete");
@@ -165,40 +177,6 @@ function initMap() {
   
   return window.map;
 }
-
-// Wait for DOM to be fully loaded
-document.addEventListener('DOMContentLoaded', function() {
-  console.log("DOM content loaded, initializing map");
-  // Initialize the map
-  const map = initMap();
-
-  // Attach moveend event listener after ensuring map is created
-  map.on('moveend', function () {
-    console.log('Map moveend event triggered');
-    if (window.fetchWindStations) {
-        console.log('Fetching wind stations after map move...');
-        window.fetchWindStations();
-    } else {
-        console.warn("fetchWindStations is not available yet.");
-    }  
-  });
-  
-  // Setup geolocation after map is initialized
-  navigator.geolocation.getCurrentPosition(position => {
-      console.log("Geolocation received");
-      const userLat = position.coords.latitude;
-      const userLng = position.coords.longitude;
-      map.setView([userLat, userLng], 10);
-      
-      // Create a user location ready event
-      const locationReadyEvent = new CustomEvent('user_location_ready', {
-          detail: { lat: userLat, lng: userLng }
-      });
-      document.dispatchEvent(locationReadyEvent);
-      console.log("User location event dispatched");
-  });
-});
-
 
 // Function to dynamically load scripts
 function loadScript(url, isModule = false) {
@@ -220,28 +198,41 @@ function loadScript(url, isModule = false) {
   });
 }
 
-console.log('fetchWindStations type:', typeof window.fetchWindStations);
+// Wait for DOM to be fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+  console.log("DOM content loaded, initializing map");
+  // Initialize the map
+  const map = initMap();
+  
+  // Setup geolocation after map is initialized
+  navigator.geolocation.getCurrentPosition(position => {
+      console.log("Geolocation received");
+      const userLat = position.coords.latitude;
+      const userLng = position.coords.longitude;
+      map.setView([userLat, userLng], 10);
+      
+      // Create a user location ready event
+      const locationReadyEvent = new CustomEvent('user_location_ready', {
+          detail: { lat: userLat, lng: userLng }
+      });
+      document.dispatchEvent(locationReadyEvent);
+      console.log("User location event dispatched");
+  });
 
-// Load component scripts after map is initialized
-document.addEventListener('map_initialized', async function() {
+  // Load component scripts after map is initialized
+  loadComponentsAfterMapInit();
+});
+
+// Load component scripts function
+async function loadComponentsAfterMapInit() {
   console.log("Loading component scripts");
   try {
       // Load regular scripts first
       await loadScript('../components/windstations.js');
       await loadScript('../components/airspaces.js');
-
-        // Add event listener for map moveend to update wind stations
-      window.map.on('moveend', function() {
-        console.log('Map moveend event triggered'); // Add this
-          if (typeof window.fetchWindStations === 'function') {
-              console.log('Map moved, fetching wind stations...');
-              window.fetchWindStations();
-          }
-      });
       
-    // Verify listener count
-    console.log("Moveend listeners:", window.map.listens('moveend'));
-  
+      console.log('Regular scripts loaded successfully');
+      
       // Load module scripts with a slight delay to ensure regular scripts are fully processed
       setTimeout(async () => {
           try {
@@ -253,39 +244,37 @@ document.addEventListener('map_initialized', async function() {
               console.error('Failed to load module scripts:', moduleError);
           }
       }, 500);
-      
-      console.log('Regular scripts loaded successfully');
   } catch (error) {
       console.error('Failed to load component scripts:', error);
   }
-});
+}
 
-// Special patch for windstations.js and airspaces.js
+// Special patch for initial data loading
 document.addEventListener('user_location_ready', function(e) {
   console.log("Handling user location ready event");
   setTimeout(() => {
-      // Only call these functions if they exist and the map is fully initialized
-      if (typeof fetchWindStations === 'function' && window.mapInitialized) {
+      // Only call these functions if they exist, the map is fully initialized,
+      // AND their respective layers are visible
+      if (typeof window.fetchWindStations === 'function' && 
+          window.mapInitialized && 
+          window.map.hasLayer(window.windLayer)) {
           try {
               console.log("Fetching wind stations");
-              fetchWindStations(e.detail.lat, e.detail.lng);
+              window.fetchWindStations(e.detail.lat, e.detail.lng);
           } catch (error) {
-              console.error('Error fetching wind  stations:', error);
+              console.error('Error fetching wind stations:', error);
           }
-      } else {
-          console.warn("fetchWindStations not available yet");
       }
       
-      if (typeof fetchAirspaces === 'function' && window.mapInitialized) {
+      if (typeof window.fetchAirspaces === 'function' && 
+          window.mapInitialized && 
+          window.map.hasLayer(window.airspaceEFG)) {
           try {
               console.log("Fetching airspaces");
-              fetchAirspaces();
+              window.fetchAirspaces();
           } catch (error) {
               console.error('Error fetching airspaces:', error);
           }
-      } else {
-          console.warn("fetchAirspaces not available yet");
       }
   }, 500); // Give a short delay to ensure all scripts are loaded
 });
-
