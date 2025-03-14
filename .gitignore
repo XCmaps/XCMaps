@@ -1,7 +1,0 @@
-node_modules/
-uploads/
-*.gitignore
-*.env
-docker-compose*
-Dockerfile*
-deployment.md
