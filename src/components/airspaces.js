@@ -84,14 +84,55 @@ function fetchAirspaces() {
 }
 
 // Lookup tables for airspace type and ICAO class
+
 const airspaceTypes = {
   0: "Other",
-  // ... other types
+  1: "Restricted",
+  2: "Danger (D)",
+  3: "Prohibited (Parc reserve)",
+  4: "Controlled Tower Region (CTR)",
+  5: "Transponder Mandatory Zone (TMZ)",
+  6: "Radio Mandatory Zone (RMZ)",
+  7: "Terminal Maneuvering Area (TMA)",
+  8: "Temporary Reserved Area (TRA)",
+  9: "Temporary Segregated Area (TSA)",
+  10: "Flight Information Region (FIR)",
+  11: "Upper Flight Information Region (UIR)",
+  12: "Air Defense Identification Zone (ADIZ)",
+  13: "Airport Traffic Zone (ATZ)",
+  14: "Military Airport Traffic Zone (MATZ)",
+  15: "Airway",
+  16: "Military Training Route (MTR)",
+  17: "Alert Area",
+  18: "Warning Area",
+  19: "Protected Area",
+  20: "Helicopter Traffic Zone (HTZ)",
+  21: "Gliding Sector",
+  22: "Transponder Setting (TRP)",
+  23: "Traffic Information Zone (TIZ)",
+  24: "Traffic Information Area (TIA)",
+  25: "Military Training Area (MTA)",
+  26: "Control Area (CTA)",
+  27: "ACC Sector (ACC)",
+  28: "Aerial Sporting Or Recreational Activity",
+  29: "Low Altitude Overflight Restriction",
+  30: "Military Route (MRT)",
+  31: "TSA/TRA Feeding Route (TFR)",
+  32: "VFR Sector",
+  33: "FIS Sector",
+  34: "Lower Traffic Area (LTA)",
+  35: "Upper Traffic Area (UTA)"
 };
 
 const icaoClasses = {
   0: "A",
-  // ... other classes
+  1: "B",
+  2: "C",
+  3: "D",
+  4: "E",
+  5: "F",
+  6: "G",
+  8: "Special Use Airspace (SUA)"
 };
 
 function getUnit(unitCode) {
