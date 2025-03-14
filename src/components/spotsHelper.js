@@ -1,5 +1,9 @@
 // spotsHelper.js - Common functionality for loading and displaying spots on a map
 
+// Module-scoped variable to track Dropzone instance
+let feedbackDropzone = null;
+let currentFeedbackForm = null;
+
 // Swiper related functions
 function changeSwiper() {
     if (typeof swiperc !== "undefined") {
@@ -121,17 +125,49 @@ async function loadPlaceDetails(layer, placeId) {
 
         let regex1 = /<center><b><a href="http:\/\/www\.paraglidingearth\.com\/index\.php\?site=\d+">More information on ParaglidingEarth<\/a><\/b><\/center>\n?/g;
         let regex2 = /<br>\n<b>Take off : <\/b><br>\n?/g;
+        let regexHeight = /H \d+(-\d+)? m(?:, |<br>)/g;
+        let regexHD = /HD \d+ m(?:<br>| \/)/g;
+        let regexRating = /\nrating \d+\/\d+(?:\n|<br>)*/gi;
 
         let description = (data.properties.description || "")
             .replace(regex1, "")
             .replace(regex2, "")
+            .replace(regexHeight, "")
+            .replace(regexHD, "")
+            .replace(regexRating, "")
             .trim();
 
         window.currentPlaceName = data.properties.name;
+        window.currentPlaceId = data.properties.id; 
+        window.currentStrPlacemarkId = data.properties.strPlacemarkId; 
 
         let popupContent = `<span style="color: #0087F7;"><h5>${data.properties.name}</h5></span>
-                            <b>Type:</b> ${data.properties.type}<br>
-                            <b>Direction:</b> ${data.properties.direction}<br><br>
+                            <table style="border-collapse: collapse; width: 40%;">
+                            <tr>
+                                <th style="text-align: left; vertical-align: top;">Type:</th>
+                                <td style="text-align: left; vertical-align: top;">${data.properties.type}</td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: left; vertical-align: top;">Direction:</th>
+                                <td style="text-align: left; vertical-align: top;">${data.properties.direction}</td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: left; vertical-align: top;">Rating:</th>
+                                <td style="text-align: left; vertical-align: top;">${data.properties.rating != null ? data.properties.rating + '/6' : ' -'}</td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: left; vertical-align: top;">Height:</th>
+                                <td style="text-align: left; vertical-align: top;">${data.properties.height != null ? data.properties.height : ' -'}</td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: left; vertical-align: top;">Height difference:</th>
+                                <td style="text-align: left; vertical-align: top;">${data.properties.heightdifference != null ? data.properties.heightdifference : ' -'}</td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: left; vertical-align: top;">Last Update:</th>
+                                <td style="text-align: left; vertical-align: top;">${data.properties.lastupdate}</td>
+                            </tr>
+                            </table><br>
                             <b>Description:</b> ${description}<br>
                             <b>© <a href="https://paraglidingspots.com" target="_blank">paraglidingspots.com</a></b>
                             <div class="modal-footer d-flex justify-content-between">
@@ -214,161 +250,179 @@ async function loadPlaceDetails(layer, placeId) {
 }
 
 function showFeebackForm() {
+    // Cleanup any existing feedback form
+    if (currentFeedbackForm) {
+        currentFeedbackForm.remove();
+        currentFeedbackForm = null;
+    }
+    if (feedbackDropzone) {
+        feedbackDropzone.destroy();
+        feedbackDropzone = null;
+    }
+    // Clear previous feedback message
+    const messageDiv = document.getElementById("feedback-message");
+    if (messageDiv) {
+        messageDiv.textContent = "";
+         messageDiv.classList.remove("text-success", "text-danger");
+    }
+
     let modalFooter = document.querySelector(".modal-footer");
     if (modalFooter) modalFooter.style.display = "none";
 
-    let feedbackFormHtml = `
+    const feedbackFormHtml = `
         <div id="feedbackFormHtml">
-        <div class="feedback-modal">
-            <span style="color: #0087F7;"><h5>Feedback for ${window.currentPlaceName}</h5></span>
-            <form id="feedbackForm">
-                <div class="form-group">
-                    <label for="feedbackText">Feedback / Correction / Comment:</label>
-                    <textarea id="feedbackText" class="form-control" required style="height: 130px;"></textarea>
-                </div>
-                <!-- Dropzone for file upload -->
-                <div class="form-group">
-                    <label>Upload Images (optional):</label>
-                    <div id="dropzoneFeedback" class="dropzone mt-4 border-dashed rounded-2 min-h-0"></div>
-                </div>
-                <div class="form-group d-flex justify-content-between">
-                    <div style="width: 48%;">
-                        <label for="userName">Name:</label>
-                        <input type="text" id="userName" class="form-control" required>
+            <div class="feedback-modal">
+                <span style="color: #0087F7;"><h5>Feedback for ${window.currentPlaceName}</h5></span>
+                <form id="feedbackForm">
+                    <div class="form-group">
+                        <label for="feedbackText">Feedback / Correction / Comment:</label>
+                        <textarea id="feedbackText" class="form-control" required style="height: 130px;"></textarea>
                     </div>
-                    <div style="width: 48%;">
-                        <label for="userEmail">E-Mail:</label>
-                        <input type="email" id="userEmail" class="form-control" required>
-                        <small class="text-danger d-none" id="emailError">Please enter a valid email address.</small>
+                    <div class="form-group">
+                        <label>Upload Images (optional):</label>
+                        <div id="dropzoneFeedback" class="dropzone mt-4 border-dashed rounded-2 min-h-0"></div>
                     </div>
-                </div>
-                <button type="submit" class="btn btn-success">Submit</button>
-                <button type="button" class="btn btn-secondary" onclick="cancelFeedback()">Cancel</button>
-            </form>
-        </div>
+                    <div class="form-group d-flex justify-content-between">
+                        <div style="width: 48%;">
+                            <label for="userName">Name:</label>
+                            <input type="text" id="userName" class="form-control" required>
+                        </div>
+                        <div style="width: 48%;">
+                            <label for="userEmail">E-Mail:</label>
+                            <input type="email" id="userEmail" class="form-control" required>
+                            <small class="text-danger d-none" id="emailError">Please enter a valid email address.</small>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success">Submit</button>
+                    <button type="button" class="btn btn-secondary" onclick="cancelFeedback()">Cancel</button>
+                </form>
+            </div>
         </div>
     `;
 
-    let popup = document.querySelector(".leaflet-popup-content");
+    const popup = document.querySelector(".leaflet-popup-content");
     if (popup) {
         popup.insertAdjacentHTML("beforeend", feedbackFormHtml);
+        currentFeedbackForm = document.getElementById("feedbackFormHtml");
+
+        // Auto-scroll implementation
+        setTimeout(() => {
+            const popupContainer = document.querySelector(".leaflet-popup-content");
+            if (popupContainer) {
+                popupContainer.scrollTo({
+                    top: popupContainer.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        }, 50); // 50ms delay to ensure DOM rendering
     } else {
         console.error("Popup content not found!");
         return;
     }
 
-    let uploadedFiles = []; // Store files in an array
-
-    let dropzone = new Dropzone("#dropzoneFeedback", {
-        url: "/upload", // This won't be used since we disable auto uploads
-        autoProcessQueue: false, // Prevent immediate upload
+    // Initialize Dropzone
+    feedbackDropzone = new Dropzone("#dropzoneFeedback", {
+        url: "/upload",
+        autoProcessQueue: false,
         maxFiles: 5,
-        maxFilesize: 100, // Max file size in MB
-        acceptedFiles: "image/*", // Only accept image files
-        addRemoveLinks: false, // Disable default remove link
+        maxFilesize: 100,
+        acceptedFiles: "image/*",
+        addRemoveLinks: false,
         dictDefaultMessage: "Drag & drop files here or click to upload",
         clickable: true,
-        init: function () {
-            let dzInstance = this; // Store Dropzone instance
-
-            this.on("addedfile", function (file) {
-                console.log("File added:", file.name);
-            
-                let previewElement = file.previewElement;
-                let imageContainer = previewElement.querySelector(".dz-image"); // Ensure it's inside the image div
-            
-                if (!imageContainer) {
-                    console.error("dz-image container not found for:", file.name);
-                    return;
-                }
-            
-                let deleteIcon = document.createElement("img");
-                deleteIcon.src = "/assets/images/imgdelete.png"; // Ensure the path is correct
+        init: function() {
+            const dzInstance = this;
+            this.on("addedfile", function(file) {
+                const previewElement = file.previewElement;
+                const deleteIcon = document.createElement("img");
+                deleteIcon.src = "/assets/images/imgdelete.png";
                 deleteIcon.alt = "Delete";
                 deleteIcon.classList.add("delete-icon");
-            
-                // Append delete icon to the image container
-                imageContainer.appendChild(deleteIcon);
-            
-                console.log("Delete icon added for:", file.name);
-            
-                deleteIcon.addEventListener("click", function (e) {
+                previewElement.querySelector(".dz-image").appendChild(deleteIcon);
+
+                deleteIcon.addEventListener("click", function(e) {
                     e.preventDefault();
-                    e.stopPropagation(); // Prevent triggering Dropzone click events
-                    console.log("Delete icon clicked for:", file.name);
-            
+                    e.stopPropagation();
                     dzInstance.removeFile(file);
                 });
             });
-            
 
-            this.on("removedfile", function (file) {
-                console.log("File removed:", file.name); // Log file removed
-                uploadedFiles = uploadedFiles.filter(f => f !== file);
+            this.on("removedfile", function(file) {
+                console.log("File removed:", file.name);
             });
         }
     });
 
-
-    document.getElementById("userEmail").addEventListener("input", function () {
-        let isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.value);
+    // Email validation
+    document.getElementById("userEmail").addEventListener("input", function() {
+        const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.value);
         document.getElementById("emailError").classList.toggle("d-none", isValid);
     });
 
-    document.getElementById("feedbackForm").addEventListener("submit", async function (event) {
+    // Form submission
+    document.getElementById("feedbackForm").addEventListener("submit", async function(event) {
         event.preventDefault();
-    
-        let formData = new FormData();
+
+        const formData = new FormData();
+        formData.append("name", window.currentPlaceName);
+        formData.append("id", window.currentPlaceId);
+        formData.append("strPlacemarkId", window.currentStrPlacemarkId);    
         formData.append("feedbackText", document.getElementById("feedbackText").value);
         formData.append("userName", document.getElementById("userName").value);
         formData.append("userEmail", document.getElementById("userEmail").value);
-        
-        let dropzoneFiles = Dropzone.forElement("#dropzoneFeedback").files;
-        dropzoneFiles.forEach(file => {
+
+        feedbackDropzone.files.forEach(file => {
             formData.append("images", file);
         });
 
-        let response = await fetch(`${process.env.APP_DOMAIN}/api/send-feedback`, {
-            method: "POST",
-            body: formData
-        });
-    
-        let result = await response.json();
-    
-        // Hide the entire feedback form container
-        document.getElementById("feedbackFormHtml").style.display = "none";
+        try {
+            const response = await fetch(`${process.env.APP_DOMAIN}/api/send-feedback`, {
+                method: "POST",
+                body: formData
+            });
+            const result = await response.json();
 
-        // Show the modal footer
-        document.querySelector(".modal-footer").style.display = "flex";
+            // Cleanup after submission
+            if (currentFeedbackForm) {
+                currentFeedbackForm.remove();
+                currentFeedbackForm = null;
+            }
+            if (feedbackDropzone) {
+                feedbackDropzone.destroy();
+                feedbackDropzone = null;
+            }
 
-        // Get the message div
-        let messageDiv = document.getElementById("feedback-message");
-
-        // Set message text properly
-        if (result.success && typeof result.success === "string") {
-            messageDiv.textContent = result.success;
-            messageDiv.classList.remove("text-danger");
-            messageDiv.classList.add("text-success");
-        } else if (result.success === true) {
-            messageDiv.textContent = "Feedback submitted successfully!";
-            messageDiv.classList.remove("text-danger");
-            messageDiv.classList.add("text-success");
-        } else {
-            messageDiv.textContent = result.error || "An error occurred.";
-            messageDiv.classList.remove("text-success");
-            messageDiv.classList.add("text-danger");
+            const messageDiv = document.getElementById("feedback-message");
+            if (result.success) {
+                messageDiv.textContent = result.message || "Feedback submitted successfully!";
+                messageDiv.classList.remove("text-danger");
+                messageDiv.classList.add("text-success");
+            } else {
+                messageDiv.textContent = result.error || "An error occurred.";
+                messageDiv.classList.remove("text-success");
+                messageDiv.classList.add("text-danger");
+            }
+            document.querySelector(".modal-footer").style.display = "flex";
+        } catch (error) {
+            console.error("Submission error:", error);
         }
     });
 }
 
 function cancelFeedback() {
-    // Hide the feedback form
-    document.getElementById("feedbackFormHtml").style.display = "none";
-    // Show the modal footer again
+    // Cleanup feedback form and Dropzone
+    if (currentFeedbackForm) {
+        currentFeedbackForm.remove();
+        currentFeedbackForm = null;
+    }
+    if (feedbackDropzone) {
+        feedbackDropzone.destroy();
+        feedbackDropzone = null;
+    }
     document.querySelector(".modal-footer").style.display = "flex";
 }
 
-// Export functions to be used by other modules
+// Export functions
 export {
     changeSwiper,
     initSwiper,

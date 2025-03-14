@@ -2,3 +2,6 @@ node_modules/
 uploads/
 *.gitignore
 *.env
+doccker-compose*
+Dockerfile*
+deployment.md

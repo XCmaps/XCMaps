@@ -152,12 +152,18 @@ export function initSpotHG() {
         }, DEBOUNCE_DELAY);
     }
 
-    // Fetch places when the map stops moving
-    window.map.on("moveend", fetchPlaces);
+    // IMPORTANT: Expose fetchPlaces to window so it can be called from index.js
+    window.fetchPlacesHG = fetchPlaces;
 
-    // Initial load
-    fetchPlaces();
-    console.log("HG spots module initialized");
+    // REMOVED: Don't attach moveend listener here anymore
+    // The central handler in index.js will call fetchPlacesPG when needed
+
+    // Initial load only if layer is visible
+    if (window.map.hasLayer(window.placesLayerHG)) {
+        fetchPlaces();
+    }
+    
+    console.log("PG spots module initialized");
 }
 
 // Listen for map initialization event

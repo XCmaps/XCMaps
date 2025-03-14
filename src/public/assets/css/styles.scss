@@ -1,5 +1,19 @@
 @import "./info-control";
 
+
+    /* Apply blending mode to the xcontest layer */
+    .leaflet-tile-pane .xcontest-layer {
+        mix-blend-mode: overlay; /* Adjust blending mode as needed */
+    }
+            /* Isolate the place_label_other layer */
+    .place_label_other {
+        isolation: isolate;
+    }
+    .maplibregl-canvas {
+        mix-blend-mode: screen; /* Experiment with other blend modes */
+        isolation: isolate;
+    }
+
 /* || Leaflet styles */
 
     /* Prevent default browser behavior for drag-and-drop */

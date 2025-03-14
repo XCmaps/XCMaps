@@ -15,7 +15,7 @@ const InfoControl = L.Control.extend({
         L.DomEvent.disableClickPropagation(container);
         L.DomEvent.on(link, 'click', function(e) {
             L.DomEvent.stop(e);
-            var popupContent = '<div style="padding: 10px; max-width: 800px;"><h3>About XCmaps</h3>' +
+            var popupContent = '<div style="padding: 10px; max-width: 800px;"><h3><img src="/assets/images/XCmapsLogo.png" alt="XCmaps"></h3>' +
                 '<p>You can contact us by email, or report any issue on github.</p>'+
                 '<p><strong>Credits:</strong></p>' +
                 '<ul>' +

@@ -6,6 +6,17 @@ const { Pool } = pkg;
 // Create router
 const router = Router();
 
+// Type mapping for human-readable values
+const typeMapping = {
+  "TO": "TAKE OFF",
+  "TOW": "TAKE OFF WINCH",
+  "TH": "TRAINING HILL",
+  "P": "PARKING",
+  "LZ": "LANDING ZONE",
+  "TOW-HG": "TAKE OFF WINCH HANG GLIDING",
+  "TO-HG": "TAKE OFF HANG GLIDING"
+};
+
 // Use the same Pool that was created in server.js
 // We'll need to pass this from the main app
 export default function createPlacesRouter(pool) {
@@ -56,7 +67,7 @@ export default function createPlacesRouter(pool) {
                     properties: {
                         id: row.id,
                         name: row.name,
-                        type: row.type,
+                        type: typeMapping[row.type] || row.type, // Map the type code to full name
                         direction: row.direction,
                     },
                 })),
@@ -78,7 +89,7 @@ export default function createPlacesRouter(pool) {
 
         try {
             const query = `
-                SELECT id, name, type, direction, description, 
+                SELECT id, strplacemarkid, name, type, direction, lastupdate, rating, height, heightdifference, description, 
                     ST_AsGeoJSON(geom)::json AS geometry
                 FROM places
                 WHERE id = $1;
@@ -97,10 +108,15 @@ export default function createPlacesRouter(pool) {
                 geometry: place.geometry,
                 properties: {
                     id: place.id,
+                    strPlacemarkId: place.strplacemarkid,
                     name: place.name,
-                    type: place.type,
+                    type: typeMapping[place.type] || place.type, // Map the type code to full name
                     direction: place.direction,
-                    description: place.description, // Included here
+                    rating: place.rating,
+                    height: place.height,
+                    heightdifference: place.heightdifference,
+                    lastupdate: place.lastupdate,
+                    description: place.description,
                 },
             });
 

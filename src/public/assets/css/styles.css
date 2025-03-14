@@ -1,3 +1,58 @@
+/* Info Control */
+.info-control .leaflet-control-button {
+  background-color: white;
+  border-radius: 4px;
+  padding: 5px;
+  transition: background-color 0.2s;
+}
+
+.info-control .leaflet-control-button:hover {
+  background-color: #f8f9fa;
+}
+
+.info-control-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+/* Info Popup */
+.info-popup .leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.info-popup-content {
+  padding: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.info-popup-content h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+}
+
+.info-popup-content ul {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+/* Apply blending mode to the xcontest layer */
+.leaflet-tile-pane .xcontest-layer {
+  mix-blend-mode: overlay; /* Adjust blending mode as needed */
+}
+
+/* Isolate the place_label_other layer */
+.place_label_other {
+  isolation: isolate;
+}
+
+.maplibregl-canvas {
+  mix-blend-mode: screen; /* Experiment with other blend modes */
+  isolation: isolate;
+}
+
 /* || Leaflet styles */
 /* Prevent default browser behavior for drag-and-drop */
 html, body {
@@ -35,11 +90,11 @@ html, body {
 }
 
 .leaflet-control-locate a.leaflet-bar-part div.loading {
-  background-image: url(../images/crosshair-3.svg);
+  background-image: url(/assets/images/crosshair-3.svg);
 }
 
 .leaflet-control-locate a.leaflet-bar-part div.locate {
-  background-image: url(../images/crosshair-3.svg);
+  background-image: url(/assets/images/crosshair-3.svg);
 }
 
 .leaflet-div-icon {

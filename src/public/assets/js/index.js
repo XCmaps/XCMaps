@@ -29,7 +29,7 @@ function initMap() {
   }).addTo(window.map);
   
   var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
+      attribution: '© OpenStreetMap'
   });
   
   var xcontest = L.tileLayer('https://topo.xcontest.app/elev/{z}/{x}/{y}.jpg', {
@@ -37,14 +37,17 @@ function initMap() {
       className: 'xcontest-layer'
   });
 
+
   // MapLibre GL layer
   var mapTilerTerrain = L.mapboxGL({
       style: '/assets/maps/maptiler_terrain_wob_testxc.json',
       apiKey: "c49iG8J3xvAkgCSZ8M8v",
-      className: 'xcmap-layer'
+      className: 'xcmap-layer',
+      attribution: 'MapTiler Terrain'
   });
   
   var sat = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{
+      attribution: 'Map data: Google',
       maxZoom: 20,
       subdomains:['mt0','mt1','mt2','mt3']
   });
@@ -55,10 +58,18 @@ function initMap() {
       attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
       className: 'oaip-layer'
   });
-  window.airspaceEFG = L.layerGroup([]);
-  window.placesLayerPG = L.layerGroup(); 
-  window.placesLayerHG = L.layerGroup(); 
-  window.placesLayerLZ = L.layerGroup();
+  window.airspaceEFG = L.layerGroup([], {
+    attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
+  });
+  window.placesLayerPG = L.layerGroup( [], {
+    attribution: '&copy; <a href="https://paraglidingspots.com">paraglidingspots.com</a>',
+  }); 
+  window.placesLayerHG = L.layerGroup([], {
+    attribution: '&copy; <a href="https://paraglidingspots.com">paraglidingspots.com</a>',
+  }); 
+  window.placesLayerLZ = L.layerGroup([], {
+    attribution: '&copy; <a href="https://paraglidingspots.com">paraglidingspots.com</a>',
+  });
 
   // Tree structure
   var baseTree = {
@@ -178,25 +189,7 @@ function initMap() {
   return window.map;
 }
 
-// Function to dynamically load scripts
-function loadScript(url, isModule = false) {
-  return new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = url;
-      if (isModule) {
-          script.type = 'module';
-      }
-      script.onload = () => {
-          console.log(`Loaded script: ${url}`);
-          resolve();
-      };
-      script.onerror = (error) => {
-          console.error(`Failed to load script: ${url}`, error);
-          reject(error);
-      };
-      document.body.appendChild(script);
-  });
-}
+
 
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -220,34 +213,8 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // Load component scripts after map is initialized
-  loadComponentsAfterMapInit();
+  
 });
-
-// Load component scripts function
-async function loadComponentsAfterMapInit() {
-  console.log("Loading component scripts");
-  try {
-      // Load regular scripts first
-      await loadScript('../components/windstations.js');
-      await loadScript('../components/airspaces.js');
-      
-      console.log('Regular scripts loaded successfully');
-      
-      // Load module scripts with a slight delay to ensure regular scripts are fully processed
-      setTimeout(async () => {
-          try {
-              await loadScript('../components/spotsPG.js', true);
-              await loadScript('../components/spotsHG.js', true);
-              await loadScript('../components/spotsLZ.js', true);
-              console.log('All module scripts loaded successfully');
-          } catch (moduleError) {
-              console.error('Failed to load module scripts:', moduleError);
-          }
-      }, 500);
-  } catch (error) {
-      console.error('Failed to load component scripts:', error);
-  }
-}
 
 // Special patch for initial data loading
 document.addEventListener('user_location_ready', function(e) {

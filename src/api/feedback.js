@@ -25,17 +25,35 @@ export default function createFeedbackRouter() {
     // Send feedback endpoint with file upload capability
     router.post("/send-feedback", upload.array("images", 5), async (req, res) => {
         try {
-            const { feedbackText, userName, userEmail } = req.body;
+            // Extract all form fields including the new place information
+            const { 
+                feedbackText, 
+                userName, 
+                userEmail,
+                name,          // Added: Spot name
+                id,            // Added: Spot ID
+                strPlacemarkId // Added: Placemark ID
+            } = req.body;
+
             const attachments = req.files.map(file => ({
                 filename: file.originalname,
                 path: file.path
             }));
 
+            // Updated email content with place information
             let mailOptions = {
                 from: process.env.MAIL_USER,
                 to: process.env.MAIL_USER,
-                subject: "User Feedback Submission",
-                text: `Feedback: ${feedbackText}\nName: ${userName}\nEmail: ${userEmail}`,
+                subject: `Feedback for ${name} (ID: ${id})`,
+                text: `Feedback for: ${name}
+XCmaps ID: ${id}
+PGS ID: ${strPlacemarkId}
+                                
+Feedback: ${feedbackText}
+
+Submitted by:
+Name: ${userName}
+Email: ${userEmail}`,
                 attachments: attachments
             };
 
@@ -45,10 +63,16 @@ export default function createFeedbackRouter() {
             // Cleanup: Delete uploaded files after sending
             attachments.forEach(file => fs.unlinkSync(file.path));
 
-            res.json({ success: true, message: "Feedback submitted successfully" });
+            res.json({ 
+                success: true, 
+                message: "Feedback submitted successfully" 
+            });
         } catch (error) {
             console.error("Error sending email:", error);
-            res.status(500).json({ success: false, error: "Failed to send feedback" });
+            res.status(500).json({ 
+                success: false, 
+                error: "Failed to send feedback" 
+            });
         }
     });
 

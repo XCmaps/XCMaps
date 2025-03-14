@@ -121,9 +121,18 @@ export function initSpotLZ() {
                 });
         }, DEBOUNCE_DELAY);
     }
+    // IMPORTANT: Expose fetchPlaces to window so it can be called from index.js
+    window.fetchPlacesLZ = fetchPlaces;
 
-    window.map.on("moveend", fetchPlaces);
-    fetchPlaces();
+    // REMOVED: Don't attach moveend listener here anymore
+    // The central handler in index.js will call fetchPlacesPG when needed
+
+    // Initial load only if layer is visible
+    if (window.map.hasLayer(window.placesLayerLZ)) {
+        fetchPlaces();
+    }
+    
+    console.log("PG spots module initialized");
 }
 
 // Listen for map initialization event
