@@ -3,16 +3,22 @@ import {
     loadPlaceDetails, 
     showFeebackForm, 
     cancelFeedback 
-} from './spotsHelper.js';
+} from './spots-helper.js';
 
 // Use a module initialization function that waits for map to be ready
-export function initSpotLZ() {
-    if (!window.map || !window.placesLayerLZ) {
-        setTimeout(initSpotLZ, 500);
+export function initSpotHG() {
+    // Check if map and placesLayerHG are available in the window object
+    if (!window.map || !window.placesLayerHG) {
+        console.error("Map or placesLayerHG is not defined. Retrying in 500ms...");
+        setTimeout(initSpotHG, 500);
         return;
     }
 
-    console.log("Initializing LZ spots module...");
+    console.log("Initializing HG spots module...");
+
+    // Expose needed functions to global scope for event handlers
+    window.showFeebackForm = showFeebackForm;
+    window.cancelFeedback = cancelFeedback;
 
     // Create cluster group and nest it in the existing layer group
     const clusterGroup = L.markerClusterGroup({
@@ -24,13 +30,13 @@ export function initSpotLZ() {
         iconCreateFunction: function(cluster) {
             return L.divIcon({ 
                 html: `<div class="cluster-marker">${cluster.getChildCount()}</div>`,
-                className: 'lz-cluster-icon',
+                className: 'hg-cluster-icon',
                 iconSize: L.point(30, 30)
             });
         }
     });
 
-    window.placesLayerLZ.addLayer(clusterGroup); // Add cluster group to the layer group
+    window.placesLayerHG.addLayer(clusterGroup);
 
     // Track current fetch controller to allow cancellation
     let currentFetchController = null;
@@ -38,7 +44,7 @@ export function initSpotLZ() {
     let fetchDebounceTimer = null;
     const DEBOUNCE_DELAY = 300; // ms
 
-    // Update fetchPlaces to use clusterGroup
+    // Fetch places without descriptions
     function fetchPlaces() {
         // Clear any pending debounce
         if (fetchDebounceTimer) {
@@ -55,14 +61,14 @@ export function initSpotLZ() {
             // Create a new controller for this fetch
             currentFetchController = new AbortController();
             const signal = currentFetchController.signal;
-            
+
             const bounds = window.map.getBounds();
             const nw_lat = bounds.getNorthWest().lat;
             const nw_lng = bounds.getNorthWest().lng;
             const se_lat = bounds.getSouthEast().lat;
             const se_lng = bounds.getSouthEast().lng;
 
-            fetch(`${process.env.APP_DOMAIN}/api/places?nw_lat=${nw_lat}&nw_lng=${nw_lng}&se_lat=${se_lat}&se_lng=${se_lng}&type=LZ`, {
+            fetch(`${process.env.APP_DOMAIN}/api/places?nw_lat=${nw_lat}&nw_lng=${nw_lng}&se_lat=${se_lat}&se_lng=${se_lng}&type=TO-HG&type=TOW-HG`, {
                 signal // Attach the abort signal to the fetch call
             })
                 .then(response => response.json())
@@ -70,15 +76,41 @@ export function initSpotLZ() {
                     // Only process if this is still the active request
                     if (signal.aborted) return;
                     
-                    clusterGroup.clearLayers(); // Clear the cluster group
+                    clusterGroup.clearLayers();
 
                     L.geoJSON(data, {
                         pointToLayer: function (feature, latlng) {
                             return L.marker(latlng, {
-                                icon: L.icon({
-                                    iconUrl: '../assets/images/windsock.png', // Replace with the actual path to your PNG
-                                    iconSize: [20, 20], // Adjust size as needed
-                                    iconAnchor: [20, 20] // Adjust anchor to center the image properly
+                                icon: L.canvasIcon({
+                                    iconSize: [50, 50],
+                                    iconAnchor: [15, 15],
+                                    drawIcon: function (icon, type) {
+                                        if (type === 'icon') {
+                                            var ctx = icon.getContext('2d');
+                                            var size = L.point(this.options.iconSize);
+                                            var center = L.point(size.x / 2, size.y / 2);
+                                            ctx.clearRect(0, 0, size.x, size.y);
+
+                                            let direction = feature.properties.direction || "";
+                                            let angleRanges = getAngleRange(direction);
+
+                                            ctx.beginPath();
+                                            angleRanges.forEach(([start, end]) => {
+                                                ctx.moveTo(center.x, center.y);
+                                                ctx.arc(center.x, center.y, center.x, (start - 90) * Math.PI / 180, (end - 90) * Math.PI / 180, false);
+                                                ctx.lineTo(center.x, center.y);
+                                            });
+                                            ctx.fillStyle = 'orange';
+                                            ctx.fill();
+                                            ctx.closePath();
+
+                                            ctx.beginPath();
+                                            ctx.arc(center.x, center.y, center.x / 4, 0, Math.PI * 2);
+                                            ctx.fillStyle = 'green';
+                                            ctx.fill();
+                                            ctx.closePath();
+                                        }
+                                    }
                                 })
                             });
                         },
@@ -99,14 +131,12 @@ export function initSpotLZ() {
 
                                 layer.bindPopup(responsivePopup);
 
-                                // Fetch details when popup is opened
                                 layer.on("popupopen", async function () {
                                     await loadPlaceDetails(layer, feature.properties.id);
                                 });
-                               
                             }
                             
-                            clusterGroup.addLayer(layer); // Add to clusterGroup
+                            clusterGroup.addLayer(layer);
                         }
                     });
                     
@@ -116,19 +146,20 @@ export function initSpotLZ() {
                 .catch(error => {
                     // Don't log aborted requests as errors
                     if (error.name !== 'AbortError') {
-                        console.error("Error fetching LZ places:", error);
+                        console.error("Error fetching HG places:", error);
                     }
                 });
         }, DEBOUNCE_DELAY);
     }
+
     // IMPORTANT: Expose fetchPlaces to window so it can be called from index.js
-    window.fetchPlacesLZ = fetchPlaces;
+    window.fetchPlacesHG = fetchPlaces;
 
     // REMOVED: Don't attach moveend listener here anymore
     // The central handler in index.js will call fetchPlacesPG when needed
 
     // Initial load only if layer is visible
-    if (window.map.hasLayer(window.placesLayerLZ)) {
+    if (window.map.hasLayer(window.placesLayerHG)) {
         fetchPlaces();
     }
     
@@ -137,15 +168,14 @@ export function initSpotLZ() {
 
 // Listen for map initialization event
 document.addEventListener("map_initialized", function() {
-    console.log("Map initialized event received in LZ spots module");
-    // Give a slight delay to ensure map is fully ready
-    setTimeout(initSpotLZ, 100);
+    console.log("Map initialized event received in HG spots module");
+    setTimeout(initSpotHG, 100);
 });
 
-// Alternative initialization approach - also try to init if we missed the event
+// Alternative initialization approach
 setTimeout(() => {
     if (window.mapInitialized) {
-        console.log("Backup initialization for LZ spots module");
-        initSpotLZ();
+        console.log("Backup initialization for HG spots module");
+        initSpotHG();
     }
 }, 1000);

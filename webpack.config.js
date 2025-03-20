@@ -8,6 +8,7 @@ import CssMinimizerPlugin from 'css-minimizer-webpack-plugin';
 import ImageMinimizerPlugin from 'image-minimizer-webpack-plugin';
 import CopyWebpackPlugin from 'copy-webpack-plugin';
 
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -46,13 +47,7 @@ export default (env, argv) => {
         {
           test: /\.js$/,
           exclude: /node_modules/,
-          use: {
-            loader: 'babel-loader',
-            options: {
-              presets: ['@babel/preset-env'],
-              cacheDirectory: true,
-            },
-          },
+          use: 'babel-loader'
         },
         {
           test: /\.scss$/,
@@ -68,7 +63,7 @@ export default (env, argv) => {
           ],
         },
         {
-          test: /\.(png|svg|jpg|jpeg|gif)$/i,
+          test: /\.(png|svg|jpg|jpeg|gif|ico)$/,
           type: 'asset/resource',
           generator: {
             filename: 'assets/images/[name][hash][ext]',
@@ -145,6 +140,7 @@ export default (env, argv) => {
     plugins: [
       new HtmlWebpackPlugin({
         template: './src/public/index.html',
+
         filename: 'index.html',
         inject: 'body',
         minify: isProduction ? {
@@ -159,6 +155,7 @@ export default (env, argv) => {
           minifyURLs: true,
         } : false,
       }),
+
       new MiniCssExtractPlugin({
         filename: isProduction ? 'css/[name].[contenthash].css' : 'css/[name].css',
         chunkFilename: isProduction ? 'css/[id].[contenthash].css' : 'css/[id].css',
@@ -197,18 +194,18 @@ export default (env, argv) => {
     ],
     resolve: {
       extensions: ['.js', '.json'],
+      modules: [
+        path.resolve(__dirname, 'src/components'),
+        'node_modules'
+      ],
       alias: {
         '@components': path.resolve(__dirname, 'src/components'),
         '@images': path.resolve(__dirname, 'src/public/assets/images'),
         '@maps': path.resolve(__dirname, 'src/public/assets/maps'),
-        'L.Control.Layers.Tree': path.resolve(__dirname, 'src/public/assets/js/L.Control.Layers.Tree.js')
+        'L.Control.Layers.Tree': path.resolve(__dirname, 'src/public/assets/js/L.Control.Layers.Tree.js'),
+        'moment': path.resolve(__dirname, 'node_modules/moment'),
+        'moment-timezone': path.resolve(__dirname, 'node_modules/moment-timezone/builds/moment-timezone-with-data.min.js')
       },
-    },
-    resolve: {
-      modules: [
-        path.resolve(__dirname, 'src/components'),
-        'node_modules'
-      ]
     },
     performance: {
       hints: isProduction ? 'warning' : false,
