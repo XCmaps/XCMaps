@@ -14,6 +14,7 @@ import './../../../components/windstations.js';
 import '../../../components/spots-pg.js';
 import '../../../components/spots-hg.js';
 import '../../../components/spots-lz.js';
+import '../../../components/obstacles.js';
 
 
 // Initialize map and make necessary objects globally available
@@ -105,6 +106,7 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   window.airspaceXC = L.layerGroup([], {
     attribution: 'XContest&copy; <a href="https://xcontest.org">XContest</a>',
   });
+
   window.placesLayerPG = L.layerGroup( [], {
     attribution: '&copy; <a href="https://paraglidingspots.com">paraglidingspots.com</a>',
   }); 
@@ -133,7 +135,7 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
         i === 0 ? `Today` : dayName
       }</option>`;
     }
-    return options + '<option value="All">All</option>';
+    return options;  // Removed the '+ '<option value="All">All</option>''
   })();
 
 
@@ -191,15 +193,14 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
                           </div>
                       `
                       },
-                  { label: 'Airspaces', layer: window.airspaceEFG },
-                  { label: 'XContest', layer: window.airspaceXC },
-                  { label: 'Obstacles', layer: window.airspaceXC },
+                  // { label: 'Airspaces', layer: window.airspaceEFG },
+                  { label: 'Airspaces', layer: window.airspaceXC },
+                  { label: 'Obstacles', layer: window.obstacleLayer },
                   { label: 'OpenAIP Map', layer: window.oaipMap},
               ]
           },
       ]
   };
-
 
 
   new InfoControl({ position: 'bottomright' }).addTo(window.map);
@@ -216,9 +217,10 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
       }).addTo(window.map);
 
   // Add layer control tree
+
   var treeLayersControl = L.control.layers.tree(baseTree, overlayTree, {
-      namedToggle: true,
-      collapsed: false
+    namedToggle: true,
+    collapsed: false
   }).addTo(window.map);
 
   treeLayersControl.collapseTree().expandSelected();
@@ -270,6 +272,11 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
       console.log('Fetching airspaces after map move...');
       window.fetchAirspacesXC();
     }
+    // Obstacles XContest
+    if (window.map.hasLayer(window.obstacleLayer) && typeof window.fetchObstacles === 'function') {
+      console.log('Fetching airspaces after map move...');
+      window.fetchObstacles();
+    }
   });
 
   document.addEventListener('change', function(e) {
@@ -303,6 +310,8 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
       window.fetchAirspacesNotam();
     } else if (layer === window.airspaceXC && typeof window.fetchAirspacesXC === 'function') {
       window.fetchAirspacesXC();
+    } else if (layer === window.obstacleLayer && typeof window.fetchObstacles === 'function') {
+      window.fetchObstacles();
     }
   });
   
@@ -403,6 +412,17 @@ document.addEventListener('user_location_ready', function(e) {
             window.fetchAirspacesXC();
         } catch (error) {
             console.error('Error fetching airspaces:', error);
+        }
+      }
+
+      if (typeof window.fetchObstacles === 'function' && 
+        window.mapInitialized && 
+        window.map.hasLayer(window.obstacleLayer)) {
+        try {
+            console.log("Fetching obstacles");
+            window.fetchObstacles();
+        } catch (error) {
+            console.error('Error fetching obstacles:', error);
         }
       }
   }, 500); // Give a short delay to ensure all scripts are loaded
