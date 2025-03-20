@@ -1,13 +1,20 @@
+
 import './L.Control.Layers.Tree.js';
 import '../css/L.Control.Layers.Tree.css';
 import '../css/styles.css';
 import InfoControl from './../../../components/InfoControl.js';
+import moment from 'moment';
+import 'moment-timezone'; 
 
 import './../../../components/airspaces.js';
+import '../../../components/deprecated/airspaces-gliding.js';
+import '../../../components/deprecated/airspaces-notam.js';
+import './../../../components/airspaces-xc.js';
 import './../../../components/windstations.js';
-import './../../../components/spotsPG.js';
-import './../../../components/spotsHG.js';
-import './../../../components/spotsLZ.js';
+import '../../../components/spots-pg.js';
+import '../../../components/spots-hg.js';
+import '../../../components/spots-lz.js';
+
 
 // Initialize map and make necessary objects globally available
 function initMap() {
@@ -37,6 +44,11 @@ function initMap() {
       className: 'xcontest-layer'
   });
 
+  var center = [-33.8650, 151.2094];
+  var imageUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Sydney_Opera_House_-_Dec_2008.jpg/1024px-Sydney_Opera_House_-_Dec_2008.jpg',
+  imageBounds = [center, [-35.8650, 154.2094]];
+  L.imageOverlay(imageUrl, imageBounds).addTo(map);
+
 
   // MapLibre GL layer
   var mapTilerTerrain = L.mapboxGL({
@@ -51,7 +63,30 @@ function initMap() {
       maxZoom: 20,
       subdomains:['mt0','mt1','mt2','mt3']
   });
-   
+
+  var mbsat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+    attribution: '© Esri',
+    id: 'MapID',
+  });
+
+  var mapTilerTerrainOverlay = L.mapboxGL({
+    style: '/assets/maps/maptiler_terrain_wob_testxc.json',
+    apiKey: "c49iG8J3xvAkgCSZ8M8v",
+    className: 'xcmap-layer satellite-overlay',
+    attribution: 'MapTiler Terrain'
+});
+
+// Create a simplified contour overlay specifically for use with satellite
+var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x}/{y}.pbf?key=c49iG8J3xvAkgCSZ8M8v', {
+  attribution: 'MapTiler',
+  opacity: 0.8,
+  className: 'contour-overlay',
+  style: {
+      color: '#ffffff',
+      weight: 1,
+      opacity: 0.8
+  }
+});
   // Layer groups - make them globally accessible
   window.windLayer = L.layerGroup().addTo(window.map);
   window.oaipMap = L.tileLayer(`https://a.api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png?apiKey=${process.env.OAIP_KEY}`, {
@@ -60,6 +95,15 @@ function initMap() {
   });
   window.airspaceEFG = L.layerGroup([], {
     attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
+  });
+  window.airspaceGliding = L.layerGroup([], {
+    attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
+  });
+  window.airspaceNotam = L.layerGroup([], {
+    attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
+  });
+  window.airspaceXC = L.layerGroup([], {
+    attribution: 'XContest&copy; <a href="https://xcontest.org">XContest</a>',
   });
   window.placesLayerPG = L.layerGroup( [], {
     attribution: '&copy; <a href="https://paraglidingspots.com">paraglidingspots.com</a>',
@@ -71,21 +115,48 @@ function initMap() {
     attribution: '&copy; <a href="https://paraglidingspots.com">paraglidingspots.com</a>',
   });
 
+  function debugMapLayers() {
+    console.log("Current map layers:");
+    window.map.eachLayer(function(layer) {
+        console.log(layer);
+    });
+  }
+
+  // Generate dynamic airspace time options
+  const airspaceTimeOptions = (() => {
+    let options = '';
+    for (let i = 0; i <= 6; i++) {
+      const date = moment().add(i, 'days');
+      const dayName = date.format('ddd');
+      const dateValue = date.format('YYYY-MM-DD');
+      options += `<option value="${dateValue}" ${i === 0 ? 'selected' : ''}>${
+        i === 0 ? `Today` : dayName
+      }</option>`;
+    }
+    return options + '<option value="All">All</option>';
+  })();
+
+
   // Tree structure
   var baseTree = {
-      label: 'Base Maps',
-      children: [
-          { label: 'Terrain', layer: awgTerrain },
-          { label: 'XContest', layer: L.layerGroup([xcontest, mapTilerTerrain])},
-          { label: 'OpenStreetMap', layer: osm },
-          { label: 'Satellite', layer: L.layerGroup([mapTilerTerrain, sat])}
-      ]
-  };
+    label: 'Base Maps',
+    children: [
+        { label: 'Terrain', layer: awgTerrain },
+        { label: 'XContest', layer: L.layerGroup([xcontest, mapTilerTerrain])},
+        { label: 'OpenStreetMap', layer: osm },
+        { label: 'Satellite',  layer: sat },
+    ]
+};
 
   var overlayTree = {
       label: 'Overlays',
       children: [
-          { label: 'Wind Stations', layer: window.windLayer, checked: true },
+          { label: 'Wind Stations', 
+            children: [
+              { label: 'Wind Stations', layer: window.windLayer, checked: true  },
+          ]
+          },
+
           { label: 'Spots',              
               children: [
                   { label: 'Take-off PG', layer: window.placesLayerPG },
@@ -95,14 +166,41 @@ function initMap() {
           },
           { label: 'Airspaces', 
               children: [
+                      { 
+                        html: `
+                            <div class="airspace-time-control">
+                                Active: 
+                                <select class="airspace-time-select" id="airspaceTime">
+                                    ${airspaceTimeOptions}
+                                </select>
+                                          </div>
+                                      `
+                      },
+                      { 
+                      html: `
+                          <div class="airspace-limit-control">
+                              ↧ below: 
+                              <select class="lower-limit-select" id="airspaceLowerLimit">
+                                  <option value="2000">2000m</option>
+                                  <option value="2500">2500m</option>
+                                  <option value="3000" selected>3000m</option>
+                                  <option value="3500">3500m</option>                        
+                                  <option value="4000">4000m</option>
+                                  <option value="4500">4500m</option>
+                              </select>
+                          </div>
+                      `
+                      },
                   { label: 'Airspaces', layer: window.airspaceEFG },
-                  { label: 'Gliding', layer: window.airspaceEFG },
-                  { label: 'Notam', layer: window.airspaceEFG },
+                  { label: 'XContest', layer: window.airspaceXC },
+                  { label: 'Obstacles', layer: window.airspaceXC },
                   { label: 'OpenAIP Map', layer: window.oaipMap},
               ]
-          }
+          },
       ]
   };
+
+
 
   new InfoControl({ position: 'bottomright' }).addTo(window.map);
 
@@ -157,6 +255,31 @@ function initMap() {
       console.log('Fetching airspaces after map move...');
       window.fetchAirspaces();
     }
+    // Airspaces Gliding
+    if (window.map.hasLayer(window.airspaceGliding) && typeof window.fetchAirspacesGliding === 'function') {
+      console.log('Fetching airspaces after map move...');
+      window.fetchAirspacesGliding();
+    }
+    // Airspaces Notam
+    if (window.map.hasLayer(window.airspaceNotam) && typeof window.fetchAirspacesNotam === 'function') {
+      console.log('Fetching airspaces after map move...');
+      window.fetchAirspacesNotam();
+    }
+    // Airspaces XContest
+    if (window.map.hasLayer(window.airspaceXC) && typeof window.fetchAirspacesXC === 'function') {
+      console.log('Fetching airspaces after map move...');
+      window.fetchAirspacesXC();
+    }
+  });
+
+  document.addEventListener('change', function(e) {
+    if (e.target && e.target.id === 'airspaceLowerLimit') {
+        console.log('Selected limit:', e.target.value);
+    }
+    // Add this new handler for the time selector
+    if (e.target && e.target.id === 'airspaceTime') {
+        console.log('Selected airspace date:', e.target.value);
+    }
   });
   
   // Add layer change event listeners to fetch data when layers are added
@@ -174,6 +297,12 @@ function initMap() {
       window.fetchPlacesLZ();
     } else if (layer === window.airspaceEFG && typeof window.fetchAirspaces === 'function') {
       window.fetchAirspaces();
+    } else if (layer === window.airspaceGliding && typeof window.fetchAirspacesGliding === 'function') {
+      window.fetchAirspacesGliding();
+    } else if (layer === window.airspaceNotam && typeof window.fetchAirspacesNotam === 'function') {
+      window.fetchAirspacesNotam();
+    } else if (layer === window.airspaceXC && typeof window.fetchAirspacesXC === 'function') {
+      window.fetchAirspacesXC();
     }
   });
   
@@ -242,6 +371,39 @@ document.addEventListener('user_location_ready', function(e) {
           } catch (error) {
               console.error('Error fetching airspaces:', error);
           }
+      }
+
+      if (typeof window.fetchAirspacesGliding === 'function' && 
+        window.mapInitialized && 
+        window.map.hasLayer(window.airspaceGliding)) {
+        try {
+            console.log("Fetching airspaces");
+            window.fetchAirspacesGliding();
+        } catch (error) {
+            console.error('Error fetching airspaces:', error);
+        }
+      }
+
+      if (typeof window.fetchAirspacesNotam === 'function' && 
+        window.mapInitialized && 
+        window.map.hasLayer(window.airspaceNotam)) {
+        try {
+            console.log("Fetching airspaces");
+            window.fetchAirspacesNotam();
+        } catch (error) {
+            console.error('Error fetching airspaces:', error);
+        }
+      }
+
+      if (typeof window.fetchAirspacesXC === 'function' && 
+        window.mapInitialized && 
+        window.map.hasLayer(window.airspaceXC)) {
+        try {
+            console.log("Fetching airspaces");
+            window.fetchAirspacesXC();
+        } catch (error) {
+            console.error('Error fetching airspaces:', error);
+        }
       }
   }, 500); // Give a short delay to ensure all scripts are loaded
 });

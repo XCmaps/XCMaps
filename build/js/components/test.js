@@ -1,0 +1,1 @@
+import{fetchAndStoreAirspaces}from"./updateXCairspaces.js";fetchAndStoreAirspaces().then((()=>console.log("Test completed successfully"))).catch((e=>console.error("Test failed:",e)));

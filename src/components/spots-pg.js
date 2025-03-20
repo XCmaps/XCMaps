@@ -3,18 +3,18 @@ import {
     loadPlaceDetails, 
     showFeebackForm, 
     cancelFeedback 
-} from './spotsHelper.js';
+} from './spots-helper.js';
 
 // Use a module initialization function that waits for map to be ready
-export function initSpotHG() {
-    // Check if map and placesLayerHG are available in the window object
-    if (!window.map || !window.placesLayerHG) {
-        console.error("Map or placesLayerHG is not defined. Retrying in 500ms...");
-        setTimeout(initSpotHG, 500);
+export function initSpotPG() {
+    // Check if map and placesLayerPG are available in the window object
+    if (!window.map || !window.placesLayerPG) {
+        console.error("Map or placesLayerPG is not defined. Retrying in 500ms...");
+        setTimeout(initSpotPG, 500);
         return;
     }
 
-    console.log("Initializing HG spots module...");
+    console.log("Initializing PG spots module...");
 
     // Expose needed functions to global scope for event handlers
     window.showFeebackForm = showFeebackForm;
@@ -30,13 +30,13 @@ export function initSpotHG() {
         iconCreateFunction: function(cluster) {
             return L.divIcon({ 
                 html: `<div class="cluster-marker">${cluster.getChildCount()}</div>`,
-                className: 'hg-cluster-icon',
+                className: 'pg-cluster-icon',
                 iconSize: L.point(30, 30)
             });
         }
     });
 
-    window.placesLayerHG.addLayer(clusterGroup);
+    window.placesLayerPG.addLayer(clusterGroup);
 
     // Track current fetch controller to allow cancellation
     let currentFetchController = null;
@@ -46,6 +46,12 @@ export function initSpotHG() {
 
     // Fetch places without descriptions
     function fetchPlaces() {
+        // Only proceed if the layer is on the map
+        if (!window.map.hasLayer(window.placesLayerPG)) {
+            console.log("PG layer not visible, skipping fetch");
+            return;
+        }
+        
         // Clear any pending debounce
         if (fetchDebounceTimer) {
             clearTimeout(fetchDebounceTimer);
@@ -68,7 +74,7 @@ export function initSpotHG() {
             const se_lat = bounds.getSouthEast().lat;
             const se_lng = bounds.getSouthEast().lng;
 
-            fetch(`${process.env.APP_DOMAIN}/api/places?nw_lat=${nw_lat}&nw_lng=${nw_lng}&se_lat=${se_lat}&se_lng=${se_lng}&type=TO-HG&type=TOW-HG`, {
+            fetch(`${process.env.APP_DOMAIN}/api/places?nw_lat=${nw_lat}&nw_lng=${nw_lng}&se_lat=${se_lat}&se_lng=${se_lng}&type=TO&type=TOW&type=TH`, {
                 signal // Attach the abort signal to the fetch call
             })
                 .then(response => response.json())
@@ -146,20 +152,20 @@ export function initSpotHG() {
                 .catch(error => {
                     // Don't log aborted requests as errors
                     if (error.name !== 'AbortError') {
-                        console.error("Error fetching HG places:", error);
+                        console.error("Error fetching PG places:", error);
                     }
                 });
         }, DEBOUNCE_DELAY);
     }
 
     // IMPORTANT: Expose fetchPlaces to window so it can be called from index.js
-    window.fetchPlacesHG = fetchPlaces;
+    window.fetchPlacesPG = fetchPlaces;
 
     // REMOVED: Don't attach moveend listener here anymore
     // The central handler in index.js will call fetchPlacesPG when needed
 
     // Initial load only if layer is visible
-    if (window.map.hasLayer(window.placesLayerHG)) {
+    if (window.map.hasLayer(window.placesLayerPG)) {
         fetchPlaces();
     }
     
@@ -168,14 +174,14 @@ export function initSpotHG() {
 
 // Listen for map initialization event
 document.addEventListener("map_initialized", function() {
-    console.log("Map initialized event received in HG spots module");
-    setTimeout(initSpotHG, 100);
+    console.log("Map initialized event received in PG spots module");
+    setTimeout(initSpotPG, 100);
 });
 
 // Alternative initialization approach
 setTimeout(() => {
     if (window.mapInitialized) {
-        console.log("Backup initialization for HG spots module");
-        initSpotHG();
+        console.log("Backup initialization for PG spots module");
+        initSpotPG();
     }
 }, 1000);

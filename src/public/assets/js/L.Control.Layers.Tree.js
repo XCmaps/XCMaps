@@ -301,6 +301,13 @@ console.log("L.Control.Layers.Tree has been loaded!");
                 return obj;
             }
 
+            // Add this block to handle HTML elements
+            if (tree.html) {
+                var htmlContainer = creator('div', 'leaflet-layerstree-html-container', container);
+                htmlContainer.innerHTML = tree.html;
+                return;  // Skip normal processing for HTML nodes
+            }
+
             // create the header with it fields
             var header = creator('div', this.cls.header, container);
             var sel = creator('span');

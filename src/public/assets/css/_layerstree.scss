@@ -1,0 +1,8 @@
+/* Hide the "Overlays" header label */
+.leaflet-control-layers-overlays > .leaflet-layerstree-header .leaflet-layerstree-header-label {
+    display: none;
+  }
+
+  .leaflet-control-layers-overlays > .leaflet-layerstree-header-pointer {
+    display: none;
+  }
