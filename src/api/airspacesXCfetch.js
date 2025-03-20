@@ -1,21 +1,14 @@
 import express from "express";
 import fetch from "node-fetch";
 
-const createAirspacesRouter = () => {
+const createAirspacesXCRouter = () => {
   const router = express.Router();
 
   router.get('/', async (req, res) => {
     try {
-      const { lat, lng, dist, types: typesParam } = req.query;
-      // Validate required parameters
-      if (!lat || !lng) {
-        return res.status(400).json({ error: 'Missing lat or lng parameters' });
-      }
 
-      const distance = dist || 200000;
-      const types = typesParam ? typesParam.split(',').map(Number) : [];
       
-      const apiUrl = `https://api.core.openaip.net/api/airspaces?pos=${lat},${lng}&dist=${distance}${types.map(type => `&type=${type}`).join('')}&apiKey=${process.env.OAIP_KEY}`;
+      const apiUrl = `https://airspace.xcontest.org/web/country/12?start=2025-3-16-SR&restrictlang=1&skip=&aircatpg=1&end=SS`;
 
       const response = await fetch(apiUrl, {
         headers: {
@@ -50,4 +43,4 @@ const createAirspacesRouter = () => {
   return router;
 };
 
-export default createAirspacesRouter;
+export default createAirspacesXCRouter;

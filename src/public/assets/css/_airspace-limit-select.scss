@@ -1,0 +1,31 @@
+.airspace-limit-control {
+    font-size: 1em;
+    color: #333;
+    margin: 1px 0;
+    /* Add flexbox alignment */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.lower-limit-select {
+    margin-left: 5px;
+    padding: 0px 2px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    background-color: white;
+    width: 60x;
+    font-size: 1em;
+    /* Push select to the right */
+    margin-left: auto;
+}
+
+/* Existing transition styles remain unchanged */
+#airspaceLowerLimit {
+    transition: all 0.3s ease;
+}
+
+#airspaceLowerLimit:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}

@@ -1,7 +1,36 @@
 @import "./info-control";
+@import "./airspace-limit-select";
+@import "./airspace-time-select";
+@import "./layerstree";
 
+$primary-color: #007bff;
 
-    /* Apply blending mode to the xcontest layer */
+/* Custom HTML container styling */
+.leaflet-layerstree-html-container {
+    padding: 0px 0px;
+}
+
+.leaflet-layerstree-header-pointer {
+    font-weight: bold;
+ 
+    font-size: 1.08333em;
+    color: $primary-color;
+}
+
+.leaflet-control-button {
+    padding-left: 0px;
+}
+
+.leaflet-layerstree-children {
+    padding-left:5px;
+}
+
+.xcmap-layer.satellite-overlay {
+    mix-blend-mode: hard-light; 
+    opacity: 0.8;
+}
+    
+/* Apply blending mode to the xcontest layer */
     .leaflet-tile-pane .xcontest-layer {
         mix-blend-mode: overlay; /* Adjust blending mode as needed */
     }
@@ -24,7 +53,14 @@
     .leaflet-popup-content {
         min-width: 500px;
         pointer-events: auto !important;
+        margin-right: 10px;
     }
+
+    .leaflet-popup-close-button {
+        margin-right: 7px;
+        font-weight: bold;
+        color: black!important;
+    } 
 
     .leaflet-layerstree-header-label {
         margin-bottom: 0px;

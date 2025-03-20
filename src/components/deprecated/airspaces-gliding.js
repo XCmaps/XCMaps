@@ -1,25 +1,8 @@
 // airspaces.js
 // Store the airspace click handler as a module-level variable so we can reference it later
 let airspaceClickHandler = null;
-let currentLowerLimit = 3000; // Default value matching dropdown
-let airspaceDebounceTimer;
 
-
-// Add the convertToMeters function
-function convertToMeters(value, unitCode) {
-  switch (unitCode) {
-    case 1: // Feet to meters
-      return value * 0.3048;
-    case 2: // Meters (no conversion)
-      return value;
-    case 6: // Flight Level (FL * 100 ft to meters)
-      return value * 100 * 0.3048;
-    default:
-      return null; // Unknown unit
-  }
-}
-
-function fetchAirspaces() {
+function fetchAirspacesGliding() {
   // Make sure map is available
   if (!window.map) {
     console.error("Map not initialized yet");
@@ -29,7 +12,7 @@ function fetchAirspaces() {
   const center = window.map.getCenter();
   const lat = center.lat.toFixed(6);
   const lng = center.lng.toFixed(6);
-  const types = [0, 1, 3, 4, 5, 7, 26, 28];
+  const types = [21];
 
   const apiUrl = `${process.env.APP_DOMAIN}/api/airspaces?lat=${lat}&lng=${lng}&dist=200000&types=${encodeURIComponent(types.join(','))}`;
 
@@ -37,7 +20,7 @@ function fetchAirspaces() {
     .then(response => response.json())
     .then(data => {
       // Clear existing layers
-      window.airspaceEFG.clearLayers();
+      window.airspaceGliding.clearLayers();
 
       const airspaces = []; // Store polygons and data for later use
 
@@ -46,23 +29,11 @@ function fetchAirspaces() {
           return;
         }
 
-        // Get current limit from dropdown
-        const selectedLimit = parseInt(document.getElementById('airspaceLowerLimit').value, 10);
-
-        // Filter based on lower limit converted to meters
-        const lowerLimit = airspace.lowerLimit;
-        if (!lowerLimit) return; // Skip if no lower limit data
-
-        const lowerLimitMeters = convertToMeters(lowerLimit.value, lowerLimit.unit);
-        if (lowerLimitMeters === null || lowerLimitMeters >= selectedLimit) {  // Modified line
-            return; // Now using dynamic limit from dropdown
-        }
-
         if (airspace.geometry && airspace.geometry.type === "Polygon") {
           const coordinates = airspace.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
 
           const lowerLimit = airspace.lowerLimit.value;
-          const color = lowerLimit === 0 ? "red" : "blue";
+          const color = lowerLimit === 0 ? "red" : "green";
 
           const airspaceTypeText = airspaceTypes[airspace.type] || "Unknown";
           const icaoClassText = icaoClasses[airspace.icaoClass] || "Unknown";
@@ -76,7 +47,7 @@ function fetchAirspaces() {
           // Store airspace data with its polygon
           airspaces.push({ polygon, data: airspace });
 
-          window.airspaceEFG.addLayer(polygon);
+          window.airspaceGliding.addLayer(polygon);
         }
       });
 
@@ -90,7 +61,7 @@ function fetchAirspaces() {
       // Create a new click handler that captures the airspaces in its closure
       airspaceClickHandler = function(e) {
         // Check if the airspace layer is actually visible before processing clicks
-        if (!window.map.hasLayer(window.airspaceEFG)) {
+        if (!window.map.hasLayer(window.airspaceGliding)) {
           return; // Exit if airspace layer is not visible
         }
 
@@ -108,7 +79,6 @@ function fetchAirspaces() {
             <b>${a.name}</b><br>
             Type: ${airspaceTypes[a.type] || "Unknown"}<br>
             ICAO Class: ${icaoClasses[a.icaoClass] || "Unknown"}<br>
-            ID: ${a._id}<br>
             ↧${a.lowerLimit.value} ${getUnit(a.lowerLimit.unit)}  ↥${a.upperLimit.value} ${getUnit(a.upperLimit.unit)}<br>
           `).join("<hr>");
 
@@ -180,15 +150,14 @@ const icaoClasses = {
 function getUnit(unitCode) {
   const units = {
     1: "ft", // Feet
-    2: "m",
     6: "FL"  // Flight Level
   };
   return units[unitCode] || "Unknown";
 }
 
 
-// Export the fetchAirspaces function to make it globally available
-window.fetchAirspaces = fetchAirspaces;
+// Export the fetchAirspacesGliding function to make it globally available
+window.fetchAirspacesGliding = fetchAirspacesGliding;
 
 // Listen for map layer visibility changes
 document.addEventListener('map_initialized', function() {
@@ -198,46 +167,19 @@ document.addEventListener('map_initialized', function() {
   window.map.on('overlayadd', function(e) {
     if (e.name === 'Airspaces' || e.name === 'Gliding' || e.name === 'Notam') {
       console.log(`Overlay added: ${e.name}, fetching airspaces`);
-      fetchAirspaces();
+      fetchAirspacesGliding();
     }
   });
-
-  // Add event listener with debouncing
-document.addEventListener('DOMContentLoaded', function() {
-  document.body.addEventListener('change', function(e) {
-    if (e.target && e.target.id === 'airspaceLowerLimit') {
-      const newLimit = parseInt(e.target.value, 10);
-      
-      // Only update if value changed
-      if (newLimit !== currentLowerLimit) {
-        currentLowerLimit = newLimit;
-        
-        // Clear any pending debounce
-        clearTimeout(airspaceDebounceTimer);
-        
-        // Debounce to prevent rapid successive requests
-        airspaceDebounceTimer = setTimeout(() => {
-          if (window.map.hasLayer(window.airspaceEFG)) {
-            console.log(`Lower limit changed to ${newLimit}m, reloading airspaces`);
-            fetchAirspaces();
-          }
-        }, 300); // 300ms debounce delay
-      }
-    }
-  });
-});
-
-
+  
   // Also set up the moveend event to refresh airspaces when panning/zooming
   window.map.on('moveend', function() {
     // Only fetch if the layer is currently visible
-    if (window.map.hasLayer(window.airspaceEFG)) {
+    if (window.map.hasLayer(window.airspaceGliding)) {
       console.log("Map moved, refreshing airspaces");
-      fetchAirspaces();
+      fetchAirspacesGliding();
     }
   });
 });
 
-
 // Don't auto-fetch on script load - wait for the layer to be enabled
-// Remove or comment out: fetchAirspaces();
+// Remove or comment out: fetchAirspacesGliding();

@@ -11,6 +11,9 @@ import createPlacesRouter from "./src/api/places.js";
 import createWindRouter from "./src/api/wind.js";
 import createFeedbackRouter from "./src/api/feedback.js";
 import createAirspacesRouter from "./src/api/airspaces.js";
+import createAirspacesXCRouter from "./src/api/airspacesXCfetch.js";
+import createAirspacesXCdbRouter from "./src/api/airspaces-xcontest.js";
+import createObstaclesRouter from './src/api/obstacles.js';
 
 
 const { Pool } = pkg;
@@ -48,6 +51,9 @@ app.use("/api/places", createPlacesRouter(pool));
 app.use("/api", createWindRouter());
 app.use("/api", createFeedbackRouter());
 app.use("/api/airspaces", createAirspacesRouter());
+app.use("/api/airspacesXC", createAirspacesXCRouter());
+app.use("/api/airspacesXCdb", createAirspacesXCdbRouter(pool));
+app.use("/api/obstacles", createObstaclesRouter(pool));
 
 // Start server
 app.listen(PORT, () => {
