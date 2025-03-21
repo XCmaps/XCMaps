@@ -14,6 +14,7 @@ import createAirspacesRouter from "./src/api/airspaces.js";
 import createAirspacesXCRouter from "./src/api/airspacesXCfetch.js";
 import createAirspacesXCdbRouter from "./src/api/airspaces-xcontest.js";
 import createObstaclesRouter from './src/api/obstacles.js';
+import createMoselfalkenImageRouter from './src/api/moselfalken-cams.js';
 
 
 const { Pool } = pkg;
@@ -52,6 +53,7 @@ app.use("/api", createWindRouter());
 app.use("/api", createFeedbackRouter());
 app.use("/api/airspaces", createAirspacesRouter());
 app.use("/api/airspacesXC", createAirspacesXCRouter());
+app.use("/api/api", createMoselfalkenImageRouter());
 app.use("/api/airspacesXCdb", createAirspacesXCdbRouter(pool));
 app.use("/api/obstacles", createObstaclesRouter(pool));
 

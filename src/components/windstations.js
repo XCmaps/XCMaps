@@ -346,6 +346,91 @@ function fetchWindStations() {
                 // Inside the popupopen event handler where camera handling happens:
                 if (station._id.includes("holfuy")) {
                   const holfuyStationId = station._id.split("-")[1];
+                  const cameraTabElement = document.getElementById(`camera-tab-${station._id}`);
+                  const cameraImageElement = document.getElementById(`camera-image-${station._id}`);
+                  
+                  // Special case for holfuy-361
+                  if (station._id === "holfuy-361") {
+                    // Fetch the HTML from moselfalken.de
+                    fetch('https://www.moselfalken.de/zeltingen-rachtig')
+                      .then(response => response.text())
+                      .then(html => {
+                        // Create a DOM parser to extract the image URL
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        
+                        // Find the last source element and get its srcset
+                        const pictureElement = doc.querySelector('picture');
+                        if (pictureElement) {
+                          const sourceElements = pictureElement.querySelectorAll('source');
+                          const imgElement = pictureElement.querySelector('img');
+                          
+                          let imageUrl = '';
+                          
+                          // Try to get URL from the last source element
+                          if (sourceElements.length > 0) {
+                            const lastSource = sourceElements[sourceElements.length - 1];
+                            const srcset = lastSource.getAttribute('srcset');
+                            if (srcset) {
+                              // Extract the URL part before " 1x" if present
+                              imageUrl = srcset.split(' ')[0];
+                            }
+                          }
+                          
+                          // Fallback to img src if no source element found
+                          if (!imageUrl && imgElement) {
+                            imageUrl = imgElement.getAttribute('src');
+                          }
+                          
+                          if (imageUrl) {
+                            // Convert relative URL to absolute URL
+                            const baseUrl = 'https://www.moselfalken.de';
+                            const absoluteUrl = imageUrl.startsWith('/') ? 
+                              `${baseUrl}${imageUrl}` : imageUrl;
+                            
+                            // Set the image source and display the tab
+                            cameraImageElement.src = absoluteUrl;
+                            cameraTabElement.style.display = "block";
+                          } else {
+                            cameraTabElement.style.display = "none";
+                          }
+                        } else {
+                          console.error("Picture element not found on moselfalken.de");
+                          cameraTabElement.style.display = "none";
+                        }
+                      })
+                      .catch(error => {
+                        console.error("Error fetching moselfalken.de:", error);
+                        cameraTabElement.style.display = "none";
+                      });
+                  } else {
+                    // Original behavior for other Holfuy stations
+                    const cameraImageUrl = `https://holfuy.com/en/takeit/cam/s${holfuyStationId}.jpg`;
+                    
+                    // Create temporary image to test validity
+                    const testImage = new Image();
+                    testImage.onload = function() {
+                      // Only show tab if image loads successfully
+                      cameraImageElement.src = cameraImageUrl;
+                      cameraTabElement.style.display = "block";
+                    };
+                    testImage.onerror = function() {
+                      // Hide tab if image fails to load
+                      cameraTabElement.style.display = "none";
+                    };
+                    testImage.src = cameraImageUrl;
+                    
+                    // Set timeout as fallback in case responses are slow
+                    setTimeout(() => {
+                      if (!testImage.complete || testImage.naturalWidth === 0) {
+                        cameraTabElement.style.display = "none";
+                      }
+                    }, 2000);
+                  }
+                }
+                // Inside the popupopen event handler where camera handling happens:
+                if (station._id.includes("holfuy")) {
+                  const holfuyStationId = station._id.split("-")[1];
                   const cameraImageUrl = `https://holfuy.com/en/takeit/cam/s${holfuyStationId}.jpg`;
                   const cameraImageElement = document.getElementById(`camera-image-${station._id}`);
                   const cameraTabElement = document.getElementById(`camera-tab-${station._id}`);
