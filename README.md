@@ -1,6 +1,6 @@
 Copyright XCmaps © 2025+
 
-LICENSE: CC BY-NC 4.0
+LICENSE: CC-BY-4.0
 
 Click <https://raw.githubusercontent.com/DevinDon/license/master/THE%20CC%20BY-NC%204.0%20LICENSE> to view a copy of this license.
 
