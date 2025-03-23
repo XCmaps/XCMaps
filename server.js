@@ -53,7 +53,7 @@ app.use("/api", createWindRouter());
 app.use("/api", createFeedbackRouter());
 app.use("/api/airspaces", createAirspacesRouter());
 app.use("/api/airspacesXC", createAirspacesXCRouter());
-app.use("/api/api", createMoselfalkenImageRouter());
+app.use("/api/proxy", createMoselfalkenImageRouter());
 app.use("/api/airspacesXCdb", createAirspacesXCdbRouter(pool));
 app.use("/api/obstacles", createObstaclesRouter(pool));
 

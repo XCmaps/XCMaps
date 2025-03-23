@@ -169,7 +169,8 @@ export default (env, argv) => {
             from: 'src/components',
             to: 'js/components',
             filter: (resourcePath) => {
-              return path.extname(resourcePath) === '.js';
+              // Exclude the original windstations.js file
+              return path.extname(resourcePath) === '.js' && !resourcePath.endsWith('windstations.js');
             },
             noErrorOnMissing: true
           },

@@ -1,10 +1,14 @@
 
 import './L.Control.Layers.Tree.js';
 import '../css/L.Control.Layers.Tree.css';
+
+import './leaflet.responsive.popup.js';
+import './leaflet.responsive.popup.css';
+
 import '../css/styles.css';
 import InfoControl from './../../../components/InfoControl.js';
 import moment from 'moment';
-import 'moment-timezone'; 
+import 'moment-timezone';
 
 import './../../../components/airspaces.js';
 import '../../../components/deprecated/airspaces-gliding.js';
@@ -44,11 +48,6 @@ function initMap() {
       attribution: 'XContest&copy; <a href="https://www.xcontest.org">XContest</a>',
       className: 'xcontest-layer'
   });
-
-  var center = [-33.8650, 151.2094];
-  var imageUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Sydney_Opera_House_-_Dec_2008.jpg/1024px-Sydney_Opera_House_-_Dec_2008.jpg',
-  imageBounds = [center, [-35.8650, 154.2094]];
-  L.imageOverlay(imageUrl, imageBounds).addTo(map);
 
 
   // MapLibre GL layer
@@ -205,10 +204,34 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
 
   new InfoControl({ position: 'bottomright' }).addTo(window.map);
 
+  // Add logo control to the top left corner
+  L.Control.Logo = L.Control.extend({
+    onAdd: function(map) {
+      const container = L.DomUtil.create('div', 'leaflet-control-logo');
+      const img = L.DomUtil.create('img', 'logo-image', container);
+      img.src = '/assets/images/XCmapsLogo.png';
+      img.alt = 'XCmaps Logo';
+      img.style.width = '120px'; // Adjust size as needed
+      img.style.height = 'auto';
+      
+      // Prevent clicks on the logo from propagating to the map
+      L.DomEvent.disableClickPropagation(container);
+      
+      return container;
+    }
+  });
+  
+  L.control.logo = function(opts) {
+    return new L.Control.Logo(opts);
+  };
+  
+  // Add the logo control to the map
+  L.control.logo({ position: 'topleft' }).addTo(window.map);
+  
   // Add locate control
   var lc = L.control
-      .locate({  
-          drawCircle: false, 
+      .locate({
+          drawCircle: false,
           keepCurrentZoomLevel: true,
           position: 'bottomright',
           icon: 'locate',
@@ -219,11 +242,47 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   // Add layer control tree
 
   var treeLayersControl = L.control.layers.tree(baseTree, overlayTree, {
-    namedToggle: true,
-    collapsed: false
+    namedToggle: false,
+    collapsed: true
   }).addTo(window.map);
 
+  // Initialize with collapsed tree but expanded selected layers
   treeLayersControl.collapseTree().expandSelected();
+  
+  // Add touch support for mobile devices
+  const layersControlContainer = treeLayersControl.getContainer();
+  const layersControlToggle = layersControlContainer.querySelector('.leaflet-control-layers-toggle');
+  
+  // Function to detect if device is touch-only (no hover capability)
+  const isTouchDevice = () => {
+    return (('ontouchstart' in window) ||
+            (navigator.maxTouchPoints > 0) ||
+            (navigator.msMaxTouchPoints > 0));
+  };
+  
+  // Add click handler for touch devices
+  if (isTouchDevice()) {
+    L.DomEvent.on(layersControlToggle, 'click', function(e) {
+      L.DomEvent.stopPropagation(e);
+      if (L.DomUtil.hasClass(layersControlContainer, 'leaflet-control-layers-expanded')) {
+        L.DomUtil.removeClass(layersControlContainer, 'leaflet-control-layers-expanded');
+      } else {
+        L.DomUtil.addClass(layersControlContainer, 'leaflet-control-layers-expanded');
+      }
+    });
+    
+    // Close the control when clicking outside of it
+    L.DomEvent.on(document, 'click', function() {
+      if (L.DomUtil.hasClass(layersControlContainer, 'leaflet-control-layers-expanded')) {
+        L.DomUtil.removeClass(layersControlContainer, 'leaflet-control-layers-expanded');
+      }
+    });
+    
+    // Prevent clicks inside the control from closing it
+    L.DomEvent.on(layersControlContainer, 'click', function(e) {
+      L.DomEvent.stopPropagation(e);
+    });
+  }
   
   // Central event handler for map movements
   // This will be the ONLY moveend handler for fetching data

@@ -14,8 +14,6 @@
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol/dist/L.Control.Locate.min.js" charset="utf-8"></script>
-    <script src="https://unpkg.com/leaflet-responsive-popup@1.0.0/leaflet.responsive.popup.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-responsive-popup@1.0.0/leaflet.responsive.popup.css" />
     <script src="https://sashakavun.github.io/leaflet-canvasicon/leaflet-canvasicon.js"></script>
     
     <!-- MapBox/MapLibre -->
@@ -57,6 +55,21 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
 
+    <!-- Custom styles to override Leaflet defaults -->
+    <style>
+        /* Make the layers control toggle 30x30 pixels */
+        .leaflet-control-layers-toggle {
+            width: 30px !important;
+            height: 30px !important;
+            background-size: 20px 20px !important;
+        }
+        
+        /* Ensure the touch version is also 30x30 pixels */
+        .leaflet-touch .leaflet-control-layers-toggle {
+            width: 30px !important;
+            height: 30px !important;
+        }
+    </style>
 </head>
 
 <body>

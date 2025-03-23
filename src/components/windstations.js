@@ -1,67 +1,143 @@
+// spotsHelper.js - Common functionality for loading and displaying spots on a map
 
+// Module-scoped variable to track Dropzone instance
+let feedbackDropzone = null;
+let currentFeedbackForm = null;
 
+// Swiper related functions
+function changeSwiper() {
+    if (typeof swiperc !== "undefined") {
+        if (window.innerWidth < 576) {
+            $(".swiper2").css("height", ""); $(".swiper2").css("width", "320px");
+            $(".swiper2").css("padding-left", ""); $(".swiper2").css("padding-top", "30px");
+            $(".swiper2 > .swiper-wrapper").css("width", ""); $(".swiper2 > .swiper-wrapper").css("height", "100px");
+            swiperc.changeDirection('horizontal', true);
+        }
+        else {
+            if (window.innerWidth < 840) {
+                $(".swiper2").css("width", ""); $(".swiper2").css("height", "320px");
+            }
+            else {
+                $(".swiper2").css("width", ""); $(".swiper2").css("height", "460px");
+            }
+            $(".swiper2").css("padding-top", ""); $(".swiper2").css("padding-left", "30px");
+            $(".swiper2 > .swiper-wrapper").css("height", ""); $(".swiper2 > .swiper-wrapper").css("width", "100px");
+            swiperc.changeDirection('vertical', true);
+        }
+    }
+}
+
+function initSwiper(idImg) {
+    let swiperv, swiperc;
+    // USED 09/24 Beschreibung: Initialisierung der Image-Swiper
+    var swiperLoop3 = (idImg < 4) ? false : true;
+    var swiperLoop4 = (idImg < 5) ? false : true;
+
+    swiperv = new Swiper('.swiper1', {
+        autoHeight: true,
+        direction: 'horizontal',
+        allowTouchMove: false,
+        mousewheel: false,
+        slidesPerView: 1,
+        loop: false,
+    });
+
+    swiperc = new Swiper('.swiper2', {
+        direction: 'vertical',
+        allowTouchMove: true,
+        mousewheel: true,
+        slidesPerView: 3,
+        spaceBetween: 10,
+        loop: swiperLoop3,
+        breakpoints: {
+            840: {
+                slidesPerView: 4,
+                loop: swiperLoop4
+            }
+        },
+        scrollbar: {
+            el: '.swiper-scrollbar',
+            hide: false,
+            draggable: true,
+        },
+        on: {
+            click: function() {
+                let iR = (this.clickedSlide.firstChild.id).substring(3) - 1;
+                swiperv.slideTo(iR, 1);
+            },
+            transitionEnd: function () {
+                let iR = this.realIndex;
+                swiperv.slideTo(iR, 1);
+            }
+        }
+    });
+
+    changeSwiper();
+}
+
+// Mapping wind directions to angles
 function getCompassDirection(deg) {
-  const directions = [
-    "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-    "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
-  ];
-  return directions[Math.round(deg / 22.5) % 16];
+    const directions = [
+        "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+        "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
+    ];
+    return directions[Math.round(deg / 22.5) % 16];
 }
 
 function getFillColor(speed) {
-  if (speed >= 7 && speed <= 14) return "LimeGreen";
-  if (speed >= 15 && speed <= 24) return "yellow";
-  if (speed >= 25 && speed <= 30) return "orange";
-  if (speed >= 31 && speed <= 36) return "red";
-  if (speed > 36) return "black";
-  return "Aquamarine";
+    if (speed >= 7 && speed <= 14) return "LimeGreen";
+    if (speed >= 15 && speed <= 24) return "yellow";
+    if (speed >= 25 && speed <= 30) return "orange";
+    if (speed >= 31 && speed <= 36) return "red";
+    if (speed > 36) return "black";
+    return "Aquamarine";
 }
 
 function getStrokeColor(speed) {
-  if (speed >= 15 && speed <= 24) return "LimeGreen";
-  if (speed >= 25 && speed <= 32) return "yellow";
-  if (speed >= 33 && speed <= 38) return "orange";
-  if (speed >= 39 && speed <= 44) return "red";
-  if (speed > 44) return "black";
-  return "Aquamarine";
+    if (speed >= 15 && speed <= 24) return "LimeGreen";
+    if (speed >= 25 && speed <= 32) return "yellow";
+    if (speed >= 33 && speed <= 38) return "orange";
+    if (speed >= 39 && speed <= 44) return "red";
+    if (speed > 44) return "black";
+    return "Aquamarine";
 }
 
 function getTextColor(backgroundColor) {
-  return backgroundColor === "black" ? "white" : "black";
+    return backgroundColor === "black" ? "white" : "black";
 }
 
 // Helper: Process raw historical data into 10‑minute averages.
 function processHistoricalData(data) {
-  const grouped = {};
-  data.forEach((entry) => {
-    const dt = new Date(entry._id * 1000);
-    // Round down to the nearest 10‑minute mark.
-    dt.setMinutes(Math.floor(dt.getMinutes() / 10) * 10);
-    dt.setSeconds(0);
-    dt.setMilliseconds(0);
-    const key = dt.getTime();
-    if (!grouped[key]) {
-      grouped[key] = { count: 0, wAvgSum: 0, wMaxSum: 0, wDirSum: 0, tempSum: 0, tempCount: 0 };
-    }
-    grouped[key].count++;
-    grouped[key].wAvgSum += entry["w-avg"];
-    grouped[key].wMaxSum += entry["w-max"];
-    grouped[key].wDirSum += entry["w-dir"];
-    if (entry["temp"] !== undefined) {
-      grouped[key].tempSum += entry["temp"];
-      grouped[key].tempCount++;
-    }
-  });
-  const result = Object.keys(grouped).map((key) => ({
-    _id: parseInt(key) / 1000, // back to seconds
-    "w-avg": grouped[key].wAvgSum / grouped[key].count,
-    "w-max": grouped[key].wMaxSum / grouped[key].count,
-    "w-dir": grouped[key].wDirSum / grouped[key].count,
-    "temp": grouped[key].tempCount > 0 ? grouped[key].tempSum / grouped[key].tempCount : undefined,
-  }));
-  // For the table we want descending order (most recent first).
-  result.sort((a, b) => b._id - a._id);
-  return result;
+    const grouped = {};
+    data.forEach((entry) => {
+        const dt = new Date(entry._id * 1000);
+        // Round down to the nearest 10‑minute mark.
+        dt.setMinutes(Math.floor(dt.getMinutes() / 10) * 10);
+        dt.setSeconds(0);
+        dt.setMilliseconds(0);
+        const key = dt.getTime();
+        if (!grouped[key]) {
+            grouped[key] = { count: 0, wAvgSum: 0, wMaxSum: 0, wDirSum: 0, tempSum: 0, tempCount: 0 };
+        }
+        grouped[key].count++;
+        grouped[key].wAvgSum += entry["w-avg"];
+        grouped[key].wMaxSum += entry["w-max"];
+        grouped[key].wDirSum += entry["w-dir"];
+        if (entry["temp"] !== undefined) {
+            grouped[key].tempSum += entry["temp"];
+            grouped[key].tempCount++;
+        }
+    });
+    const result = Object.keys(grouped).map((key) => ({
+        _id: parseInt(key) / 1000, // back to seconds
+        "w-avg": grouped[key].wAvgSum / grouped[key].count,
+        "w-max": grouped[key].wMaxSum / grouped[key].count,
+        "w-dir": grouped[key].wDirSum / grouped[key].count,
+        "temp": grouped[key].tempCount > 0 ? grouped[key].tempSum / grouped[key].tempCount : undefined,
+    }));
+    // For the table we want descending order (most recent first).
+    result.sort((a, b) => b._id - a._id);
+    return result;
 }
 
 // Main function to fetch and display wind stations.
@@ -344,96 +420,147 @@ function fetchWindStations() {
                   console.error("Canvas element not found.");
                 }
                 // Inside the popupopen event handler where camera handling happens:
-                if (station._id.includes("holfuy")) {
-                  const holfuyStationId = station._id.split("-")[1];
-                  const cameraTabElement = document.getElementById(`camera-tab-${station._id}`);
-                  const cameraImageElement = document.getElementById(`camera-image-${station._id}`);
+                const cameraTabElement = document.getElementById(`camera-tab-${station._id}`);
+                const cameraImageElement = document.getElementById(`camera-image-${station._id}`);
+                
+                // Special cases for Moselfalken webcams
+                if (station._id === "holfuy-361" || station._id === "holfuy-363") {
+                  console.log(`Handling special case for ${station._id}`);
                   
-                  // Special case for holfuy-361
-                  if (station._id === "holfuy-361") {
-                    // Fetch the HTML from moselfalken.de
-                    fetch('https://www.moselfalken.de/zeltingen-rachtig')
-                      .then(response => response.text())
-                      .then(html => {
-                        // Create a DOM parser to extract the image URL
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(html, 'text/html');
-                        
-                        // Find the last source element and get its srcset
-                        const pictureElement = doc.querySelector('picture');
-                        if (pictureElement) {
-                          const sourceElements = pictureElement.querySelectorAll('source');
-                          const imgElement = pictureElement.querySelector('img');
-                          
-                          let imageUrl = '';
-                          
-                          // Try to get URL from the last source element
-                          if (sourceElements.length > 0) {
-                            const lastSource = sourceElements[sourceElements.length - 1];
-                            const srcset = lastSource.getAttribute('srcset');
-                            if (srcset) {
-                              // Extract the URL part before " 1x" if present
-                              imageUrl = srcset.split(' ')[0];
-                            }
-                          }
-                          
-                          // Fallback to img src if no source element found
-                          if (!imageUrl && imgElement) {
-                            imageUrl = imgElement.getAttribute('src');
-                          }
-                          
-                          if (imageUrl) {
-                            // Convert relative URL to absolute URL
-                            const baseUrl = 'https://www.moselfalken.de';
-                            const absoluteUrl = imageUrl.startsWith('/') ? 
-                              `${baseUrl}${imageUrl}` : imageUrl;
-                            
-                            // Set the image source and display the tab
-                            cameraImageElement.src = absoluteUrl;
-                            cameraTabElement.style.display = "block";
-                          } else {
-                            cameraTabElement.style.display = "none";
-                          }
-                        } else {
-                          console.error("Picture element not found on moselfalken.de");
-                          cameraTabElement.style.display = "none";
-                        }
-                      })
-                      .catch(error => {
-                        console.error("Error fetching moselfalken.de:", error);
-                        cameraTabElement.style.display = "none";
-                      });
+                  // Create a container div for better layout control
+                  const container = document.createElement('div');
+                  container.style.width = '100%';
+                  container.style.textAlign = 'center';
+                  container.style.padding = '10px';
+                  
+                  // No heading needed
+                  
+                  // Add a loading indicator
+                  const loadingText = document.createElement('div');
+                  loadingText.textContent = 'Loading webcam image...';
+                  loadingText.style.padding = '20px';
+                  loadingText.style.color = '#666';
+                  container.appendChild(loadingText);
+                  
+                  // Replace the image element with our container
+                  if (cameraImageElement.parentNode) {
+                    cameraImageElement.parentNode.replaceChild(container, cameraImageElement);
+                    cameraTabElement.style.display = "block";
+                    console.log("Successfully replaced image with container");
                   } else {
-                    // Original behavior for other Holfuy stations
-                    const cameraImageUrl = `https://holfuy.com/en/takeit/cam/s${holfuyStationId}.jpg`;
-                    
-                    // Create temporary image to test validity
-                    const testImage = new Image();
-                    testImage.onload = function() {
-                      // Only show tab if image loads successfully
-                      cameraImageElement.src = cameraImageUrl;
-                      cameraTabElement.style.display = "block";
-                    };
-                    testImage.onerror = function() {
-                      // Hide tab if image fails to load
-                      cameraTabElement.style.display = "none";
-                    };
-                    testImage.src = cameraImageUrl;
-                    
-                    // Set timeout as fallback in case responses are slow
-                    setTimeout(() => {
-                      if (!testImage.complete || testImage.naturalWidth === 0) {
-                        cameraTabElement.style.display = "none";
-                      }
-                    }, 2000);
+                    console.error("Cannot find parent of image element for replacement");
+                    cameraTabElement.style.display = "none";
+                    return;
                   }
-                }
-                // Inside the popupopen event handler where camera handling happens:
-                if (station._id.includes("holfuy")) {
-                  const holfuyStationId = station._id.split("-")[1];
+                  
+                  // First fetch the Moselfalken website to extract the current image URL
+                  
+                  // Show loading state
+                  const extractingText = document.createElement('div');
+                  extractingText.textContent = 'Loading webcam image...';
+                  extractingText.style.padding = '10px';
+                  extractingText.style.color = '#666';
+                  container.innerHTML = '';
+                  container.appendChild(extractingText);
+                  
+                  // Determine the website URL based on the station ID
+                  let websiteUrl = 'https://www.moselfalken.de/zeltingen-rachtig'; // Default for holfuy-361
+                  if (station._id === "holfuy-363") {
+                    websiteUrl = 'https://www.moselfalken.de/meerfeld';
+                  }
+                  
+                  // Fetch the website via our proxy
+                  const websiteProxyUrl = `${process.env.APP_DOMAIN}/api/proxy?imageUrl=${websiteUrl}`;
+                  
+                  fetch(websiteProxyUrl)
+                    .then(response => {
+                      if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                      }
+                      return response.text();
+                    })
+                    .then(html => {
+                      // Parse the HTML
+                      const parser = new DOMParser();
+                      const doc = parser.parseFromString(html, 'text/html');
+                      
+                      // Find all picture elements
+                      const pictureElements = doc.querySelectorAll('picture');
+                      
+                      if (pictureElements.length === 0) {
+                        throw new Error('No picture elements found in HTML');
+                      }
+                      
+                      // Look for a picture element that might contain the webcam image
+                      let webcamPicture = null;
+                      for (const picture of pictureElements) {
+                        const img = picture.querySelector('img');
+                        if (img && (img.src.includes('cam') || (img.alt && img.alt.includes('Webcam')))) {
+                          webcamPicture = picture;
+                          break;
+                        }
+                      }
+                      
+                      // If we didn't find a specific webcam picture, use the first one
+                      if (!webcamPicture) {
+                        webcamPicture = pictureElements[0];
+                      }
+                      
+                      // Find all source elements and the img element in the picture
+                      const sourceElements = webcamPicture.querySelectorAll('source');
+                      const imgElement = webcamPicture.querySelector('img');
+                      
+                      let imageUrl = '';
+                      
+                      // Try to get URL from the last source element (highest resolution)
+                      if (sourceElements.length > 0) {
+                        const lastSource = sourceElements[sourceElements.length - 1];
+                        const srcset = lastSource.getAttribute('srcset');
+                        if (srcset) {
+                          // Extract the URL part before " 1x" if present
+                          imageUrl = srcset.split(' ')[0];
+                        }
+                      }
+                      
+                      // Fallback to img src if no source element found
+                      if (!imageUrl && imgElement) {
+                        imageUrl = imgElement.getAttribute('src');
+                      }
+                      
+                      if (!imageUrl) {
+                        throw new Error('Could not extract image URL from HTML');
+                      }
+                      
+                      // Convert relative URL to absolute URL
+                      if (imageUrl.startsWith('/')) {
+                        imageUrl = 'https://www.moselfalken.de' + imageUrl;
+                      } else if (!imageUrl.startsWith('http')) {
+                        imageUrl = 'https://www.moselfalken.de/' + imageUrl;
+                      }
+                      
+                      // Now fetch the image via the proxy
+                      const imageProxyUrl = `${process.env.APP_DOMAIN}/api/proxy?imageUrl=${imageUrl}`;
+                      
+                      // Create a new image element
+                      const img = document.createElement('img');
+                      img.alt = "Moselfalken Webcam";
+                      img.style.maxWidth = '100%';
+                      img.style.height = 'auto';
+                      img.style.border = '1px solid #ccc';
+                      img.style.borderRadius = '4px';
+                      img.src = imageProxyUrl;
+                      
+                      // Replace the loading text with just the image
+                      container.innerHTML = '';
+                      container.appendChild(img);
+                    })
+                    .catch(error => {
+                      // If there's an error, hide the camera tab
+                      cameraTabElement.style.display = "none";
+                    });
+                } else {
+                  // Original behavior for other Holfuy stations
                   const cameraImageUrl = `https://holfuy.com/en/takeit/cam/s${holfuyStationId}.jpg`;
-                  const cameraImageElement = document.getElementById(`camera-image-${station._id}`);
-                  const cameraTabElement = document.getElementById(`camera-tab-${station._id}`);
                   
                   // Create temporary image to test validity
                   const testImage = new Image();
@@ -469,6 +596,7 @@ function fetchWindStations() {
     );
 }
 
+
 // Enhanced tab switching function.
 window.showTab = function (tabId, element) {
   console.log("Switching to tab:", tabId);
@@ -497,26 +625,11 @@ window.showTab = function (tabId, element) {
   if (tabId.startsWith("chart-")) {
     const stationId = tabId.split("chart-")[1];
     console.log("Station ID:", stationId);
-
     const canvas = document.getElementById(`canvas-${stationId}`);
-    if (canvas) {
-      console.log("Canvas found:", canvas);
-
-      if (canvas.chartInstance) {
-        console.log("Updating chart...");
-        canvas.chartInstance.resize();
-        canvas.chartInstance.update();
-      } else {
-        console.warn("Chart instance not found on canvas:", canvas);
-      }
-    } else {
-      console.error("Canvas not found for station ID:", stationId);
+    if (canvas && canvas.chartInstance) {
+      canvas.chartInstance.resize();
     }
   }
 };
 
-
-
-// Initial fetch of wind stations.
 window.fetchWindStations = fetchWindStations;
-

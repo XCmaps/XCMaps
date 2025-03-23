@@ -37,3 +37,8 @@
     margin: 8px 0;
     padding-left: 20px;
 }
+
+.leaflet-popup-content img {
+    max-width: 30%;
+    height: auto;
+}

@@ -1,1 +1,0 @@
-import{testSingleCountry}from"./updateXCairspaces.js";testSingleCountry(5).then((()=>console.log("Single country test completed"))).catch((e=>console.error("Single country test failed:",e)));

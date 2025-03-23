@@ -16,24 +16,11 @@
     display: block;
 }
 
-/* Info Popup */
+/* Info Popup - Only width remains */
 .info-popup .leaflet-popup-content-wrapper {
-    border-radius: 8px;
-    padding: 2px;
+    max-width: 700px;
 }
 
-.info-popup-content {
-    padding: 8px;
-    font-size: 14px;
-    line-height: 1.4;
-}
-
-.info-popup-content h3 {
-    margin: 0 0 12px 0;
-    font-size: 16px;
-}
-
-.info-popup-content ul {
-    margin: 8px 0;
-    padding-left: 20px;
+.info-popup  .leaflet-popup-tip-container {
+    display: none;
 }
