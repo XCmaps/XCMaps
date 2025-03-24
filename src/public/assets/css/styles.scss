@@ -3,7 +3,7 @@
 @import "./airspace-time-select";
 @import "./layerstree";
 @import "./variables";
-@import "./wind-stations";
+@import "./wind-station";
 
 $primary-color: #007bff;
 
@@ -25,6 +25,10 @@ $primary-color: #007bff;
       z-index: 9999; /* Ensure it's above map when visible */
       display: block; /* Show the element when it has visible class */
     }
+  }
+
+  #fullScreenInfo p {
+    color: red;  /* test to apply css to fullScreenInfo  */
   }
 
   #map.map-covered {
@@ -354,6 +358,7 @@ $primary-color: #007bff;
 .leaflet-control-layers-toggle {
     border-bottom: 1px solid #ccc !important;
 }
+
 
 
 

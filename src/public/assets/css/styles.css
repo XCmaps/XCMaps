@@ -2,7 +2,10 @@
 .info-control .leaflet-control-button {
   background-color: white;
   border-radius: 4px;
-  padding: 5px;
+  padding-top: 3px;
+  padding-left: 3px;
+  padding-right: 5px;
+  padding-bottom: 5px;
   transition: background-color 0.2s;
 }
 
@@ -29,7 +32,10 @@
 .info-control .leaflet-control-button {
   background-color: white;
   border-radius: 4px;
-  padding: 5px;
+  padding-top: 3px;
+  padding-left: 3px;
+  padding-right: 5px;
+  padding-bottom: 5px;
   transition: background-color 0.2s;
 }
 
@@ -522,8 +528,13 @@
     top: 0;
     bottom: 0;
     z-index: 9999; /* Ensure it's above map when visible */
+    display: block; /* Show the element when it has visible class */
   }
 }
+#fullScreenInfo p {
+  color: red; /* test to apply css to fullScreenInfo  */
+}
+
 #map.map-covered {
   z-index: 0;
 }
