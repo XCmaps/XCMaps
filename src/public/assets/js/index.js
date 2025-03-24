@@ -66,7 +66,12 @@ function initMap() {
                           '<button onclick="closeFullscreenInfo()" style="background: none; border: none; font-size: 20px; cursor: pointer;">✕</button>' +
                           '</div>';
 
-        el.innerHTML = closeButton + content;
+        // Create footer with close button
+        var footer = '<div style="text-align: right; padding: 10px;">' + // Changed to text-align: right
+                     '<button class="btn btn-dark btn-sm close-popup" onclick="closeFullscreenInfo()">Close</button>' +
+                     '</div>';
+  
+        el.innerHTML = closeButton + content + footer; // Add footer
         el.classList.add('visible');
         el.style.display = 'block'; // Set display to block
         el.style.zIndex = '10000'; // High z-index
