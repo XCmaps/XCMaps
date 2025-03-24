@@ -15,7 +15,10 @@ const InfoControl = L.Control.extend({
         L.DomEvent.disableClickPropagation(container);
         L.DomEvent.on(link, 'click', function(e) {
             L.DomEvent.stop(e);
-            var popupContent = '<div class="info-popup-content" style="padding: 10px;"><h3 class="popup-logo-container"><img class="popup-logo" src="/assets/images/XCmapsLogo.png" alt="XCmaps"></h3>' +
+            var popupContent = '<div class="info-popup-content" style="padding: 10px;">' +
+                // '<h3 class="popup-logo-container"><img class="popup-logo" src="/assets/images/XCmapsLogo.png" alt="XCmaps "></h3>' +
+                '<h3>About XCmaps</h3>'+
+                '<p>XCmaps combines various data sources for aerial sports navigation.</p>'+
                 '<p>You can contact us by email, or report any issue on github.</p>'+
                 '<p><strong>Credits:</strong></p>' +
                 '<ul>' +

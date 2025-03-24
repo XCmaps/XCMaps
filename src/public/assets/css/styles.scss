@@ -22,11 +22,14 @@ $primary-color: #007bff;
       right: 0; 
       top: 0; 
       bottom: 0; 
-      z-index: 1000; /* Ensure it's above map when visible */
+      z-index: 9999; /* Ensure it's above map when visible */
       display: block; /* Show the element when it has visible class */
     }
   }
 
+  #map.map-covered {
+    z-index: 0;
+  }
 
 /* Custom HTML container styling */
 .leaflet-layerstree-html-container {

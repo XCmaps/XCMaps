@@ -1,4 +1,66 @@
+/* Info Control */
+.info-control .leaflet-control-button {
+  background-color: white;
+  border-radius: 4px;
+  padding: 5px;
+  transition: background-color 0.2s;
+}
 
+.info-control .leaflet-control-button:hover {
+  background-color: #f8f9fa;
+}
+
+.info-control-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+/* Info Popup - Only width remains */
+.info-popup .leaflet-popup-content-wrapper {
+  max-width: 700px;
+}
+
+.info-popup .leaflet-popup-tip-container {
+  display: none;
+}
+
+/* Info Control */
+.info-control .leaflet-control-button {
+  background-color: white;
+  border-radius: 4px;
+  padding: 5px;
+  transition: background-color 0.2s;
+}
+
+.info-control .leaflet-control-button:hover {
+  background-color: #f8f9fa;
+}
+
+.info-control-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+/* Info Popup - Only width remains */
+.info-popup .leaflet-popup-content-wrapper {
+  max-width: 700px;
+}
+
+.info-popup .leaflet-popup-tip-container {
+  display: none;
+}
+
+.info-popup .leaflet-popup-content img {
+  max-width: 30%; /* Make sure images fit within the popup */
+  height: auto; /* Maintain aspect ratio */
+}
+
+.popup-logo img {
+  max-width: 30%;
+  height: auto;
+}
 
 .airspace-limit-control {
   font-size: 1em;
@@ -71,357 +133,6 @@
 
 .leaflet-control-layers-overlays > .leaflet-layerstree-header-pointer {
   display: none;
-}
-
-/* Custom HTML container styling */
-.leaflet-layerstree-html-container {
-  padding: 0px 0px;
-}
-
-.leaflet-layerstree-header-pointer {
-  font-weight: bold;
-  font-size: 1.08333em;
-  color: #007bff;
-}
-
-.leaflet-control-button {
-  padding-left: 0px;
-}
-
-.leaflet-layerstree-children {
-  padding-left: 5px;
-}
-
-.xcmap-layer.satellite-overlay {
-  mix-blend-mode: hard-light;
-  opacity: 0.8;
-}
-
-/* Popup close button positioning */
-.leaflet-container a.leaflet-popup-close-button {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  color: #666;
-  font-size: 20px;
-  line-height: 1;
-  z-index: 1000;
-}
-
-/* Apply blending mode to the xcontest layer */
-.leaflet-tile-pane .xcontest-layer {
-  mix-blend-mode: overlay; /* Adjust blending mode as needed */
-}
-
-/* Isolate the place_label_other layer */
-.place_label_other {
-  isolation: isolate;
-}
-
-.maplibregl-canvas {
-  mix-blend-mode: screen; /* Experiment with other blend modes */
-  isolation: isolate;
-}
-
-/* || Leaflet styles */
-/* Prevent default browser behavior for drag-and-drop */
-html, body {
-  height: 100%;
-  margin: 0;
-}
-
-#map {
-  width: 100%;
-  height: 100%;
-}
-
-.leaflet-layerstree-header-label {
-  margin-bottom: 0px;
-}
-
-.leaflet-control-layers-selector {
-  margin-right: 4px;
-}
-
-.leaflet-layerstree-header-pointer {
-  font-weight: bold;
-}
-
-.leaflet-control-locate a.leaflet-bar-part div {
-  background-position: left 8px top 8px;
-  background-repeat: no-repeat;
-  width: 30px;
-  height: 30px;
-}
-
-.leaflet-control-locate a.leaflet-bar-part div.loading {
-  background-image: url(/assets/images/crosshair-3.svg);
-}
-
-.leaflet-control-locate a.leaflet-bar-part div.locate {
-  background-image: url(/assets/images/crosshair-3.svg);
-}
-
-.leaflet-div-icon {
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-.leaflet-popup-content img {
-  max-width: 30%; /* Make sure images fit within the popup */
-  height: auto; /* Maintain aspect ratio */
-}
-
-/* Popup inner content styles */
-.tab-container {
-  display: flex;
-  border-bottom: 2px solid #ddd;
-}
-
-.tab {
-  padding: 5px 20px;
-  cursor: pointer;
-  border: 1px solid #ddd;
-  border-bottom: none;
-  background: #f5f5f5;
-  margin-right: 5px;
-}
-
-.tab.active {
-  background: white;
-  border-top: 2px solid blue;
-  font-weight: bold;
-}
-
-.tab-content {
-  padding: 5px;
-  max-height: 800px;
-  overflow-y: auto;
-}
-
-/* Dropzone styling fixes */
-#feedbackDropzone {
-  border: 2px dashed #0087F7;
-  padding: 20px;
-  margin: 10px 0;
-  min-height: 100px;
-}
-
-.dz-message {
-  text-align: center;
-  margin: 2em 0;
-}
-
-.dz-progress {
-  /* progress bar covers file name */
-  display: none !important;
-}
-
-.dz-button {
-  background: none;
-  border: none;
-  color: #0087F7;
-  cursor: pointer;
-}
-
-/* Add these if missing */
-.needsclick {
-  cursor: pointer;
-}
-
-.dz-clickable {
-  cursor: default;
-}
-
-.dropzone .dz-preview:hover .dz-image img {
-  transform: scale(1.05, 1.05);
-  filter: blur(0px);
-}
-
-.dz-preview:hover .dz-details {
-  display: none !important; /* Hide file name and size on hover */
-  transition: none !important; /* Disable unwanted hover effects */
-}
-
-.delete-icon {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  background-color: rgba(255, 255, 255, 0.8);
-  border-radius: 50%;
-  padding: 4px;
-  box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.2);
-  z-index: 1000; /* Ensure it's above other elements */
-  pointer-events: auto !important; /* Ensure clicks are detected */
-}
-
-.dz-button {
-  background-color: #007bff;
-  color: white;
-  border: none;
-  padding: 10px 15px;
-  cursor: pointer;
-  border-radius: 5px;
-}
-
-.dz-button:hover {
-  background-color: #0056b3;
-}
-
-.dz-default.dz-message {
-  padding-top: 20px;
-  font-weight: bold;
-  color: #007bff;
-}
-
-.btn-primary.me-2 {
-  margin-right: 5px;
-}
-
-/* MarkerCluster */
-.lz-cluster-icon {
-  background-color: rgba(255, 0, 0, 0.712);
-  color: white;
-  text-align: center;
-  border-radius: 50%;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid white;
-}
-
-.hg-cluster-icon {
-  background-color: orange;
-  color: green;
-  text-align: center;
-  border-radius: 50%;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 4px solid green;
-}
-
-.pg-cluster-icon {
-  background-color: orange;
-  color: green;
-  text-align: center;
-  border-radius: 50%;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 4px solid green;
-}
-
-.cluster-marker {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-/* Logo Control */
-.leaflet-control-logo .leaflet-control {
-  background-color: transparent;
-  box-shadow: none;
-}
-
-.logo-image {
-  display: block;
-  max-width: 120px;
-  height: auto;
-  filter: drop-shadow(0px 0px 3px rgba(255, 255, 255, 0.8));
-}
-
-/* Layers Control - Hover Behavior */
-.leaflet-control-layers {
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
-  background: #fff;
-  border-radius: 5px;
-}
-
-/* Expand on hover for desktop */
-@media (hover: hover) {
-  .leaflet-control-layers:hover .leaflet-control-layers-list {
-    display: block;
-  }
-  .leaflet-control-layers:hover .leaflet-control-layers-expanded {
-    padding: 6px 10px 6px 6px;
-  }
-}
-/* Touch-friendly behavior for mobile */
-@media (hover: none) {
-  .leaflet-control-layers-toggle {
-    width: 30px;
-    height: 30px;
-  }
-  .leaflet-touch .leaflet-control-layers-toggle {
-    width: 30px;
-    height: 30px;
-  }
-}
-/* Make sure the control is properly styled when expanded */
-.leaflet-control-layers-expanded {
-  padding: 6px 10px 6px 6px;
-  color: #333;
-  background: #fff;
-}
-
-/* Specific styles for the layers tree control */
-.leaflet-layerstree-node {
-  margin-bottom: 3px;
-}
-
-.leaflet-layerstree-header {
-  margin-bottom: 2px;
-  padding-left: 2px;
-}
-
-/* Use the default Leaflet layers icon */
-.leaflet-control-layers-toggle {
-  background-image: url("https://unpkg.com/leaflet@1.9.4/dist/images/layers-2x.png");
-  background-size: 20px 20px;
-  background-repeat: no-repeat;
-  background-position: center;
-  width: 30px !important;
-  height: 30px !important;
-}
-
-/* Ensure the tree control works well on mobile and has consistent styling */
-.leaflet-touch .leaflet-control-layers-toggle {
-  width: 30px !important;
-  height: 30px !important;
-}
-
-/* Make the control container consistent with other controls */
-.leaflet-control-layers {
-  border-radius: 4px !important;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4) !important;
-}
-
-/* Ensure the control has the same border as other controls */
-.leaflet-bar a,
-.leaflet-control-layers-toggle {
-  border-bottom: 1px solid #ccc !important;
-}
-
-/* Info Control */
-.info-control .leaflet-control-button {
-  background-color: white !important;
-  border-radius: 4px !important;
-  padding: 3px !important;
-}
-
-.info-control-icon {
-  display: block;
-  width: 20px;
-  height: 20px;
 }
 
 /* Wind Station Responsive Popup Styles */
@@ -795,4 +506,357 @@ html, body {
   .wind-data-table td:nth-child(4) {
     width: 35% !important;
   }
+}
+#fullScreenInfo {
+  display: none;
+  z-index: 1000; /* Higher than the map z-index */
+  background: white; /* Add background color */
+  overflow-y: auto; /* Allow scrolling for tall content */
+}
+
+@media (max-width: 768px) {
+  #fullScreenInfo.visible {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 9999; /* Ensure it's above map when visible */
+  }
+}
+#map.map-covered {
+  z-index: 0;
+}
+
+/* Custom HTML container styling */
+.leaflet-layerstree-html-container {
+  padding: 0px 0px;
+}
+
+.leaflet-layerstree-header-pointer {
+  font-weight: bold;
+  font-size: 1.08333em;
+  color: #007bff;
+}
+
+.leaflet-control-button {
+  padding-left: 0px;
+}
+
+.leaflet-layerstree-children {
+  padding-left: 5px;
+}
+
+.xcmap-layer.satellite-overlay {
+  mix-blend-mode: hard-light;
+  opacity: 0.8;
+}
+
+/* Popup close button positioning */
+.leaflet-container a.leaflet-popup-close-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: #666;
+  font-size: 20px;
+  line-height: 1;
+  z-index: 1000;
+}
+
+/* Apply blending mode to the xcontest layer */
+.leaflet-tile-pane .xcontest-layer {
+  mix-blend-mode: overlay; /* Adjust blending mode as needed */
+}
+
+/* Isolate the place_label_other layer */
+.place_label_other {
+  isolation: isolate;
+}
+
+.maplibregl-canvas {
+  mix-blend-mode: screen; /* Experiment with other blend modes */
+  isolation: isolate;
+}
+
+/* || Leaflet styles */
+/* Prevent default browser behavior for drag-and-drop */
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+}
+
+.leaflet-layerstree-header-label {
+  margin-bottom: 0px;
+}
+
+.leaflet-control-layers-selector {
+  margin-right: 4px;
+}
+
+.leaflet-layerstree-header-pointer {
+  font-weight: bold;
+}
+
+.leaflet-control-locate a.leaflet-bar-part div {
+  background-position: left 8px top 8px;
+  background-repeat: no-repeat;
+  width: 30px;
+  height: 30px;
+}
+
+.leaflet-control-locate a.leaflet-bar-part div.loading {
+  background-image: url(/assets/images/crosshair-3.svg);
+}
+
+.leaflet-control-locate a.leaflet-bar-part div.locate {
+  background-image: url(/assets/images/crosshair-3.svg);
+}
+
+.leaflet-div-icon {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Popup inner content styles */
+.tab-container {
+  display: flex;
+  border-bottom: 2px solid #ddd;
+}
+
+.tab {
+  padding: 5px 20px;
+  cursor: pointer;
+  border: 1px solid #ddd;
+  border-bottom: none;
+  background: #f5f5f5;
+  margin-right: 5px;
+}
+
+.tab.active {
+  background: white;
+  border-top: 2px solid blue;
+  font-weight: bold;
+}
+
+.tab-content {
+  padding: 5px;
+  max-height: 800px;
+  overflow-y: auto;
+}
+
+/* Dropzone styling fixes */
+#feedbackDropzone {
+  border: 2px dashed #0087F7;
+  padding: 20px;
+  margin: 10px 0;
+  min-height: 100px;
+}
+
+.dz-message {
+  text-align: center;
+  margin: 2em 0;
+}
+
+.dz-progress {
+  /* progress bar covers file name */
+  display: none !important;
+}
+
+.dz-button {
+  background: none;
+  border: none;
+  color: #0087F7;
+  cursor: pointer;
+}
+
+/* Add these if missing */
+.needsclick {
+  cursor: pointer;
+}
+
+.dz-clickable {
+  cursor: default;
+}
+
+.dropzone .dz-preview:hover .dz-image img {
+  transform: scale(1.05, 1.05);
+  filter: blur(0px);
+}
+
+.dz-preview:hover .dz-details {
+  display: none !important; /* Hide file name and size on hover */
+  transition: none !important; /* Disable unwanted hover effects */
+}
+
+.delete-icon {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  padding: 4px;
+  box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.2);
+  z-index: 1000; /* Ensure it's above other elements */
+  pointer-events: auto !important; /* Ensure clicks are detected */
+}
+
+.dz-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.dz-button:hover {
+  background-color: #0056b3;
+}
+
+.dz-default.dz-message {
+  padding-top: 20px;
+  font-weight: bold;
+  color: #007bff;
+}
+
+.btn-primary.me-2 {
+  margin-right: 5px;
+}
+
+/* MarkerCluster */
+.lz-cluster-icon {
+  background-color: rgba(255, 0, 0, 0.712);
+  color: white;
+  text-align: center;
+  border-radius: 50%;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+}
+
+.hg-cluster-icon {
+  background-color: orange;
+  color: green;
+  text-align: center;
+  border-radius: 50%;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4px solid green;
+}
+
+.pg-cluster-icon {
+  background-color: orange;
+  color: green;
+  text-align: center;
+  border-radius: 50%;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4px solid green;
+}
+
+.cluster-marker {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Logo Control */
+.leaflet-control-logo .leaflet-control {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.logo-image {
+  display: block;
+  max-width: 120px;
+  height: auto;
+  filter: drop-shadow(0px 0px 3px rgba(255, 255, 255, 0.8));
+}
+
+/* Layers Control - Hover Behavior */
+.leaflet-control-layers {
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+  background: #fff;
+  border-radius: 5px;
+}
+
+/* Expand on hover for desktop */
+@media (hover: hover) {
+  .leaflet-control-layers:hover .leaflet-control-layers-list {
+    display: block;
+  }
+  .leaflet-control-layers:hover .leaflet-control-layers-expanded {
+    padding: 6px 10px 6px 6px;
+  }
+}
+/* Touch-friendly behavior for mobile */
+@media (hover: none) {
+  .leaflet-control-layers-toggle {
+    width: 30px;
+    height: 30px;
+  }
+  .leaflet-touch .leaflet-control-layers-toggle {
+    width: 30px;
+    height: 30px;
+  }
+}
+/* Make sure the control is properly styled when expanded */
+.leaflet-control-layers-expanded {
+  padding: 6px 10px 6px 6px;
+  color: #333;
+  background: #fff;
+}
+
+/* Specific styles for the layers tree control */
+.leaflet-layerstree-node {
+  margin-bottom: 3px;
+}
+
+.leaflet-layerstree-header {
+  margin-bottom: 2px;
+  padding-left: 2px;
+}
+
+/* Use the default Leaflet layers icon */
+.leaflet-control-layers-toggle {
+  background-image: url("https://unpkg.com/leaflet@1.9.4/dist/images/layers-2x.png");
+  background-size: 20px 20px;
+  background-repeat: no-repeat;
+  background-position: center;
+  width: 30px !important;
+  height: 30px !important;
+}
+
+/* Ensure the tree control works well on mobile and has consistent styling */
+.leaflet-touch .leaflet-control-layers-toggle {
+  width: 30px !important;
+  height: 30px !important;
+}
+
+/* Make the control container consistent with other controls */
+.leaflet-control-layers {
+  border-radius: 4px !important;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Ensure the control has the same border as other controls */
+.leaflet-bar a,
+.leaflet-control-layers-toggle {
+  border-bottom: 1px solid #ccc !important;
 }/*# sourceMappingURL=styles.css.map */

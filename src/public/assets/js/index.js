@@ -1,4 +1,3 @@
-
 import './L.Control.Layers.Tree.js';
 import '../css/L.Control.Layers.Tree.css';
 
@@ -29,9 +28,9 @@ function initMap() {
       center: [50, 6],
       zoom: 11,
       zoomControl: false,
-      layers: [] 
+      layers: []
   });
-  
+
   L.control.zoom({
       position: 'bottomright',
   }).addTo(window.map);
@@ -40,41 +39,52 @@ function initMap() {
   var awgTerrain = L.tileLayer('https://tile.jawg.io/jawg-terrain/{z}/{x}/{y}{r}.png?access-token=qBDXRu1KSlZGhx4ROlceBD9hcxmrumL34oj29tUkzDVkafqx08tFWPeRNb0KSoKa', {
       attribution: 'Jawg.io terrain'
   }).addTo(window.map);
-  
+
   var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap'
   });
-  
+
   var xcontest = L.tileLayer('https://topo.xcontest.app/elev/{z}/{x}/{y}.jpg', {
       attribution: 'XContest&copy; <a href="https://www.xcontest.org">XContest</a>',
       className: 'xcontest-layer'
   });
 
   /* JS */
+    // Modified popupopen handler
   window.map.on('popupopen', function(ev){
     var el = document.getElementById('fullScreenInfo');
-    
-    // Create content with close button
-    var content = ev.popup.getContent();
-    var closeButton = '<div style="position: absolute; top: 10px; right: 10px;">' +
-                      '<button onclick="closeFullscreenInfo()" style="background: none; border: none; font-size: 20px; cursor: pointer;">✕</button>' +
-                      '</div>';
-    
-    el.innerHTML = closeButton + content;
-    el.classList.add('visible');
+    var screenWidthThreshold = 768; // Match CSS media query
+
+    if (window.innerWidth < screenWidthThreshold) {
+      // Force close any existing popup
+      window.map.closePopup();
+
+      try {
+        // Create content with close button
+        var content = ev.popup.getContent();
+        var closeButton = '<div style="position: absolute; top: 10px; right: 10px;">' +
+                          '<button onclick="closeFullscreenInfo()" style="background: none; border: none; font-size: 20px; cursor: pointer;">✕</button>' +
+                          '</div>';
+
+        el.innerHTML = closeButton + content;
+        el.classList.add('visible');
+        el.style.display = 'block'; // Set display to block
+        el.style.zIndex = '10000'; // High z-index
+        document.getElementById('map').classList.add('map-covered');
+      } catch (error) {
+        console.error('Error in popupopen handler:', error);
+      }
+    }
   });
-  
-  // Add this function to global scope
+
+  // closeFullscreenInfo function (no changes needed here)
   window.closeFullscreenInfo = function() {
     var el = document.getElementById('fullScreenInfo');
     el.classList.remove('visible');
+    el.innerHTML = ''; // Clear the content
+    document.getElementById('map').classList.remove('map-covered');
+    window.map.closePopup(); // Close the Leaflet popup
   };
-  
-  window.map.on('popupclose', function(ev){
-    var el = document.getElementById('fullScreenInfo');
-    el.classList.remove('visible');
-  });
-
 
   // MapLibre GL layer
   var mapTilerTerrain = L.mapboxGL({
@@ -83,7 +93,7 @@ function initMap() {
       className: 'xcmap-layer',
       attribution: 'MapTiler Terrain'
   });
-  
+
   var sat = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{
       attribution: 'Map data: Google',
       maxZoom: 20,
@@ -100,7 +110,7 @@ function initMap() {
     apiKey: "c49iG8J3xvAkgCSZ8M8v",
     className: 'xcmap-layer satellite-overlay',
     attribution: 'MapTiler Terrain'
-});
+  });
 
 // Create a simplified contour overlay specifically for use with satellite
 var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x}/{y}.pbf?key=c49iG8J3xvAkgCSZ8M8v', {
@@ -134,10 +144,10 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
 
   window.placesLayerPG = L.layerGroup( [], {
     attribution: '&copy; <a href="https://paraglidingspots.com">paraglidingspots.com</a>',
-  }); 
+  });
   window.placesLayerHG = L.layerGroup([], {
     attribution: '&copy; <a href="https://paraglidingspots.com">paraglidingspots.com</a>',
-  }); 
+  });
   window.placesLayerLZ = L.layerGroup([], {
     attribution: '&copy; <a href="https://paraglidingspots.com">paraglidingspots.com</a>',
   });
@@ -178,40 +188,40 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   var overlayTree = {
       label: 'Overlays',
       children: [
-          { label: 'Wind Stations', 
+          { label: 'Wind Stations',
             children: [
               { label: 'Wind Stations', layer: window.windLayer, checked: true  },
           ]
           },
 
-          { label: 'Spots',              
+          { label: 'Spots',
               children: [
                   { label: 'Take-off PG', layer: window.placesLayerPG },
                   { label: 'Take-off HG', layer: window.placesLayerHG },
                   { label: 'Landing Zones', layer: window.placesLayerLZ },
               ]
           },
-          { label: 'Airspaces', 
+          { label: 'Airspaces',
               children: [
-                      { 
+                      {
                         html: `
                             <div class="airspace-time-control">
-                                Active: 
+                                Active:
                                 <select class="airspace-time-select" id="airspaceTime">
                                     ${airspaceTimeOptions}
                                 </select>
                                           </div>
                                       `
                       },
-                      { 
+                      {
                       html: `
                           <div class="airspace-limit-control">
-                              ↧ below: 
+                              ↧ below:
                               <select class="lower-limit-select" id="airspaceLowerLimit">
                                   <option value="2000">2000m</option>
                                   <option value="2500">2500m</option>
                                   <option value="3000" selected>3000m</option>
-                                  <option value="3500">3500m</option>                        
+                                  <option value="3500">3500m</option>
                                   <option value="4000">4000m</option>
                                   <option value="4500">4500m</option>
                               </select>
@@ -239,21 +249,21 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
       img.alt = 'XCmaps Logo';
       img.style.width = '120px'; // Adjust size as needed
       img.style.height = 'auto';
-      
+
       // Prevent clicks on the logo from propagating to the map
       L.DomEvent.disableClickPropagation(container);
-      
+
       return container;
     }
   });
-  
+
   L.control.logo = function(opts) {
     return new L.Control.Logo(opts);
   };
-  
+
   // Add the logo control to the map
   L.control.logo({ position: 'topleft' }).addTo(window.map);
-  
+
   // Add locate control
   var lc = L.control
       .locate({
@@ -274,18 +284,18 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
 
   // Initialize with collapsed tree but expanded selected layers
   treeLayersControl.collapseTree().expandSelected();
-  
+
   // Add touch support for mobile devices
   const layersControlContainer = treeLayersControl.getContainer();
   const layersControlToggle = layersControlContainer.querySelector('.leaflet-control-layers-toggle');
-  
+
   // Function to detect if device is touch-only (no hover capability)
   const isTouchDevice = () => {
     return (('ontouchstart' in window) ||
             (navigator.maxTouchPoints > 0) ||
             (navigator.msMaxTouchPoints > 0));
   };
-  
+
   // Add click handler for touch devices
   if (isTouchDevice()) {
     L.DomEvent.on(layersControlToggle, 'click', function(e) {
@@ -296,49 +306,49 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
         L.DomUtil.addClass(layersControlContainer, 'leaflet-control-layers-expanded');
       }
     });
-    
+
     // Close the control when clicking outside of it
     L.DomEvent.on(document, 'click', function() {
       if (L.DomUtil.hasClass(layersControlContainer, 'leaflet-control-layers-expanded')) {
         L.DomUtil.removeClass(layersControlContainer, 'leaflet-control-layers-expanded');
       }
     });
-    
+
     // Prevent clicks inside the control from closing it
     L.DomEvent.on(layersControlContainer, 'click', function(e) {
       L.DomEvent.stopPropagation(e);
     });
   }
 
-  
-  
+
+
   // Central event handler for map movements
   // This will be the ONLY moveend handler for fetching data
   window.map.on('moveend', function() {
     console.log('Map moveend event triggered');
-    
+
     // Check if windLayer is on the map and fetchWindStations exists
     if (window.map.hasLayer(window.windLayer) && typeof window.fetchWindStations === 'function') {
       console.log('Fetching wind stations after map move...');
       window.fetchWindStations();
     }
-    
+
     // Only trigger fetch for visible spot layers
     if (window.map.hasLayer(window.placesLayerPG) && window.fetchPlacesPG) {
       console.log('Fetching PG spots after map move...');
       window.fetchPlacesPG();
     }
-    
+
     if (window.map.hasLayer(window.placesLayerHG) && window.fetchPlacesHG) {
       console.log('Fetching HG spots after map move...');
       window.fetchPlacesHG();
     }
-    
+
     if (window.map.hasLayer(window.placesLayerLZ) && window.fetchPlacesLZ) {
       console.log('Fetching LZ spots after map move...');
       window.fetchPlacesLZ();
     }
-    
+
     // Airspaces
     if (window.map.hasLayer(window.airspaceEFG) && typeof window.fetchAirspaces === 'function') {
       console.log('Fetching airspaces after map move...');
@@ -375,11 +385,11 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
         console.log('Selected airspace date:', e.target.value);
     }
   });
-  
+
   // Add layer change event listeners to fetch data when layers are added
   window.map.on('layeradd', function(e) {
     const layer = e.layer;
-    
+
     // When a layer is added, fetch its data if needed
     if (layer === window.windLayer && typeof window.fetchWindStations === 'function') {
       window.fetchWindStations();
@@ -401,116 +411,114 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
       window.fetchObstacles();
     }
   });
-  
+
   // Signal that the map is fully initialized
   window.mapInitialized = true;
   console.log("Map initialization complete");
-  
+
   // Trigger an event that component scripts can listen for
   const mapReadyEvent = new Event('map_initialized');
   document.dispatchEvent(mapReadyEvent);
   console.log("Map initialized event dispatched");
-  
+
   return window.map;
 }
 
-
-
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
-  console.log("DOM content loaded, initializing map");
-  // Initialize the map
-  const map = initMap();
-  
-  // Setup geolocation after map is initialized
-  navigator.geolocation.getCurrentPosition(position => {
-      console.log("Geolocation received");
-      const userLat = position.coords.latitude;
-      const userLng = position.coords.longitude;
-      map.setView([userLat, userLng], 10);
-      
-      // Create a user location ready event
-      const locationReadyEvent = new CustomEvent('user_location_ready', {
-          detail: { lat: userLat, lng: userLng }
-      });
-      document.dispatchEvent(locationReadyEvent);
-      console.log("User location event dispatched");
-  });
+console.log("DOM content loaded, initializing map");
+// Initialize the map
+const map = initMap();
 
-  // Load component scripts after map is initialized
-  
+// Setup geolocation after map is initialized
+navigator.geolocation.getCurrentPosition(position => {
+    console.log("Geolocation received");
+    const userLat = position.coords.latitude;
+    const userLng = position.coords.longitude;
+    map.setView([userLat, userLng], 10);
+
+    // Create a user location ready event
+    const locationReadyEvent = new CustomEvent('user_location_ready', {
+        detail: { lat: userLat, lng: userLng }
+    });
+    document.dispatchEvent(locationReadyEvent);
+    console.log("User location event dispatched");
+});
+
+// Load component scripts after map is initialized
+
 });
 
 // Special patch for initial data loading
 document.addEventListener('user_location_ready', function(e) {
-  console.log("Handling user location ready event");
-  setTimeout(() => {
-      // Only call these functions if they exist, the map is fully initialized,
-      // AND their respective layers are visible
-      if (typeof window.fetchWindStations === 'function' && 
-          window.mapInitialized && 
-          window.map.hasLayer(window.windLayer)) {
-          try {
-              console.log("Fetching wind stations");
-              window.fetchWindStations(e.detail.lat, e.detail.lng);
-          } catch (error) {
-              console.error('Error fetching wind stations:', error);
-          }
-      }
-      
-      if (typeof window.fetchAirspaces === 'function' && 
-          window.mapInitialized && 
-          window.map.hasLayer(window.airspaceEFG)) {
-          try {
-              console.log("Fetching airspaces");
-              window.fetchAirspaces();
-          } catch (error) {
-              console.error('Error fetching airspaces:', error);
-          }
-      }
+console.log("Handling user location ready event");
+setTimeout(() => {
+    // Only call these functions if they exist, the map is fully initialized,
+    // AND their respective layers are visible
+    if (typeof window.fetchWindStations === 'function' &&
+        window.mapInitialized &&
+        window.map.hasLayer(window.windLayer)) {
+        try {
+            console.log("Fetching wind stations");
+            window.fetchWindStations(e.detail.lat, e.detail.lng);
+        } catch (error) {
+            console.error('Error fetching wind stations:', error);
+        }
+    }
 
-      if (typeof window.fetchAirspacesGliding === 'function' && 
-        window.mapInitialized && 
-        window.map.hasLayer(window.airspaceGliding)) {
+    if (typeof window.fetchAirspaces === 'function' &&
+        window.mapInitialized &&
+        window.map.hasLayer(window.airspaceEFG)) {
         try {
             console.log("Fetching airspaces");
-            window.fetchAirspacesGliding();
+            window.fetchAirspaces();
         } catch (error) {
             console.error('Error fetching airspaces:', error);
         }
-      }
+    }
 
-      if (typeof window.fetchAirspacesNotam === 'function' && 
-        window.mapInitialized && 
-        window.map.hasLayer(window.airspaceNotam)) {
-        try {
-            console.log("Fetching airspaces");
-            window.fetchAirspacesNotam();
-        } catch (error) {
-            console.error('Error fetching airspaces:', error);
-        }
+    if (typeof window.fetchAirspacesGliding === 'function' &&
+      window.mapInitialized &&
+      window.map.hasLayer(window.airspaceGliding)) {
+      try {
+          console.log("Fetching airspaces");
+          window.fetchAirspacesGliding();
+      } catch (error) {
+          console.error('Error fetching airspaces:', error);
       }
+    }
 
-      if (typeof window.fetchAirspacesXC === 'function' && 
-        window.mapInitialized && 
-        window.map.hasLayer(window.airspaceXC)) {
-        try {
-            console.log("Fetching airspaces");
-            window.fetchAirspacesXC();
-        } catch (error) {
-            console.error('Error fetching airspaces:', error);
-        }
+    if (typeof window.fetchAirspacesNotam === 'function' &&
+      window.mapInitialized &&
+      window.map.hasLayer(window.airspaceNotam)) {
+      try {
+          console.log("Fetching airspaces");
+          window.fetchAirspacesNotam();
+      } catch (error) {
+          console.error('Error fetching airspaces:', error);
       }
+    }
 
-      if (typeof window.fetchObstacles === 'function' && 
-        window.mapInitialized && 
-        window.map.hasLayer(window.obstacleLayer)) {
-        try {
-            console.log("Fetching obstacles");
-            window.fetchObstacles();
-        } catch (error) {
-            console.error('Error fetching obstacles:', error);
-        }
+    if (typeof window.fetchAirspacesXC === 'function' &&
+      window.mapInitialized &&
+      window.map.hasLayer(window.airspaceXC)) {
+      try {
+          console.log("Fetching airspaces");
+          window.fetchAirspacesXC();
+      } catch (error) {
+          console.error('Error fetching airspaces:', error);
       }
-  }, 500); // Give a short delay to ensure all scripts are loaded
+    }
+
+    if (typeof window.fetchObstacles === 'function' &&
+      window.mapInitialized &&
+      window.map.hasLayer(window.obstacleLayer)) {
+      try {
+          console.log("Fetching obstacles");
+          window.fetchObstacles();
+      } catch (error) {
+          console.error('Error fetching obstacles:', error);
+      }
+    }
+}, 500); // Give a short delay to ensure all scripts are loaded
 });
