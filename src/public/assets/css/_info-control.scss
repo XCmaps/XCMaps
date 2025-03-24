@@ -24,3 +24,40 @@
 .info-popup  .leaflet-popup-tip-container {
     display: none;
 }
+
+/* Info Control */
+.info-control .leaflet-control-button {
+    background-color: white;
+    border-radius: 4px;
+    padding: 5px;
+    transition: background-color 0.2s;
+  }
+  
+  .info-control .leaflet-control-button:hover {
+    background-color: #f8f9fa;
+  }
+  
+  .info-control-icon {
+    width: 20px;
+    height: 20px;
+    display: block;
+  }
+  
+  /* Info Popup - Only width remains */
+  .info-popup .leaflet-popup-content-wrapper {
+    max-width: 700px;
+  }
+  
+  .info-popup .leaflet-popup-tip-container {
+    display: none;
+  }
+
+  .info-popup .leaflet-popup-content img {
+    max-width: 30%; /* Make sure images fit within the popup */
+    height: auto;    /* Maintain aspect ratio */
+}
+
+.popup-logo img {
+    max-width: 30%;
+    height: auto;
+}

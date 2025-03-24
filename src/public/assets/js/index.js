@@ -21,6 +21,7 @@ import '../../../components/spots-lz.js';
 import '../../../components/obstacles.js';
 
 
+
 // Initialize map and make necessary objects globally available
 function initMap() {
   // Create the map object and make it globally accessible
@@ -47,6 +48,31 @@ function initMap() {
   var xcontest = L.tileLayer('https://topo.xcontest.app/elev/{z}/{x}/{y}.jpg', {
       attribution: 'XContest&copy; <a href="https://www.xcontest.org">XContest</a>',
       className: 'xcontest-layer'
+  });
+
+  /* JS */
+  window.map.on('popupopen', function(ev){
+    var el = document.getElementById('fullScreenInfo');
+    
+    // Create content with close button
+    var content = ev.popup.getContent();
+    var closeButton = '<div style="position: absolute; top: 10px; right: 10px;">' +
+                      '<button onclick="closeFullscreenInfo()" style="background: none; border: none; font-size: 20px; cursor: pointer;">✕</button>' +
+                      '</div>';
+    
+    el.innerHTML = closeButton + content;
+    el.classList.add('visible');
+  });
+  
+  // Add this function to global scope
+  window.closeFullscreenInfo = function() {
+    var el = document.getElementById('fullScreenInfo');
+    el.classList.remove('visible');
+  };
+  
+  window.map.on('popupclose', function(ev){
+    var el = document.getElementById('fullScreenInfo');
+    el.classList.remove('visible');
   });
 
 
@@ -283,6 +309,8 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
       L.DomEvent.stopPropagation(e);
     });
   }
+
+  
   
   // Central event handler for map movements
   // This will be the ONLY moveend handler for fetching data

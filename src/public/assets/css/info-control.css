@@ -16,6 +16,7 @@
     display: block;
 }
 
+
 /* Info Popup */
 .info-popup .leaflet-popup-content-wrapper {
     border-radius: 8px;
@@ -42,3 +43,4 @@
     max-width: 30%;
     height: auto;
 }
+

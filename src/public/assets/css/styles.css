@@ -1,33 +1,4 @@
-/* Info Control */
-.info-control .leaflet-control-button {
-  background-color: white;
-  border-radius: 4px;
-  padding: 5px;
-  transition: background-color 0.2s;
-}
 
-.info-control .leaflet-control-button:hover {
-  background-color: #f8f9fa;
-}
-
-.info-control-icon {
-  width: 20px;
-  height: 20px;
-  display: block;
-}
-
-.leaflet-container a.leaflet-popup-close-button {
-  color: #000 !important;
-}
-
-/* Info Popup - Only width remains */
-.info-popup .leaflet-popup-content-wrapper {
-  max-width: 700px;
-}
-
-.info-popup .leaflet-popup-tip-container {
-  display: none;
-}
 
 .airspace-limit-control {
   font-size: 1em;
@@ -356,10 +327,8 @@ html, body {
 }
 
 /* Logo Control */
-.leaflet-control-logo {
+.leaflet-control-logo .leaflet-control {
   background-color: transparent;
-  padding: 5px;
-  border-radius: 4px;
   box-shadow: none;
 }
 

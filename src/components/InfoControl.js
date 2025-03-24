@@ -1,4 +1,4 @@
-const L = window.L;
+
 
 const InfoControl = L.Control.extend({
     onAdd: function(map) {
@@ -30,7 +30,8 @@ const InfoControl = L.Control.extend({
                 '</ul>' +
                 '<p>This map combines various data sources for aerial sports navigation.</p></div>';
             
-            L.popup({
+            // Create the standard Leaflet popup
+            var popup = L.popup({
                 className: 'info-popup',
                 autoPan: true,
                 maxWidth: 700,
@@ -46,3 +47,4 @@ const InfoControl = L.Control.extend({
 });
 
 export default InfoControl;
+
