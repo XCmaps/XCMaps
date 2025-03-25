@@ -22,6 +22,8 @@ $primary-color: #007bff;
       right: 0; 
       top: 0; 
       bottom: 0; 
+      padding: 10px;
+      font-family: sans-serif;
       z-index: 9999; /* Ensure it's above map when visible */
       display: block; /* Show the element when it has visible class */
     }

@@ -254,7 +254,7 @@ function fetchWindStations() {
 
             // Build the popup HTML with tabs.
             const popupHtml = `
-              <div style="display: flex; gap: 1px; align-items: flex-start; max-width: 700px">
+              <div style="display: flex; gap: 1px; align-items: flex-end; max-width: 700px">
                 <div style="flex: 1;" class="wind-station-popup-content">
                   <strong>${station.short}</strong><br><br>
                   <tag-name>Wind Speed:&#9;&#9;${windAvg} km/h<br></tag-name>
@@ -263,7 +263,7 @@ function fetchWindStations() {
                   <tag-name>Last Update:&#9;&#9;${lastUpdate}<br><br></tag-name>
                 </div>
                 ${isHolfuy ? `
-                  <div style="flex: 0 0 auto; width: 110px;">
+                  <div style="flex: 0 0 auto; width: 110px; margin-right: 15px;">
                     <iframe src="https://widget.holfuy.com/?station=${holfuyStationId}&su=km/h&t=C&lang=en&mode=rose&size=110"
                       width="160"
                       height="110"
@@ -623,3 +623,4 @@ window.showTab = function (tabId, element) {
 };
 
 window.fetchWindStations = fetchWindStations;
+
