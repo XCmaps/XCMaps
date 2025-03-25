@@ -141,6 +141,84 @@
   display: none;
 }
 
+.swiper2.swiper-small {
+  width: 320px;
+  padding-top: 30px;
+  height: auto;
+  padding-left: 0;
+}
+.swiper2.swiper-small > .swiper-wrapper {
+  width: auto;
+  height: 100px;
+}
+.swiper2.swiper-medium {
+  height: 320px;
+  width: auto;
+  padding-left: 0;
+  padding-top: 0;
+}
+.swiper2.swiper-medium > .swiper-wrapper {
+  width: auto;
+  height: auto;
+}
+.swiper2.swiper-large {
+  height: 460px;
+  width: auto;
+  padding-left: 30px;
+  padding-top: 0;
+}
+.swiper2.swiper-large > .swiper-wrapper {
+  height: auto;
+  width: 100px;
+}
+
+.wind-station-popup-content tag-name {
+  white-space: pre;
+}
+
+.wind-data-table {
+  border-collapse: collapse;
+  width: 98%;
+  text-align: center;
+}
+.wind-data-table tbody tr td, .wind-data-table tbody tr th {
+  padding-top: 0px;
+  padding-bottom: 0px;
+  vertical-align: baseline;
+}
+.wind-data-table thead tr th {
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+.wind-direction-arrow {
+  display: inline-block;
+  font-weight: bold;
+}
+
+.camera-image {
+  width: 100%;
+  height: auto;
+}
+
+.holfuy-container {
+  width: 100%;
+  text-align: center;
+  padding: 10px;
+}
+
+.loading-text {
+  padding: 10px;
+  color: #666;
+}
+
+.webcam-image {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
 #fullScreenInfo {
   display: none;
   z-index: 1000; /* Higher than the map z-index */
@@ -283,7 +361,6 @@ html, body {
 }
 
 .tab-content {
-  padding: 5px;
   max-height: 800px;
   overflow-y: auto;
 }
@@ -492,10 +569,4 @@ html, body {
 .leaflet-control-layers {
   border-radius: 4px !important;
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4) !important;
-}
-
-/* Ensure the control has the same border as other controls */
-.leaflet-bar a,
-.leaflet-control-layers-toggle {
-  border-bottom: 1px solid #ccc !important;
 }/*# sourceMappingURL=styles.css.map */

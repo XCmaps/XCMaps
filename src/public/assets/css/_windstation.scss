@@ -1,0 +1,87 @@
+.swiper2 {
+  &.swiper-small {
+    width: 320px;
+    padding-top: 30px;
+    height: auto; // Let height be determined by content
+    padding-left: 0; // Reset padding
+
+    > .swiper-wrapper {
+      width: auto; // Reset width
+      height: 100px;
+    }
+  }
+
+  &.swiper-medium {
+    height: 320px;
+    width: auto; // Reset width
+    padding-left: 0;
+    padding-top: 0;
+     > .swiper-wrapper {
+      width: auto;
+      height: auto;
+    }
+  }
+
+  &.swiper-large {
+    height: 460px;
+    width: auto;
+    padding-left: 30px;
+    padding-top: 0;
+     > .swiper-wrapper {
+      height: auto;
+      width: 100px;
+    }
+  }
+}
+
+.wind-station-popup-content {
+  tag-name {
+    white-space: pre;
+  }
+}
+
+.wind-data-table {
+  border-collapse: collapse;
+  width: 98%;
+  text-align: center;
+
+  tbody tr td, tbody tr th {
+    padding-top: 0px;
+    padding-bottom: 0px;
+    vertical-align: baseline;
+  }
+
+  thead tr th {
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+}
+
+.wind-direction-arrow {
+  display: inline-block;
+  // Dynamic transform will be handled in JS
+  font-weight: bold;
+}
+
+.camera-image {
+  width: 100%;
+  height: auto;
+}
+
+.holfuy-container {
+    width: 100%;
+    text-align: center;
+    padding: 10px;
+}
+
+.loading-text {
+    padding: 10px;
+    color: #666;
+}
+
+.webcam-image {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}

@@ -7,21 +7,18 @@ let currentFeedbackForm = null;
 // Swiper related functions
 function changeSwiper() {
     if (typeof swiperc !== "undefined") {
+        $(".swiper2").removeClass("swiper-small swiper-medium swiper-large"); // Remove all classes first
         if (window.innerWidth < 576) {
-            $(".swiper2").css("height", ""); $(".swiper2").css("width", "320px");
-            $(".swiper2").css("padding-left", ""); $(".swiper2").css("padding-top", "30px");
-            $(".swiper2 > .swiper-wrapper").css("width", ""); $(".swiper2 > .swiper-wrapper").css("height", "100px");
+            $(".swiper2").addClass("swiper-small");
             swiperc.changeDirection('horizontal', true);
         }
         else {
             if (window.innerWidth < 840) {
-                $(".swiper2").css("width", ""); $(".swiper2").css("height", "320px");
+                $(".swiper2").addClass("swiper-medium");
             }
             else {
-                $(".swiper2").css("width", ""); $(".swiper2").css("height", "460px");
+                $(".swiper2").addClass("swiper-large");
             }
-            $(".swiper2").css("padding-top", ""); $(".swiper2").css("padding-left", "30px");
-            $(".swiper2 > .swiper-wrapper").css("height", ""); $(".swiper2 > .swiper-wrapper").css("width", "100px");
             swiperc.changeDirection('vertical', true);
         }
     }
@@ -216,8 +213,8 @@ function fetchWindStations() {
             const fiveHoursAgo = Date.now() - 5 * 60 * 60 * 1000;
             const limitedData = aggregatedData.filter(
               (entry) => entry._id * 1000 >= fiveHoursAgo
-            );
-            let historyTable = `<table border="1" style="border-collapse: collapse; width: 100%; text-align: center;">
+            ).slice(0, 24); // Limit to 24 most recent entries
+            let historyTable = `<div class="table-responsive"><table class="wind-data-table table">
               <thead>
                 <tr>
                   <th>Wind (m/s)</th>
@@ -235,21 +232,21 @@ function fetchWindStations() {
               });
               const compassDir = getCompassDirection(entry["w-dir"]);
               historyTable += `<tr>
-                <td style="color: ${getTextColor(getFillColor(entry["w-avg"]))}; background-color: ${getFillColor(entry["w-avg"])};">
+                <td class="wind-avg-cell" style="color: ${getTextColor(getFillColor(entry["w-avg"]))}; background-color: ${getFillColor(entry["w-avg"])};">
                   ${entry["w-avg"].toFixed(1)}
                 </td>
-                <td style="color: ${getTextColor(getStrokeColor(entry["w-max"]))}; background-color: ${getStrokeColor(entry["w-max"])};">
+                <td class="wind-max-cell" style="color: ${getTextColor(getStrokeColor(entry["w-max"]))}; background-color: ${getStrokeColor(entry["w-max"])};">
                   ${entry["w-max"].toFixed(1)}
                 </td>
                 <td>
-                  <span style="display: inline-block; transform: rotate(${entry["w-dir"] + 180}deg);"><strong>⬆ </strong></span>
+                  <span class="wind-direction-arrow" style="padding-top: 3px; padding-bottom: 3px; transform: rotate(${entry["w-dir"] + 180}deg);">⬆</span>
                   ${compassDir}
                 </td>
                 <td>${entry["temp"] !== undefined ? entry["temp"].toFixed(1) : "N/A"}</td>
                 <td>${timeFormatted}</td>
               </tr>`;
             });
-            historyTable += `</tbody></table>`;
+            historyTable += `</tbody></table></div>`;
 
             // --- CHART SETUP (10‑minute averages with hourly vertical grid lines) ---
             // For the chart we want ascending order (oldest first).
@@ -257,13 +254,13 @@ function fetchWindStations() {
 
             // Build the popup HTML with tabs.
             const popupHtml = `
-              <div style="display: flex; gap: 1px; align-items: flex-start;">
-                <div style="flex: 1;">
+              <div style="display: flex; gap: 1px; align-items: flex-start; max-width: 700px">
+                <div style="flex: 1;" class="wind-station-popup-content">
                   <strong>${station.short}</strong><br><br>
-                  <tag-name style="white-space:pre">Wind Speed:&#9;&#9;${windAvg} km/h<br></tag-name>
-                  <tag-name style="white-space:pre">Max Wind:&#9;&#9;${windMax} km/h<br></tag-name>
-                  <tag-name style="white-space:pre">Wind Direction:&#9;${windDirection}° (${compassDirection})<br></tag-name>
-                  <tag-name style="white-space:pre">Last Update:&#9;&#9;${lastUpdate}<br><br></tag-name>
+                  <tag-name>Wind Speed:&#9;&#9;${windAvg} km/h<br></tag-name>
+                  <tag-name>Max Wind:&#9;&#9;${windMax} km/h<br></tag-name>
+                  <tag-name>Wind Direction:&#9;${windDirection}° (${compassDirection})<br></tag-name>
+                  <tag-name>Last Update:&#9;&#9;${lastUpdate}<br><br></tag-name>
                 </div>
                 ${isHolfuy ? `
                   <div style="flex: 0 0 auto; width: 110px;">
@@ -289,7 +286,7 @@ function fetchWindStations() {
                 <canvas id="canvas-${station._id}" width="400" height="200"></canvas>
               </div>
               <div id="camera-${station._id}" class="tab-content" style="display: none;">
-                <img id="camera-image-${station._id}" src="" alt="Camera Image" style="width: 100%; height: auto;">
+                <img id="camera-image-${station._id}" src="" alt="Camera Image" class="camera-image">
               </div>
             `;
 
@@ -299,7 +296,8 @@ function fetchWindStations() {
                 hasTip: true,
                 autoPan: false,
                 offset: [15, 25],
-                maxWidth: 560,
+                maxWidth: 700,
+                minWidth: 400,
                 maxHeight: 800,
               }).setContent(popupHtml)
             );
@@ -429,28 +427,25 @@ function fetchWindStations() {
                   
                   // Create a container div for better layout control
                   const container = document.createElement('div');
-                  container.style.width = '100%';
-                  container.style.textAlign = 'center';
-                  container.style.padding = '10px';
-                  
+                  container.classList.add('holfuy-container');
+
                   // No heading needed
                   
                   // Add a loading indicator
                   const loadingText = document.createElement('div');
                   loadingText.textContent = 'Loading webcam image...';
-                  loadingText.style.padding = '20px';
-                  loadingText.style.color = '#666';
+                  loadingText.classList.add('loading-text');
                   container.appendChild(loadingText);
                   
                   // Replace the image element with our container
                   if (cameraImageElement.parentNode) {
-                    cameraImageElement.parentNode.replaceChild(container, cameraImageElement);
-                    cameraTabElement.style.display = "block";
-                    console.log("Successfully replaced image with container");
+                      cameraImageElement.parentNode.replaceChild(container, cameraImageElement);
+                      cameraTabElement.style.display = "block";
+                      console.log("Successfully replaced image with container");
                   } else {
-                    console.error("Cannot find parent of image element for replacement");
-                    cameraTabElement.style.display = "none";
-                    return;
+                      console.error("Cannot find parent of image element for replacement");
+                      cameraTabElement.style.display = "none";
+                      return;
                   }
                   
                   // First fetch the Moselfalken website to extract the current image URL
@@ -458,15 +453,14 @@ function fetchWindStations() {
                   // Show loading state
                   const extractingText = document.createElement('div');
                   extractingText.textContent = 'Loading webcam image...';
-                  extractingText.style.padding = '10px';
-                  extractingText.style.color = '#666';
+                  extractingText.classList.add('loading-text');
                   container.innerHTML = '';
                   container.appendChild(extractingText);
                   
                   // Determine the website URL based on the station ID
                   let websiteUrl = 'https://www.moselfalken.de/zeltingen-rachtig'; // Default for holfuy-361
                   if (station._id === "holfuy-363") {
-                    websiteUrl = 'https://www.moselfalken.de/meerfeld';
+                      websiteUrl = 'https://www.moselfalken.de/meerfeld';
                   }
                   
                   // Fetch the website via our proxy
@@ -544,11 +538,7 @@ function fetchWindStations() {
                       // Create a new image element
                       const img = document.createElement('img');
                       img.alt = "Moselfalken Webcam";
-                      img.style.maxWidth = '100%';
-                      img.style.height = 'auto';
-                      img.style.border = '1px solid #ccc';
-                      img.style.borderRadius = '4px';
-                      img.src = imageProxyUrl;
+                      img.classList.add('webcam-image');
                       
                       // Replace the loading text with just the image
                       container.innerHTML = '';

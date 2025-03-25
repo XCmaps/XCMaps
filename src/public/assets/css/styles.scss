@@ -3,7 +3,7 @@
 @import "./airspace-time-select";
 @import "./layerstree";
 @import "./variables";
-@import "./wind-station";
+@import "./windstation";
 
 $primary-color: #007bff;
 
@@ -30,6 +30,7 @@ $primary-color: #007bff;
   #fullScreenInfo p {
     color: red;  /* test to apply css to fullScreenInfo  */
   }
+
 
   #map.map-covered {
     z-index: 0;
@@ -140,7 +141,7 @@ $primary-color: #007bff;
     font-weight: bold;
     }
     .tab-content {
-    padding: 5px;
+
     max-height: 800px;
     overflow-y: auto;
     }
@@ -353,11 +354,7 @@ $primary-color: #007bff;
     box-shadow: 0 1px 5px rgba(0,0,0,0.4) !important;
 }
 
-/* Ensure the control has the same border as other controls */
-.leaflet-bar a,
-.leaflet-control-layers-toggle {
-    border-bottom: 1px solid #ccc !important;
-}
+
 
 
 

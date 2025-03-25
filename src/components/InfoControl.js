@@ -19,10 +19,10 @@ const InfoControl = L.Control.extend({
                 // '<h3 class="popup-logo-container"><img class="popup-logo" src="/assets/images/XCmapsLogo.png" alt="XCmaps "></h3>' +
                 '<h3>About XCmaps</h3>'+
                 '<p>XCmaps combines various data sources for aerial sports navigation.</p>'+
-                '<p>You can contact us by email, or report any issue on github.</p>'+
+                '<p>You can contact us by <a href="mailto:info@XCmaps.com" target="_blank">email</a>, or report any issue on github.</p>'+
                 '<p><strong>Credits:</strong></p>' +
                 '<ul>' +
-                '<li>Terrain tiles by <a href="https://www.jawg.io" target="_blank">Jawg</a></li>' +
+                '<li>Terrain tiles by <a href="https://www.jawg.io" target="_blank"></a></li>' +
                 '<li>OpenStreetMap</li>' +
                 '<li>XContest terrain data</li>' +
                 '<li>MapTiler for GL layer</li>' +
