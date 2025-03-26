@@ -375,7 +375,13 @@ function fetchAirspacesXC() {
               `;
             }).join("<hr style='margin: 3px 0;'>");
           
-            L.popup({ className: 'airspace-popup' })
+            L.popup({
+              className: 'airspace-popup',
+              closeOnClick: false,
+              autoClose: false,
+              tap: false,
+              closeButton: true
+            })
               .setLatLng(clickedPoint)
               .setContent(popupContent)
               .openOn(window.map);
