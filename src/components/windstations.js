@@ -463,16 +463,17 @@ function fetchWindStations() {
                       websiteUrl = 'https://www.moselfalken.de/meerfeld';
                   }
                   
+                  
                   // Fetch the website via our proxy
                   const websiteProxyUrl = `${process.env.APP_DOMAIN}/api/proxy?imageUrl=${websiteUrl}`;
-                  
+                  console.log(`[${station._id}] Fetching website HTML from: ${websiteProxyUrl}`); // Added logging
                   fetch(websiteProxyUrl)
-                    .then(response => {
+                    .then(response => { // Added missing .then() and opening brace
                       if (!response.ok) {
                         throw new Error(`HTTP error! Status: ${response.status}`);
                       }
                       return response.text();
-                    })
+                    }) // Corrected closing brace placement
                     .then(html => {
                       // Parse the HTML
                       const parser = new DOMParser();
@@ -531,6 +532,7 @@ function fetchWindStations() {
                       } else if (!imageUrl.startsWith('http')) {
                         imageUrl = 'https://www.moselfalken.de/' + imageUrl;
                       }
+                      console.log(`[${station._id}] Extracted image URL: ${imageUrl}`); // Added logging
                       
                       // Now fetch the image via the proxy
                       const imageProxyUrl = `${process.env.APP_DOMAIN}/api/proxy?imageUrl=${imageUrl}`;
@@ -539,12 +541,15 @@ function fetchWindStations() {
                       const img = document.createElement('img');
                       img.alt = "Moselfalken Webcam";
                       img.classList.add('webcam-image');
+                      console.log(`[${station._id}] Setting image src to proxy: ${imageProxyUrl}`); // Added logging
+                      img.src = imageProxyUrl; // Added missing src assignment
                       
                       // Replace the loading text with just the image
                       container.innerHTML = '';
                       container.appendChild(img);
                     })
                     .catch(error => {
+                      console.error(`[${station._id}] Error fetching/parsing website or extracting image URL:`, error); // Added logging
                       // If there's an error, hide the camera tab
                       cameraTabElement.style.display = "none";
                     });

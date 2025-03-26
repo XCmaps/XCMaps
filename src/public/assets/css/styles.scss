@@ -23,7 +23,7 @@ $primary-color: #007bff;
       top: 0; 
       bottom: 0; 
       padding: 10px;
-      font-family: sans-serif;
+      font-family: 'Open Sans';
       z-index: 9999; /* Ensure it's above map when visible */
       display: block; /* Show the element when it has visible class */
     }
@@ -72,6 +72,13 @@ $primary-color: #007bff;
     font-size: 20px;
     line-height: 1;
     z-index: 1000;
+}
+
+.leaflet-container {
+    font-family: 'Open Sans';
+    font-size: 12px;
+    font-size: 0.75rem;
+    line-height: 1.5;
 }
 
 /* Apply blending mode to the xcontest layer */
