@@ -49,7 +49,7 @@ function fetchObstacles() {
           // Add to layer group
           polyline.addTo(obstacleLayer);
 
-          // Add popup content
+          // Add popup content (using standard popup)
           polyline.bindPopup(() => {
             const content = [];
             if (feature.properties.name) content.push(`<b>${feature.properties.name}</b>`);
@@ -58,7 +58,7 @@ function fetchObstacles() {
             if (feature.properties.maxAgl) content.push(`Max AG: ${feature.properties.maxAgl}m`);
             
             return content.join("<br>");
-          });
+          }, { className: 'obstacle-popup' }); // Add custom class to identify obstacle popups
         }
       });
 
@@ -90,7 +90,7 @@ function fetchObstacles() {
             ${obs.maxAgl ? `Max AG: ${obs.maxAgl}m<br>` : ''}
           `).join("<hr>");
 
-          L.popup()
+          L.popup({ className: 'obstacle-popup' }) // Add custom class to identify obstacle popups
             .setLatLng(clickedPoint)
             .setContent(popupContent)
             .openOn(window.map);

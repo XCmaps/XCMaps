@@ -174,7 +174,79 @@ function fetchAirspacesXC() {
               fillColor: feature.properties.fillColor || "blue",
               fillOpacity: feature.properties.fillOpacity || 0.3
             });
-        
+            
+            // Add popup with airspace-popup class and full content
+            polygon.bindPopup(() => {
+              const tzName = moment.tz.guess();
+              const tzAbbreviation = moment.tz(tzName).zoneAbbr();
+              const tzOffset = moment.tz(tzName).format('Z');
+              const timezoneInfo = `<div class="timezone-info" style="margin-top: 5px; font-size: 0.85em;">Local timezone: ${tzAbbreviation} (UTC${tzOffset})</div>`;
+
+              // Create the description HTML if there are any descriptions
+              let descriptionsHtml = '';
+              if (feature.properties.descriptions && Array.isArray(feature.properties.descriptions) && feature.properties.descriptions.length > 0) {
+                const formatDescription = (text) => {
+                  if (!text) return '';
+                  return text.replace(/([ABCDEFGQ]\))/g, '<br>$1');
+                };
+                
+                descriptionsHtml = `
+                  <div class="airspace-descriptions" style="font-size: 0.8em;">
+                      ${feature.properties.descriptions.map(desc => {
+                        const formattedDesc = formatDescription(desc.airdescription || '');
+                        return `${formattedDesc} ${desc.airlanguage ? `(${desc.airlanguage})` : ''}`;
+                      }).join('')}
+                  </div>
+                `;
+              }
+
+              // Create activations HTML if any
+              let activationsHtml = '';
+              if (feature.properties.activations && Array.isArray(feature.properties.activations) && feature.properties.activations.length > 0) {
+                activationsHtml = `
+                  <div class="airspace-activations">
+                    <b>Activations:</b><br>
+                    ${feature.properties.activations.map(activation => {
+                      const startMoment = moment.utc(activation[0]).tz(tzName);
+                      const endMoment = moment.utc(activation[1]).tz(tzName);
+                      return `${startMoment.format('MMM D, HH:mm z')} - ${endMoment.format('MMM D, HH:mm z')}`;
+                    }).join('<br>')}
+                  </div>
+                `;
+              }
+
+              // Format limits
+              const formatLimit = (limit, original) => {
+                if (!limit) return original || 'N/A';
+                const type = limit.type;
+                const height = limit.height;
+                
+                if (type === 'FL') {
+                  const meters = Math.round(height * 0.3048);
+                  const flNumber = height / 100;
+                  return `${meters}m (FL${flNumber})`;
+                }
+                else if (type === 'AMSL' || type === 'AGL') {
+                  const meters = Math.round(height * 0.3048);
+                  return `${meters}m`;
+                }
+                else {
+                  return original || 'N/A';
+                }
+              };
+
+              const lower = formatLimit(feature.properties.airlower_j, feature.properties.lowerLimit);
+              const upper = formatLimit(feature.properties.airupper_j, feature.properties.upperLimit);
+                          
+              return `
+              <b>${feature.properties.name} (${feature.properties.airspaceClass})</b><br>
+              <b>↧ </b>${lower} - <b>↥ </b>${upper}<br>
+              ${descriptionsHtml}
+              ${activationsHtml}
+              ${timezoneInfo}
+              `;
+            }, { className: 'airspace-popup' });
+            
             // MODIFIED: Single push with all required properties
             airspaces.push({ 
               polygon,
@@ -303,7 +375,7 @@ function fetchAirspacesXC() {
               `;
             }).join("<hr style='margin: 3px 0;'>");
           
-            L.popup()
+            L.popup({ className: 'airspace-popup' })
               .setLatLng(clickedPoint)
               .setContent(popupContent)
               .openOn(window.map);

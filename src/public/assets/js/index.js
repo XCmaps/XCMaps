@@ -56,6 +56,15 @@ function initMap() {
     var screenWidthThreshold = 768; // Match CSS media query
 
     if (window.innerWidth < screenWidthThreshold) {
+      // Skip fullscreen for obstacle popups (check for obstacle-popup class)
+      const popupEl = ev.popup.getElement();
+      if (popupEl && (
+          popupEl.classList.contains('obstacle-popup') ||
+          popupEl.classList.contains('airspace-popup')
+      )) {
+        return;
+      }
+      
       // Force close any existing popup
       window.map.closePopup();
 
