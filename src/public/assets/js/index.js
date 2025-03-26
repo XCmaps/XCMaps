@@ -60,23 +60,18 @@ function initMap() {
       window.map.closePopup();
 
       try {
-        var content = ev.popup.getContent();
-        var isSpotPopup = content.includes('onclick="showFeebackForm()"'); // Check if it's a spot popup
+        var content = ev.popup.getContent(); // Get initial content
 
-        if (isSpotPopup) {
-          // For spot popups, just use the content directly in the target area
-          // The buttons are already included in the 'content' from spots-helper.js
-          el.innerHTML = `<div id="fullscreen-content-area">${content}</div>`;
-        } else {
-          // For other popups (InfoControl, Windstation), add the default close buttons/footer
-          var closeButton = '<div style="position: absolute; top: 10px; right: 10px;">' +
-                            '<button onclick="closeFullscreenInfo()" style="background: none; border: none; font-size: 20px; cursor: pointer;">✕</button>' +
-                            '</div>';
-          var footer = '<div style="text-align: right; padding: 10px;">' +
-                       '<button class="btn btn-dark btn-sm" onclick="closeFullscreenInfo()">Close</button>' + // Removed 'close-popup' class to avoid conflict
-                       '</div>';
-          el.innerHTML = closeButton + `<div id="fullscreen-content-area">${content}</div>` + footer;
-        }
+        // Always add default close button and footer initially, with IDs for removal
+        var closeButton = '<div id="default-fullscreen-close-btn" style="position: absolute; top: 10px; right: 10px;">' + // Added ID
+                          '<button onclick="closeFullscreenInfo()" style="background: none; border: none; font-size: 20px; cursor: pointer;">✕</button>' +
+                          '</div>';
+        var footer = '<div id="default-fullscreen-footer" style="text-align: right; padding: 10px;">' + // Added ID
+                     '<button class="btn btn-dark btn-sm" onclick="closeFullscreenInfo()">Close</button>' +
+                     '</div>';
+
+        // Wrap the main content in a div for easier targeting
+        el.innerHTML = closeButton + `<div id="fullscreen-content-area">${content}</div>` + footer;
 
         el.classList.add('visible');
         el.style.display = 'block'; // Set display to block

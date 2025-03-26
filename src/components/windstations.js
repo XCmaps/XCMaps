@@ -265,7 +265,7 @@ function fetchWindStations() {
                 ${isHolfuy ? `
                   <div style="flex: 0 0 auto; width: 110px; margin-right: 15px;">
                     <iframe src="https://widget.holfuy.com/?station=${holfuyStationId}&su=km/h&t=C&lang=en&mode=rose&size=110"
-                      width="160"
+                      width="110"
                       height="110"
                       frameborder="0"
                       scrolling="no">

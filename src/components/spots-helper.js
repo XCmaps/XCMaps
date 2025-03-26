@@ -142,7 +142,7 @@ async function loadPlaceDetails(layer, placeId) {
         window.currentStrPlacemarkId = data.properties.strPlacemarkId; 
 
         let popupContent = `<span style="color: #0087F7;"><h5>${data.properties.name}</h5></span>
-                            <table style="border-collapse: collapse; width: 40%;">
+                            <table style="border-collapse: collapse; width: 70%;">
                             <tr>
                                 <th style="text-align: left; vertical-align: top;">Type:</th>
                                 <td style="text-align: left; vertical-align: top;">${data.properties.type}</td>
@@ -230,7 +230,15 @@ async function loadPlaceDetails(layer, placeId) {
         const fullScreenInfo = document.getElementById('fullScreenInfo');
         const fullScreenContentArea = document.getElementById('fullscreen-content-area');
         if (fullScreenInfo && fullScreenInfo.classList.contains('visible') && fullScreenContentArea) {
-            console.log("Updating fullscreen info content area"); // Added logging
+            console.log("Updating fullscreen info content area for spot"); // Updated logging
+            
+            // Remove default button/footer added by index.js
+            const defaultCloseBtn = fullScreenInfo.querySelector('#default-fullscreen-close-btn');
+            const defaultFooter = fullScreenInfo.querySelector('#default-fullscreen-footer');
+            if (defaultCloseBtn) defaultCloseBtn.remove();
+            if (defaultFooter) defaultFooter.remove();
+            
+            // Set the spot-specific content (which includes its own buttons/footer)
             fullScreenContentArea.innerHTML = popupContent;
         }
 
