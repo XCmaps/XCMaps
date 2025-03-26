@@ -15,6 +15,8 @@ import createAirspacesXCRouter from "./src/api/airspacesXCfetch.js";
 import createAirspacesXCdbRouter from "./src/api/airspaces-xcontest.js";
 import createObstaclesRouter from './src/api/obstacles.js';
 import createMoselfalkenImageRouter from './src/api/moselfalken-cams.js';
+import cron from 'node-cron';
+import { fetchAndStoreAirspaces, fetchAndStoreObstacles } from './src/modules/update-xc-airspaces.js';
 
 
 const { Pool } = pkg;
@@ -23,6 +25,18 @@ const { Pool } = pkg;
 config();
 
 const app = express();
+
+// Schedule daily airspace updates at 3 AM
+cron.schedule('0 3 * * *', async () => {
+    console.log('Running scheduled airspace update...');
+    try {
+        await fetchAndStoreObstacles(pool);
+        await fetchAndStoreAirspaces(pool);
+        console.log('Scheduled airspace update completed successfully');
+    } catch (err) {
+        console.error('Scheduled airspace update failed:', err);
+    }
+});
 const PORT = 3000;
 
 // Enable CORS
