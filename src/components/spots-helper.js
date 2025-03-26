@@ -226,6 +226,15 @@ async function loadPlaceDetails(layer, placeId) {
         }
         </style>`;
 
+        // Check if fullscreen info is visible and update its content area
+        const fullScreenInfo = document.getElementById('fullScreenInfo');
+        const fullScreenContentArea = document.getElementById('fullscreen-content-area');
+        if (fullScreenInfo && fullScreenInfo.classList.contains('visible') && fullScreenContentArea) {
+            console.log("Updating fullscreen info content area"); // Added logging
+            fullScreenContentArea.innerHTML = popupContent;
+        }
+
+        // Update the original Leaflet popup (still useful for larger screens or if fullscreen fails)
         layer.setPopupContent(popupContent);
 
         // Wait for the popup to open before initializing Swiper

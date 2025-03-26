@@ -70,10 +70,11 @@ function initMap() {
         var footer = '<div style="text-align: right; padding: 10px;">' + // Changed to text-align: right
                      '<button class="btn btn-dark btn-sm close-popup" onclick="closeFullscreenInfo()">Close</button>' +
                      '</div>';
-  
-        el.innerHTML = closeButton + content + footer; // Add footer
-        el.classList.add('visible');
-        el.style.display = 'block'; // Set display to block
+
+    // Wrap the main content in a div for easier targeting
+    el.innerHTML = closeButton + `<div id="fullscreen-content-area">${content}</div>` + footer;
+    el.classList.add('visible');
+    el.style.display = 'block'; // Set display to block
         el.style.zIndex = '10000'; // High z-index
         document.getElementById('map').classList.add('map-covered');
       } catch (error) {
