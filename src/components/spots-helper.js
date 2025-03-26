@@ -247,11 +247,49 @@ async function loadPlaceDetails(layer, placeId) {
     
         }, 300);
 
+        // Attach close button listener, considering fullscreen context
         setTimeout(() => {
-            document.querySelector(".close-popup").addEventListener("click", function () {
-                map.closePopup();
-            });
-        }, 300);
+            const fullScreenInfo = document.getElementById('fullScreenInfo');
+            let closeButton = null;
+
+            if (fullScreenInfo && fullScreenInfo.classList.contains('visible')) {
+                // Target close button within fullscreen view
+                closeButton = fullScreenInfo.querySelector('#fullscreen-content-area .close-popup');
+                if (closeButton) {
+                    // Remove potential old listeners before adding new one
+                    closeButton.replaceWith(closeButton.cloneNode(true));
+                    closeButton = fullScreenInfo.querySelector('#fullscreen-content-area .close-popup'); // Re-select after clone
+                    
+                    closeButton.addEventListener("click", function () {
+                        console.log("Fullscreen close button clicked"); // Logging
+                        window.closeFullscreenInfo(); // Use the fullscreen close function
+                    });
+                } else {
+                    console.error("Close button not found in fullscreen view");
+                }
+            } else {
+                // Target close button within the standard Leaflet popup
+                // Assuming the popup is the context, query within the layer's popup element
+                const popupElement = layer.getPopup().getElement();
+                if (popupElement) {
+                    closeButton = popupElement.querySelector(".close-popup");
+                    if (closeButton) {
+                        // Remove potential old listeners before adding new one
+                        closeButton.replaceWith(closeButton.cloneNode(true));
+                        closeButton = popupElement.querySelector(".close-popup"); // Re-select after clone
+                        
+                        closeButton.addEventListener("click", function () {
+                            console.log("Standard popup close button clicked"); // Logging
+                            if (window.map) {
+                                window.map.closePopup(); // Use standard map close
+                            }
+                        });
+                    } else {
+                        console.error("Close button not found in standard popup");
+                    }
+                }
+            }
+        }, 350); // Slightly increased delay to ensure content is rendered
 
     } catch (error) {
         console.error("Error fetching place details:", error);
@@ -275,7 +313,18 @@ function showFeebackForm() {
          messageDiv.classList.remove("text-success", "text-danger");
     }
 
-    let modalFooter = document.querySelector(".modal-footer");
+    // Determine the context (fullscreen or standard popup)
+    const fullScreenInfo = document.getElementById('fullScreenInfo');
+    const isFullScreen = fullScreenInfo && fullScreenInfo.classList.contains('visible');
+    const contextElement = isFullScreen ? fullScreenInfo.querySelector('#fullscreen-content-area') : document.querySelector(".leaflet-popup-content");
+
+    if (!contextElement) {
+        console.error("Could not find context element for feedback form.");
+        return;
+    }
+
+    // Hide the original footer within the correct context
+    let modalFooter = contextElement.querySelector(".modal-footer");
     if (modalFooter) modalFooter.style.display = "none";
 
     const feedbackFormHtml = `
@@ -309,17 +358,18 @@ function showFeebackForm() {
         </div>
     `;
 
-    const popup = document.querySelector(".leaflet-popup-content");
-    if (popup) {
-        popup.insertAdjacentHTML("beforeend", feedbackFormHtml);
-        currentFeedbackForm = document.getElementById("feedbackFormHtml");
+    // Append the form HTML to the correct context element
+    if (contextElement) {
+        contextElement.insertAdjacentHTML("beforeend", feedbackFormHtml);
+        // Find the newly added form within the specific context
+        currentFeedbackForm = contextElement.querySelector("#feedbackFormHtml");
 
-        // Auto-scroll implementation
+        // Auto-scroll implementation (scroll the context element)
         setTimeout(() => {
-            const popupContainer = document.querySelector(".leaflet-popup-content");
-            if (popupContainer) {
-                popupContainer.scrollTo({
-                    top: popupContainer.scrollHeight,
+            // Use the contextElement determined earlier
+            if (contextElement) {
+                contextElement.scrollTo({
+                    top: contextElement.scrollHeight,
                     behavior: 'smooth'
                 });
             }
@@ -401,19 +451,35 @@ function showFeebackForm() {
                 feedbackDropzone = null;
             }
 
-            const messageDiv = document.getElementById("feedback-message");
-            if (result.success) {
-                messageDiv.textContent = result.message || "Feedback submitted successfully!";
-                messageDiv.classList.remove("text-danger");
-                messageDiv.classList.add("text-success");
+            // Find the message div and footer within the correct context
+            const messageDiv = contextElement ? contextElement.querySelector("#feedback-message") : document.getElementById("feedback-message");
+            const modalFooter = contextElement ? contextElement.querySelector(".modal-footer") : document.querySelector(".modal-footer");
+
+            if (messageDiv) {
+                if (result.success) {
+                    messageDiv.textContent = result.message || "Feedback submitted successfully!";
+                    messageDiv.classList.remove("text-danger");
+                    messageDiv.classList.add("text-success");
+                } else {
+                    messageDiv.textContent = result.error || "An error occurred.";
+                    messageDiv.classList.remove("text-success");
+                    messageDiv.classList.add("text-danger");
+                }
             } else {
-                messageDiv.textContent = result.error || "An error occurred.";
-                messageDiv.classList.remove("text-success");
-                messageDiv.classList.add("text-danger");
+                console.error("Feedback message div not found in context.");
             }
-            document.querySelector(".modal-footer").style.display = "flex";
+            
+            if (modalFooter) {
+                modalFooter.style.display = "flex"; // Restore footer visibility
+            } else {
+                console.error("Modal footer not found in context.");
+            }
+
         } catch (error) {
             console.error("Submission error:", error);
+            // Attempt to restore footer even on error
+            const modalFooter = contextElement ? contextElement.querySelector(".modal-footer") : document.querySelector(".modal-footer");
+            if (modalFooter) modalFooter.style.display = "flex";
         }
     });
 }
@@ -428,7 +494,18 @@ function cancelFeedback() {
         feedbackDropzone.destroy();
         feedbackDropzone = null;
     }
-    document.querySelector(".modal-footer").style.display = "flex";
+    // Find the correct context and footer to restore
+    const fullScreenInfo = document.getElementById('fullScreenInfo');
+    const isFullScreen = fullScreenInfo && fullScreenInfo.classList.contains('visible');
+    const contextElement = isFullScreen ? fullScreenInfo.querySelector('#fullscreen-content-area') : document.querySelector(".leaflet-popup-content");
+    if (contextElement) {
+        let modalFooter = contextElement.querySelector(".modal-footer");
+        if (modalFooter) modalFooter.style.display = "flex";
+    } else {
+        // Fallback for safety, though contextElement should exist if form was shown
+        let fallbackFooter = document.querySelector(".modal-footer");
+        if (fallbackFooter) fallbackFooter.style.display = "flex";
+    }
 }
 
 // Export functions
