@@ -168,7 +168,7 @@ async function loadPlaceDetails(layer, placeId) {
                                 <td style="text-align: left; vertical-align: top;">${data.properties.lastupdate}</td>
                             </tr>
                             </table><br>
-                            <b>Description:</b> ${description}<br>
+                            <b>Description:</b> <div class="spot-description">${description}</div><br>
                             <b>© <a href="https://paraglidingspots.com" target="_blank">paraglidingspots.com</a></b>
                             <div class="modal-footer d-flex justify-content-between">
                             <div id="feedback-message" class="text-start"></div> <!-- Message on the left -->

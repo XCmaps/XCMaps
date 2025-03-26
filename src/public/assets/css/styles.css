@@ -219,6 +219,11 @@
   border-radius: 4px;
 }
 
+.spot-description {
+  max-width: 590px;
+  overflow-wrap: break-word;
+}
+
 #fullScreenInfo {
   display: none;
   z-index: 1000; /* Higher than the map z-index */
