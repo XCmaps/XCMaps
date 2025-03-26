@@ -173,8 +173,8 @@ async function loadPlaceDetails(layer, placeId) {
                             <div class="modal-footer d-flex justify-content-between">
                             <div id="feedback-message" class="text-start"></div> <!-- Message on the left -->
                             <div class="d-flex ms-auto">
-                                <button class="btn btn-primary me-2" onclick="showFeebackForm()">Feedback/Correction</button>
-                                <button class="btn btn-dark close-popup">Close</button>
+                                <button class="btn btn-primary btn-sm me-2" onclick="showFeebackForm()">Feedback/Correction</button>
+                                <button class="btn btn-dark btn-sm close-popup">Close</button>
                             </div>
                             </div>
                             `;
@@ -293,8 +293,8 @@ function showFeebackForm() {
                             <small class="text-danger d-none" id="emailError">Please enter a valid email address.</small>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-success">Submit</button>
-                    <button type="button" class="btn btn-secondary" onclick="cancelFeedback()">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-success">Submit</button>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="cancelFeedback()">Cancel</button>
                 </form>
             </div>
         </div>
