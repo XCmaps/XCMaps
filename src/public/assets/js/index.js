@@ -29,15 +29,6 @@ function initMap() {
       zoom: 9,
       zoomControl: false,
       layers: [],
-      timeDimensionControl: true,
-      timeDimensionControlOptions: {
-          position: 'bottomleft',
-          playerOptions: {
-              transitionTime: 1000,
-              loop: true,
-          },
-          timeZones: ['Local'],
-      },
       timeDimension: true
   });
 
@@ -164,6 +155,20 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
     type: 'satellite',
     opacity: 0.7
   });
+  
+  // Create TimeDimension control but don't add it to the map yet
+  window.timeDimensionControl = L.control.timeDimension({
+    position: 'bottomleft',
+    playerOptions: {
+      transitionTime: 1000,
+      loop: true,
+    },
+    timeZones: ['Local'],
+    autoPlay: true
+  });
+  
+  // Track if the TimeDimension control is added to the map
+  window.isTimeDimensionControlAdded = false;
   window.airspaceEFG = L.layerGroup([], {
     attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
   });
@@ -453,25 +458,77 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
       window.fetchObstacles();
     } else if (layer === window.rainviewerRadarLayer) {
       console.log('RainViewer Radar layer added via layeradd');
+      updateTimeDimensionControlVisibility();
     } else if (layer === window.rainviewerSatelliteLayer) {
       console.log('RainViewer Satellite layer added via layeradd');
+      updateTimeDimensionControlVisibility();
     }
   });
   
+  // Function to check if any RainViewer layer is active
+  function isAnyRainViewerLayerActive() {
+    const hasRadar = window.map.hasLayer(window.rainviewerRadarLayer);
+    const hasSatellite = window.map.hasLayer(window.rainviewerSatelliteLayer);
+    console.log('RainViewer layer check - Radar:', hasRadar, 'Satellite:', hasSatellite);
+    return hasRadar || hasSatellite;
+  }
+  
+  // Function to update TimeDimension control visibility
+  function updateTimeDimensionControlVisibility() {
+    console.log('Updating TimeDimension control visibility');
+    const shouldBeVisible = isAnyRainViewerLayerActive();
+    console.log('Should TimeDimension control be visible?', shouldBeVisible);
+    console.log('Is TimeDimension control currently added?', window.isTimeDimensionControlAdded);
+    
+    if (shouldBeVisible) {
+      if (!window.isTimeDimensionControlAdded) {
+        try {
+          console.log('Adding TimeDimension control to map');
+          window.timeDimensionControl.addTo(window.map);
+          window.isTimeDimensionControlAdded = true;
+          console.log('TimeDimension control added to map successfully');
+        } catch (error) {
+          console.error('Error adding TimeDimension control:', error);
+        }
+      } else {
+        console.log('TimeDimension control already added, no action needed');
+      }
+    } else {
+      if (window.isTimeDimensionControlAdded) {
+        try {
+          console.log('Removing TimeDimension control from map');
+          window.map.removeControl(window.timeDimensionControl);
+          window.isTimeDimensionControlAdded = false;
+          console.log('TimeDimension control removed from map successfully');
+        } catch (error) {
+          console.error('Error removing TimeDimension control:', error);
+        }
+      } else {
+        console.log('TimeDimension control already removed, no action needed');
+      }
+    }
+  }
+  
   // Handle RainViewer layer visibility
   window.map.on('overlayadd', function(e) {
+    console.log('overlayadd event triggered for layer:', e.name);
     if (e.layer === window.rainviewerRadarLayer) {
       console.log('RainViewer Radar layer added');
+      updateTimeDimensionControlVisibility();
     } else if (e.layer === window.rainviewerSatelliteLayer) {
       console.log('RainViewer Satellite layer added');
+      updateTimeDimensionControlVisibility();
     }
   });
   
   window.map.on('overlayremove', function(e) {
+    console.log('overlayremove event triggered for layer:', e.name);
     if (e.layer === window.rainviewerRadarLayer) {
       console.log('RainViewer Radar layer removed');
+      updateTimeDimensionControlVisibility();
     } else if (e.layer === window.rainviewerSatelliteLayer) {
       console.log('RainViewer Satellite layer removed');
+      updateTimeDimensionControlVisibility();
     }
   });
 
