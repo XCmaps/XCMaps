@@ -26,7 +26,7 @@ function initMap() {
   // Create the map object and make it globally accessible
   window.map = L.map('map', {
       center: [50, 6],
-      zoom: 11,
+      zoom: 9,
       zoomControl: false,
       layers: []
   });
@@ -203,9 +203,9 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   var overlayTree = {
       label: 'Overlays',
       children: [
-          { label: 'Wind Stations',
+          { label: 'Weather Stations',
             children: [
-              { label: 'Wind Stations', layer: window.windLayer, checked: true  },
+              { label: 'Weather Stations', layer: window.windLayer, checked: true  },
           ]
           },
 

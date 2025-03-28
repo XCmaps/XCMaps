@@ -31,7 +31,7 @@ function fetchAirspaces() {
   const lng = center.lng.toFixed(6);
   const types = [0, 1, 3, 4, 5, 7, 26, 28];
 
-  const apiUrl = `${process.env.APP_DOMAIN}/api/airspaces?lat=${lat}&lng=${lng}&dist=200000&types=${encodeURIComponent(types.join(','))}`;
+  const apiUrl = `/api/airspaces?lat=${lat}&lng=${lng}&dist=200000&types=${encodeURIComponent(types.join(','))}`;
 
   fetch(apiUrl)
     .then(response => response.json())

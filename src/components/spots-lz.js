@@ -62,7 +62,7 @@ export function initSpotLZ() {
             const se_lat = bounds.getSouthEast().lat;
             const se_lng = bounds.getSouthEast().lng;
 
-            fetch(`${process.env.APP_DOMAIN}/api/places?nw_lat=${nw_lat}&nw_lng=${nw_lng}&se_lat=${se_lat}&se_lng=${se_lng}&type=LZ`, {
+            fetch(`/api/places?nw_lat=${nw_lat}&nw_lng=${nw_lng}&se_lat=${se_lat}&se_lng=${se_lng}&type=LZ`, {
                 signal // Attach the abort signal to the fetch call
             })
                 .then(response => response.json())

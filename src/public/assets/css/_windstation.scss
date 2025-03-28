@@ -35,9 +35,15 @@
 }
 
 .wind-station-popup-content {
+  font-weight: bold;
+  font-size: 15px;
   tag-name {
     white-space: pre;
   }
+}
+
+.wind-station-popup-content strong {
+  color: #007bff; 
 }
 
 .wind-data-table {
@@ -49,19 +55,17 @@
     padding-top: 0px;
     padding-bottom: 0px;
     vertical-align: baseline;
+    font-size: 14px;
   }
 
   thead tr th {
     padding-left: 5px;
     padding-right: 5px;
+    font-size: 15px;
   }
 }
 
-.wind-direction-arrow {
-  display: inline-block;
-  // Dynamic transform will be handled in JS
-  font-weight: bold;
-}
+
 
 .camera-image {
   width: 100%;
@@ -84,4 +88,12 @@
     height: auto;
     border: 1px solid #ccc;
     border-radius: 4px;
+}
+
+.wind-direction-arrow {
+  display: inline-block;
+  transform-origin: center;
+}
+.wind-direction-arrow i {
+  font-size: 18px; /* Adjust size as needed */
 }

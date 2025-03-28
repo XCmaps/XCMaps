@@ -151,7 +151,7 @@ function fetchWindStations() {
   const seLat = bounds.getSouthEast().lat;
   const seLng = bounds.getSouthEast().lng;
   fetch(
-    `${process.env.APP_DOMAIN}/api/wind-data-getCurrent?nwLat=${nwLat}&nwLng=${nwLng}&seLat=${seLat}&seLng=${seLng}`
+    `/api/wind-data-getCurrent?nwLat=${nwLat}&nwLng=${nwLng}&seLat=${seLat}&seLng=${seLng}`
   )
     .then((response) => response.json())
     .then((responseData) => {
@@ -239,8 +239,10 @@ function fetchWindStations() {
                   ${entry["w-max"].toFixed(1)}
                 </td>
                 <td>
-                  <span class="wind-direction-arrow" style="padding-top: 3px; padding-bottom: 3px; transform: rotate(${entry["w-dir"] + 180}deg);">⬆</span>
-                  ${compassDir}
+                  <span class="wind-direction-arrow" style="transform: rotate(${entry["w-dir"] + 180}deg);">
+                      <i class="fa fa-long-arrow-up"></i>
+                  </span>
+                  &nbsp;${compassDir}
                 </td>
                 <td>${entry["temp"] !== undefined ? entry["temp"].toFixed(1) : "N/A"}</td>
                 <td>${timeFormatted}</td>
@@ -400,7 +402,7 @@ function fetchWindStations() {
                               ctx.save();
                               ctx.translate(x, arrowRowY);
                               ctx.rotate(((entry["w-dir"] + 180) * Math.PI) / 180);
-                              ctx.font = "18px Arial";
+                              ctx.font = "18px 'Roboto', sans-serif";
                               ctx.fillText("⬆", 0, 0);
                               ctx.restore();
                             });
@@ -465,7 +467,7 @@ function fetchWindStations() {
                   
                   
                   // Fetch the website via our proxy
-                  const websiteProxyUrl = `${process.env.APP_DOMAIN}/api/proxy?imageUrl=${websiteUrl}`;
+                  const websiteProxyUrl = `/api/proxy?imageUrl=${websiteUrl}`;
                   console.log(`[${station._id}] Fetching website HTML from: ${websiteProxyUrl}`); // Added logging
                   fetch(websiteProxyUrl)
                     .then(response => { // Added missing .then() and opening brace
@@ -535,7 +537,7 @@ function fetchWindStations() {
                       console.log(`[${station._id}] Extracted image URL: ${imageUrl}`); // Added logging
                       
                       // Now fetch the image via the proxy
-                      const imageProxyUrl = `${process.env.APP_DOMAIN}/api/proxy?imageUrl=${imageUrl}`;
+                      const imageProxyUrl = `/api/proxy?imageUrl=${imageUrl}`;
                       
                       // Create a new image element
                       const img = document.createElement('img');

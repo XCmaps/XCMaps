@@ -49,7 +49,7 @@ function fetchAirspacesXC() {
     const dateStr = selectedDateStr;
     
    // Build API URL with parameters
-   const apiUrl = `${process.env.APP_DOMAIN}/api/airspacesXCdb?startDate=${dateStr}&nw_lat=${nw.lat.toFixed(6)}&nw_lng=${nw.lng.toFixed(6)}&se_lat=${se.lat.toFixed(6)}&se_lng=${se.lng.toFixed(6)}`;
+   const apiUrl = `/api/airspacesXCdb?startDate=${dateStr}&nw_lat=${nw.lat.toFixed(6)}&nw_lng=${nw.lng.toFixed(6)}&se_lat=${se.lat.toFixed(6)}&se_lng=${se.lng.toFixed(6)}`;
  
     fetch(apiUrl)
     .then(response => response.json())

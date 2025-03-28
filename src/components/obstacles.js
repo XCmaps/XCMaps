@@ -19,7 +19,7 @@ function fetchObstacles() {
   const nw = bounds.getNorthWest();
   const se = bounds.getSouthEast();
 
-  const apiUrl = `${process.env.APP_DOMAIN}/api/obstacles?nw_lat=${nw.lat}&nw_lng=${nw.lng}&se_lat=${se.lat}&se_lng=${se.lng}`;
+  const apiUrl = `/api/obstacles?nw_lat=${nw.lat}&nw_lng=${nw.lng}&se_lat=${se.lat}&se_lng=${se.lng}`;
 
   // Clear previous layers
   obstacleLayer.clearLayers();

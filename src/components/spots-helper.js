@@ -115,7 +115,7 @@ function getAngleRange(direction) {
 // Fetch full place details when a popup is opened
 async function loadPlaceDetails(layer, placeId) {
     try {
-        const response = await fetch(`${process.env.APP_DOMAIN}/api/places/${placeId}`);
+        const response = await fetch(`/api/places/${placeId}`);
         const data = await response.json();
 
         if (data.error) {
@@ -443,7 +443,7 @@ function showFeebackForm() {
         });
 
         try {
-            const response = await fetch(`${process.env.APP_DOMAIN}/api/send-feedback`, {
+            const response = await fetch(`/api/send-feedback`, {
                 method: "POST",
                 body: formData
             });
