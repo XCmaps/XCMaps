@@ -376,12 +376,33 @@ function showFeebackForm() {
         setTimeout(() => {
             // Use the contextElement determined earlier
             if (contextElement) {
+                // First try the standard scrollTo method
                 contextElement.scrollTo({
                     top: contextElement.scrollHeight,
                     behavior: 'smooth'
                 });
+                
+                // As a fallback, also set scrollTop directly
+                contextElement.scrollTop = contextElement.scrollHeight;
+                
+                // If we're in fullscreen mode, also try to scroll the entire fullscreen container
+                if (isFullScreen && fullScreenInfo) {
+                    fullScreenInfo.scrollTo({
+                        top: fullScreenInfo.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                    fullScreenInfo.scrollTop = fullScreenInfo.scrollHeight;
+                }
+                
+                // Focus on the feedback text area to bring it into view
+                setTimeout(() => {
+                    const feedbackText = document.getElementById("feedbackText");
+                    if (feedbackText) {
+                        feedbackText.focus();
+                    }
+                }, 100);
             }
-        }, 50); // 50ms delay to ensure DOM rendering
+        }, 200); // Increased delay to ensure DOM rendering
     } else {
         console.error("Popup content not found!");
         return;
