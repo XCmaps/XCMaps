@@ -41,6 +41,14 @@ export default (env, argv) => {
           warnings: false,
         },
       },
+      proxy: [
+        {
+          context: ['/api'],
+          target: 'http://localhost:3000', // Your backend server address
+          secure: false, // Set to false if backend uses self-signed certs
+          changeOrigin: true // Recommended for virtual hosted sites
+        }
+      ]
     },
     module: {
       rules: [

@@ -238,7 +238,7 @@ function fetchWindStations() {
                 <td class="wind-max-cell" style="color: ${getTextColor(getStrokeColor(entry["w-max"]))}; background-color: ${getStrokeColor(entry["w-max"])};">
                   ${entry["w-max"].toFixed(1)}
                 </td>
-                <td>
+                <td style="white-space: nowrap;">
                   <span class="wind-direction-arrow" style="transform: rotate(${entry["w-dir"] + 180}deg);">
                       <i class="fa fa-long-arrow-up"></i>
                   </span>
@@ -265,13 +265,15 @@ function fetchWindStations() {
                   <tag-name>Last Update:&#9;&#9;${lastUpdate}<br><br></tag-name>
                 </div>
                 ${isHolfuy ? `
-                  <div style="flex: 0 0 auto; width: 110px; margin-right: 15px;">
+                  <div style="flex: 0 0 auto; width: 110px; margin-right: 15px; position: relative;">
                     <iframe src="https://widget.holfuy.com/?station=${holfuyStationId}&su=km/h&t=C&lang=en&mode=rose&size=110"
                       width="110"
                       height="110"
                       frameborder="0"
-                      scrolling="no">
+                      scrolling="no"
+                      style="pointer-events: none;">
                     </iframe>
+                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;"></div>
                   </div>
                 ` : ''}
               </div>
@@ -402,8 +404,8 @@ function fetchWindStations() {
                               ctx.save();
                               ctx.translate(x, arrowRowY);
                               ctx.rotate(((entry["w-dir"] + 180) * Math.PI) / 180);
-                              ctx.font = "18px 'Roboto', sans-serif";
-                              ctx.fillText("⬆", 0, 0);
+                              ctx.font = "extra-bold 12px 'Roboto', sans-serif";
+                              ctx.fillText("↑", 0, 0);
                               ctx.restore();
                             });
                             ctx.restore();

@@ -31,7 +31,8 @@ const InfoControl = L.Control.extend({
                 '<li>Spots: © <a href="https://paraglidingspots.com" target="_blank">paraglidingspots.com</a> by Karsten Ehlers</li>' +
                 '<li>and many more open source libraries, projects, and artwork</li>' +
                 '</ul>' +
-                '<p>This map combines various data sources for aerial sports navigation.</p></div>';
+                '<p>This map combines various data sources for aerial sports navigation.</p>' +
+                '<p><a href="YOUR_DONATION_LINK" target="_blank" class="donation-button"> 🍺 Buy us a Landing Beer</a></p></div>';
             
             // Create the standard Leaflet popup
             var popup = L.popup({
