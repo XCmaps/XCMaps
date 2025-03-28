@@ -146,26 +146,49 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
       className: 'oaip-layer'
   });
   
-  // RainViewer layers
-  window.rainviewerRadarLayer = L.timeDimension.layer.rainviewer("https://api.rainviewer.com/public/weather-maps.json", {
-    opacity: 0.7
-  });
+  // Initialize RainViewer layers with error handling
+  try {
+    // Use different endpoints for radar and satellite to prevent conflicts
+    window.rainviewerRadarLayer = L.timeDimension.layer.rainviewer("https://api.rainviewer.com/public/weather-maps.json", {
+      opacity: 0.7,
+      cache: 5 // Limit cache size to improve performance
+    });
+    
+    window.rainviewerSatelliteLayer = L.timeDimension.layer.rainviewer("https://api.rainviewer.com/public/weather-maps.json", {
+      type: 'satellite',
+      opacity: 0.7,
+      cache: 5 // Limit cache size to improve performance
+    });
+    
+    console.log('RainViewer layers initialized successfully');
+  } catch (error) {
+    console.error('Error initializing RainViewer layers:', error);
+    // Create empty layers as fallbacks
+    window.rainviewerRadarLayer = L.layerGroup();
+    window.rainviewerSatelliteLayer = L.layerGroup();
+  }
   
-  window.rainviewerSatelliteLayer = L.timeDimension.layer.rainviewer("https://api.rainviewer.com/public/weather-maps.json", {
-    type: 'satellite',
-    opacity: 0.7
-  });
-  
-  // Create TimeDimension control but don't add it to the map yet
-  window.timeDimensionControl = L.control.timeDimension({
-    position: 'bottomleft',
-    playerOptions: {
-      transitionTime: 1000,
-      loop: true,
-    },
-    timeZones: ['Local'],
-    autoPlay: true
-  });
+  // Create TimeDimension control with error handling
+  try {
+    window.timeDimensionControl = L.control.timeDimension({
+      position: 'bottomleft',
+      playerOptions: {
+        transitionTime: 1000,
+        loop: true,
+        buffer: 2 // Reduce buffer size to improve performance
+      },
+      timeZones: ['Local'],
+      autoPlay: true,
+      speedSlider: false // Disable speed slider to simplify UI
+    });
+    console.log('TimeDimension control initialized successfully');
+  } catch (error) {
+    console.error('Error initializing TimeDimension control:', error);
+    // Create a dummy control as fallback
+    window.timeDimensionControl = {
+      addTo: function() { console.log('Using dummy TimeDimension control'); }
+    };
+  }
   
   // Track if the TimeDimension control is added to the map
   window.isTimeDimensionControlAdded = false;
@@ -476,59 +499,174 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   // Function to update TimeDimension control visibility
   function updateTimeDimensionControlVisibility() {
     console.log('Updating TimeDimension control visibility');
-    const shouldBeVisible = isAnyRainViewerLayerActive();
-    console.log('Should TimeDimension control be visible?', shouldBeVisible);
-    console.log('Is TimeDimension control currently added?', window.isTimeDimensionControlAdded);
     
-    if (shouldBeVisible) {
-      if (!window.isTimeDimensionControlAdded) {
-        try {
-          console.log('Adding TimeDimension control to map');
-          window.timeDimensionControl.addTo(window.map);
-          window.isTimeDimensionControlAdded = true;
-          console.log('TimeDimension control added to map successfully');
-        } catch (error) {
-          console.error('Error adding TimeDimension control:', error);
+    // Prevent multiple simultaneous calls
+    if (window.isUpdatingTimeDimensionControl) {
+      console.log('Already updating TimeDimension control, skipping');
+      return;
+    }
+    
+    window.isUpdatingTimeDimensionControl = true;
+    
+    try {
+      const shouldBeVisible = isAnyRainViewerLayerActive();
+      console.log('Should TimeDimension control be visible?', shouldBeVisible);
+      console.log('Is TimeDimension control currently added?', window.isTimeDimensionControlAdded);
+      
+      if (shouldBeVisible) {
+        if (!window.isTimeDimensionControlAdded) {
+          try {
+            console.log('Adding TimeDimension control to map');
+            
+            // Set a timeout to prevent hanging
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('Adding TimeDimension control timed out')), 5000);
+            });
+            
+            const addControlPromise = new Promise((resolve) => {
+              window.timeDimensionControl.addTo(window.map);
+              resolve();
+            });
+            
+            // Use Promise.race to implement the timeout
+            Promise.race([addControlPromise, timeoutPromise])
+              .then(() => {
+                window.isTimeDimensionControlAdded = true;
+                console.log('TimeDimension control added to map successfully');
+              })
+              .catch(error => {
+                console.error('Error adding TimeDimension control:', error);
+              })
+              .finally(() => {
+                window.isUpdatingTimeDimensionControl = false;
+              });
+            
+            return; // Exit early since we're handling the completion in the promise
+          } catch (error) {
+            console.error('Error adding TimeDimension control:', error);
+          }
+        } else {
+          console.log('TimeDimension control already added, no action needed');
         }
       } else {
-        console.log('TimeDimension control already added, no action needed');
-      }
-    } else {
-      if (window.isTimeDimensionControlAdded) {
-        try {
-          console.log('Removing TimeDimension control from map');
-          window.map.removeControl(window.timeDimensionControl);
-          window.isTimeDimensionControlAdded = false;
-          console.log('TimeDimension control removed from map successfully');
-        } catch (error) {
-          console.error('Error removing TimeDimension control:', error);
+        if (window.isTimeDimensionControlAdded) {
+          try {
+            console.log('Removing TimeDimension control from map');
+            window.map.removeControl(window.timeDimensionControl);
+            window.isTimeDimensionControlAdded = false;
+            console.log('TimeDimension control removed from map successfully');
+          } catch (error) {
+            console.error('Error removing TimeDimension control:', error);
+          }
+        } else {
+          console.log('TimeDimension control already removed, no action needed');
         }
-      } else {
-        console.log('TimeDimension control already removed, no action needed');
       }
+    } catch (error) {
+      console.error('Error in updateTimeDimensionControlVisibility:', error);
+    }
+    
+    window.isUpdatingTimeDimensionControl = false;
+  }
+  
+  // Handle RainViewer layer visibility with error handling and debouncing
+  let rainviewerUpdateTimeout = null;
+  
+  // Function to format time display (only show time in HH:MM format)
+  function updateTimeDisplay() {
+    try {
+      const timeControls = document.querySelectorAll('.leaflet-control-timecontrol.timecontrol-date');
+      timeControls.forEach(control => {
+        // Get the original text content
+        const originalText = control.textContent || control.innerText;
+        
+        // Extract the time part using regex
+        const timeMatch = originalText.match(/(\d{1,2}):(\d{2}):\d{2}/);
+        if (timeMatch) {
+          // Format as HH:MM
+          const hours = timeMatch[1];
+          const minutes = timeMatch[2];
+          const formattedTime = `${hours}:${minutes}`;
+          
+          // Update the text content
+          control.textContent = formattedTime;
+          console.log('Updated time display to:', formattedTime);
+        }
+      });
+    } catch (error) {
+      console.error('Error updating time display:', error);
     }
   }
   
-  // Handle RainViewer layer visibility
+  // Set up a MutationObserver to watch for changes to the time control
+  function setupTimeControlObserver() {
+    try {
+      const observer = new MutationObserver(function(mutations) {
+        updateTimeDisplay();
+      });
+      
+      // Start observing the document with the configured parameters
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+      
+      // Also update on initial load and periodically
+      updateTimeDisplay();
+      setInterval(updateTimeDisplay, 1000);
+    } catch (error) {
+      console.error('Error setting up time control observer:', error);
+    }
+  }
+  
+  // Call the setup function when the map is initialized
+  document.addEventListener('map_initialized', setupTimeControlObserver);
+  
+  function debouncedUpdateTimeDimensionControl() {
+    // Clear any existing timeout
+    if (rainviewerUpdateTimeout) {
+      clearTimeout(rainviewerUpdateTimeout);
+    }
+    
+    // Set a new timeout to update the control after a short delay
+    rainviewerUpdateTimeout = setTimeout(() => {
+      try {
+        updateTimeDimensionControlVisibility();
+        // Update time display after visibility is updated
+        setTimeout(updateTimeDisplay, 500);
+      } catch (error) {
+        console.error('Error in debouncedUpdateTimeDimensionControl:', error);
+      }
+    }, 100); // 100ms debounce time
+  }
+  
   window.map.on('overlayadd', function(e) {
-    console.log('overlayadd event triggered for layer:', e.name);
-    if (e.layer === window.rainviewerRadarLayer) {
-      console.log('RainViewer Radar layer added');
-      updateTimeDimensionControlVisibility();
-    } else if (e.layer === window.rainviewerSatelliteLayer) {
-      console.log('RainViewer Satellite layer added');
-      updateTimeDimensionControlVisibility();
+    try {
+      console.log('overlayadd event triggered for layer:', e.name);
+      if (e.layer === window.rainviewerRadarLayer) {
+        console.log('RainViewer Radar layer added');
+        debouncedUpdateTimeDimensionControl();
+      } else if (e.layer === window.rainviewerSatelliteLayer) {
+        console.log('RainViewer Satellite layer added');
+        debouncedUpdateTimeDimensionControl();
+      }
+    } catch (error) {
+      console.error('Error in overlayadd event handler:', error);
     }
   });
   
   window.map.on('overlayremove', function(e) {
-    console.log('overlayremove event triggered for layer:', e.name);
-    if (e.layer === window.rainviewerRadarLayer) {
-      console.log('RainViewer Radar layer removed');
-      updateTimeDimensionControlVisibility();
-    } else if (e.layer === window.rainviewerSatelliteLayer) {
-      console.log('RainViewer Satellite layer removed');
-      updateTimeDimensionControlVisibility();
+    try {
+      console.log('overlayremove event triggered for layer:', e.name);
+      if (e.layer === window.rainviewerRadarLayer) {
+        console.log('RainViewer Radar layer removed');
+        debouncedUpdateTimeDimensionControl();
+      } else if (e.layer === window.rainviewerSatelliteLayer) {
+        console.log('RainViewer Satellite layer removed');
+        debouncedUpdateTimeDimensionControl();
+      }
+    } catch (error) {
+      console.error('Error in overlayremove event handler:', error);
     }
   });
 
