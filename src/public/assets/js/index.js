@@ -18,7 +18,7 @@ import '../../../components/spots-pg.js';
 import '../../../components/spots-hg.js';
 import '../../../components/spots-lz.js';
 import '../../../components/obstacles.js';
-
+import '../../../components/rainviewer.js';
 
 
 // Initialize map and make necessary objects globally available
@@ -28,7 +28,17 @@ function initMap() {
       center: [50, 6],
       zoom: 9,
       zoomControl: false,
-      layers: []
+      layers: [],
+      timeDimensionControl: true,
+      timeDimensionControlOptions: {
+          position: 'bottomleft',
+          playerOptions: {
+              transitionTime: 1000,
+              loop: true,
+          },
+          timeZones: ['Local'],
+      },
+      timeDimension: true
   });
 
   L.control.zoom({
@@ -144,6 +154,16 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
       attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
       className: 'oaip-layer'
   });
+  
+  // RainViewer layers
+  window.rainviewerRadarLayer = L.timeDimension.layer.rainviewer("https://api.rainviewer.com/public/weather-maps.json", {
+    opacity: 0.7
+  });
+  
+  window.rainviewerSatelliteLayer = L.timeDimension.layer.rainviewer("https://api.rainviewer.com/public/weather-maps.json", {
+    type: 'satellite',
+    opacity: 0.7
+  });
   window.airspaceEFG = L.layerGroup([], {
     attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
   });
@@ -207,6 +227,13 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
             children: [
               { label: 'Weather Stations', layer: window.windLayer, checked: true  },
           ]
+          },
+          
+          { label: 'RainViewer',
+            children: [
+              { label: 'Radar', layer: window.rainviewerRadarLayer },
+              { label: 'Satellite', layer: window.rainviewerSatelliteLayer },
+            ]
           },
 
           { label: 'Spots',
@@ -424,6 +451,27 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
       window.fetchAirspacesXC();
     } else if (layer === window.obstacleLayer && typeof window.fetchObstacles === 'function') {
       window.fetchObstacles();
+    } else if (layer === window.rainviewerRadarLayer) {
+      console.log('RainViewer Radar layer added via layeradd');
+    } else if (layer === window.rainviewerSatelliteLayer) {
+      console.log('RainViewer Satellite layer added via layeradd');
+    }
+  });
+  
+  // Handle RainViewer layer visibility
+  window.map.on('overlayadd', function(e) {
+    if (e.layer === window.rainviewerRadarLayer) {
+      console.log('RainViewer Radar layer added');
+    } else if (e.layer === window.rainviewerSatelliteLayer) {
+      console.log('RainViewer Satellite layer added');
+    }
+  });
+  
+  window.map.on('overlayremove', function(e) {
+    if (e.layer === window.rainviewerRadarLayer) {
+      console.log('RainViewer Radar layer removed');
+    } else if (e.layer === window.rainviewerSatelliteLayer) {
+      console.log('RainViewer Satellite layer removed');
     }
   });
 
