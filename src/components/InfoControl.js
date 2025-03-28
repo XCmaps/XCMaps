@@ -32,7 +32,7 @@ const InfoControl = L.Control.extend({
                 '<li>and many more open source libraries, projects, and artwork</li>' +
                 '</ul>' +
                 '<p>This map combines various data sources for aerial sports navigation.</p>' +
-                '<p><a href="YOUR_DONATION_LINK" target="_blank" class="donation-button"> 🍺 Buy us a Landing Beer</a></p></div>';
+                '<p><a href="https://buymeacoffee.com/XCmaps" target="_blank" class="donation-button"> 🍺 Buy us a Landing Beer</a></p></div>';
             
             // Create the standard Leaflet popup
             var popup = L.popup({

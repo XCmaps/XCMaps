@@ -242,7 +242,7 @@ function fetchWindStations() {
                   <span class="wind-direction-arrow" style="transform: rotate(${entry["w-dir"] + 180}deg);">
                       <i class="fa fa-long-arrow-up"></i>
                   </span>
-                  &nbsp;${compassDir}
+                  &nbsp;&nbsp;${compassDir}
                 </td>
                 <td>${entry["temp"] !== undefined ? entry["temp"].toFixed(1) : "N/A"}</td>
                 <td>${timeFormatted}</td>
