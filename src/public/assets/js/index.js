@@ -577,7 +577,7 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   // Handle RainViewer layer visibility with error handling and debouncing
   let rainviewerUpdateTimeout = null;
   
-  // Function to format time display (only show time in HH:MM format)
+  // Function to format time display in 24-hour format (HH:MM)
   function updateTimeDisplay() {
     try {
       const timeControls = document.querySelectorAll('.leaflet-control-timecontrol.timecontrol-date');
@@ -585,13 +585,22 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
         // Get the original text content
         const originalText = control.textContent || control.innerText;
         
-        // Extract the time part using regex
-        const timeMatch = originalText.match(/(\d{1,2}):(\d{2}):\d{2}/);
+        // Extract the time part including AM/PM using regex
+        const timeMatch = originalText.match(/(\d{1,2}):(\d{2}):\d{2}\s*(AM|PM)?/i);
         if (timeMatch) {
-          // Format as HH:MM
-          const hours = timeMatch[1];
+          let hours = parseInt(timeMatch[1]);
           const minutes = timeMatch[2];
-          const formattedTime = `${hours}:${minutes}`;
+          const period = timeMatch[3] ? timeMatch[3].toUpperCase() : null;
+          
+          // Convert to 24-hour format if period is specified
+          if (period === 'PM' && hours < 12) {
+            hours += 12;
+          } else if (period === 'AM' && hours === 12) {
+            hours = 0;
+          }
+          
+          // Format as HH:MM with leading zero
+          const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes}`;
           
           // Update the text content
           control.textContent = formattedTime;
