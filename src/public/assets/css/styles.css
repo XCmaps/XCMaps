@@ -621,14 +621,20 @@ html, body {
   padding-left: 2px;
 }
 
-/* Use the default Leaflet layers icon */
+/* Use the custom layers icon */
 .leaflet-control-layers-toggle {
-  background-image: url("https://unpkg.com/leaflet@1.9.4/dist/images/layers-2x.png");
+  background-image: url("../images/layers.png"); /* Use custom icon */
   background-size: 20px 20px;
   background-repeat: no-repeat;
   background-position: center;
   width: 30px !important;
   height: 30px !important;
+}
+
+/* Override default retina icon */
+.leaflet-retina .leaflet-control-layers-toggle {
+  background-image: url("../images/layers.png"); /* Use custom icon for retina */
+  background-size: 20px 20px; /* Keep size consistent */
 }
 
 /* Ensure the tree control works well on mobile and has consistent styling */
