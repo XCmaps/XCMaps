@@ -259,7 +259,7 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
           
           { label: 'RainViewer',
             children: [
-              { label: 'Radar', layer: window.rainviewerRadarLayer },
+              { label: 'Radar', layer: window.rainviewerRadarLayer, checked: true  },
               { label: 'Satellite', layer: window.rainviewerSatelliteLayer },
             ]
           },

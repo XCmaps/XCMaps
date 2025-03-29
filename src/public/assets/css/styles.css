@@ -254,6 +254,34 @@
   overflow-wrap: break-word;
 }
 
+/* Base styles for the time control */
+.leaflet-control-timecontrol .timecontrol-date {
+  display: inline-block;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: visible;
+  line-height: 30px;
+  font-size: 14px;
+  font-weight: bold !important;
+  text-align: center;
+}
+
+/* Specific override for the exact selector used in the external CSS */
+.leaflet-bar-timecontrol a.timecontrol-date,
+.leaflet-bar-timecontrol a.timecontrol-date:hover {
+  position: relative;
+  min-width: 0 !important;
+  width: auto;
+  padding: 0 7px !important;
+  white-space: nowrap;
+  font-weight: bold !important;
+}
+
+/* Reduce the width of the time slider */
+.leaflet-bar-timecontrol .timecontrol-dateslider .slider {
+  width: 80px !important;
+}
+
 #fullScreenInfo {
   display: none;
   z-index: 1000; /* Higher than the map z-index */
