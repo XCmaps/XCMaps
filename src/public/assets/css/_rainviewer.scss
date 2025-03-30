@@ -25,3 +25,47 @@
 .leaflet-bar-timecontrol .timecontrol-dateslider .slider {
     width: 60px !important;
 }
+
+/* Force TimeDimension control into a single row using flexbox */
+.leaflet-bar-timecontrol {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important; /* Align items vertically */
+  width: auto !important; /* Prevent taking full width */
+  height: auto !important; /* Adjust height if needed */
+}
+
+/* Add some spacing between flex items */
+.leaflet-bar-timecontrol > * {
+  margin-right: 5px;
+  vertical-align: middle; /* Ensure vertical alignment */
+}
+
+/* Remove margin from the last child */
+.leaflet-bar-timecontrol > *:last-child {
+  margin-right: 0;
+}
+
+/* Explicitly set width/height/basis for player buttons and prevent shrinking */
+.leaflet-bar-timecontrol .timecontrol-backward,
+.leaflet-bar-timecontrol .timecontrol-play,
+.leaflet-bar-timecontrol .timecontrol-pause, /* Include pause if it exists */
+.leaflet-bar-timecontrol .timecontrol-forward {
+  width: 30px !important;
+  min-width: 30px !important; /* Add min-width */
+  height: 30px !important;
+  padding: 0 !important;
+  line-height: 30px !important; /* Center icon vertically */
+  text-align: center; /* Center icon horizontally */
+  flex-shrink: 0 !important; /* Prevent shrinking in flex container */
+  flex-basis: 30px !important; /* Set flex basis */
+}
+
+/* Ensure child elements don't force stacking */
+.leaflet-bar-timecontrol > * {
+    display: inline-block !important; /* Or flex item properties */
+    width: auto !important;
+    flex-shrink: 0; /* Prevent shrinking */
+    margin-right: 5px; /* Add some spacing between elements */
+}
