@@ -635,6 +635,55 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   
   // Call the setup function when the map is initialized
   document.addEventListener('map_initialized', setupTimeControlObserver);
+
+  // Set up periodic refresh for RainViewer layers
+  function setupRainViewerRefresh() {
+    // Only set up the interval if not already set up
+    if (!window.rainviewerRefreshInterval) {
+      window.rainviewerRefreshInterval = setInterval(() => {
+        try {
+          // Check if either RainViewer layer is active
+          const hasRadar = window.map.hasLayer(window.rainviewerRadarLayer);
+          const hasSatellite = window.map.hasLayer(window.rainviewerSatelliteLayer);
+          
+          if (hasRadar || hasSatellite) {
+            console.log('Refreshing RainViewer data...');
+            
+            // Refresh radar layer if active
+            if (hasRadar) {
+              fetchRainviewerMetadata("https://api.rainviewer.com/public/weather-maps.json")
+                .then(metadata => {
+                  window.rainviewerRadarLayer._metadata = metadata;
+                  window.rainviewerRadarLayer._loaded = true;
+                  if (window.map.hasLayer(window.rainviewerRadarLayer)) {
+                    window.rainviewerRadarLayer._setAvailableTimes();
+                  }
+                })
+                .catch(error => console.error('Error refreshing radar data:', error));
+            }
+            
+            // Refresh satellite layer if active
+            if (hasSatellite) {
+              fetchRainviewerMetadata("https://api.rainviewer.com/public/weather-maps.json")
+                .then(metadata => {
+                  window.rainviewerSatelliteLayer._metadata = metadata;
+                  window.rainviewerSatelliteLayer._loaded = true;
+                  if (window.map.hasLayer(window.rainviewerSatelliteLayer)) {
+                    window.rainviewerSatelliteLayer._setAvailableTimes();
+                  }
+                })
+                .catch(error => console.error('Error refreshing satellite data:', error));
+            }
+          }
+        } catch (error) {
+          console.error('Error in RainViewer refresh:', error);
+        }
+      }, 60000); // 1 minute interval
+    }
+  }
+
+  // Start the refresh when map is initialized
+  document.addEventListener('map_initialized', setupRainViewerRefresh);
   
   function debouncedUpdateTimeDimensionControl() {
     // Clear any existing timeout
