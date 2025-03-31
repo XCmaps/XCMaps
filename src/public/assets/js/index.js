@@ -254,6 +254,7 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   // Tree structure
   var baseTree = {
     label: 'Base Maps',
+    collapsed: true, // Add this line to collapse by default
     children: [
         { label: 'Terrain', layer: awgTerrain },
         { label: 'XContest', layer: L.layerGroup([xcontest, mapTilerTerrain])},
@@ -268,21 +269,22 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
           { label: 'Weather Stations',
             children: [
               { label: 'Weather Stations', layer: window.windLayer, checked: true  },
-          ]
+            ]
           },
-          
-          { label: 'RainViewer',
+          { html: '<hr class="leaflet-control-layers-separator">' }, // Separator
+          { label: 'Rain Viewer',
             children: [
               { label: 'Radar', layer: window.rainviewerRadarLayer, checked: true  },
               { label: 'Satellite', layer: window.rainviewerSatelliteLayer },
             ]
           },
+          { html: '<hr class="leaflet-control-layers-separator">' }, // Separator
           { label: 'Thermals',
             children: [
               { label: 'kk7 Thermals', layer: kk7thermals  },
-          ]
+            ]
           },
-
+          { html: '<hr class="leaflet-control-layers-separator">' }, // Separator
           { label: 'Spots',
               children: [
                   { label: 'Take-off PG', layer: window.placesLayerPG },
@@ -290,6 +292,7 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
                   { label: 'Landing Zones', layer: window.placesLayerLZ },
               ]
           },
+          { html: '<hr class="leaflet-control-layers-separator">' }, // Separator
           { label: 'Airspaces',
               children: [
                       {
@@ -299,23 +302,23 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
                                 <select class="airspace-time-select" id="airspaceTime">
                                     ${airspaceTimeOptions}
                                 </select>
-                                          </div>
-                                      `
+                            </div>
+                        `
                       },
                       {
-                      html: `
-                          <div class="airspace-limit-control">
-                              ↧ below:
-                              <select class="lower-limit-select" id="airspaceLowerLimit">
-                                  <option value="2000">2000m</option>
-                                  <option value="2500">2500m</option>
-                                  <option value="3000" selected>3000m</option>
-                                  <option value="3500">3500m</option>
-                                  <option value="4000">4000m</option>
-                                  <option value="4500">4500m</option>
-                              </select>
-                          </div>
-                      `
+                        html: `
+                            <div class="airspace-limit-control">
+                                ↧ below:
+                                <select class="lower-limit-select" id="airspaceLowerLimit">
+                                    <option value="2000">2000m</option>
+                                    <option value="2500">2500m</option>
+                                    <option value="3000" selected>3000m</option>
+                                    <option value="3500">3500m</option>
+                                    <option value="4000">4000m</option>
+                                    <option value="4500">4500m</option>
+                                </select>
+                            </div>
+                        `
                       },
                   // { label: 'Airspaces', layer: window.airspaceEFG }, // Removed EFG airspaces layer from tree
                   { label: 'Airspaces', layer: window.airspaceXC },
@@ -371,8 +374,8 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
     collapsed: true
   }).addTo(window.map);
 
-  // Initialize with collapsed tree but expanded selected layers
-  treeLayersControl.collapseTree().expandSelected();
+  // Initialize with base tree collapsed and selected overlays expanded
+  treeLayersControl.collapseTree(false).expandSelected(true);
 
   // Add touch support for mobile devices
   const layersControlContainer = treeLayersControl.getContainer();
