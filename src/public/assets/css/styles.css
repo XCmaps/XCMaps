@@ -290,6 +290,7 @@
   align-items: center !important; /* Align items vertically */
   width: auto !important; /* Prevent taking full width */
   height: auto !important; /* Adjust height if needed */
+  z-index: 1001; /* Ensure it's above attribution */
 }
 
 /* Add some spacing between flex items */
