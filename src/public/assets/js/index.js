@@ -128,6 +128,14 @@ function initMap() {
     attribution: 'MapTiler Terrain'
   });
 
+  // Use the local proxy for kk7 thermals to avoid CORS issues
+  var kk7thermals = L.tileLayer('/api/kk7thermals/{z}/{x}/{y}.png', {
+    attribution: 'thermal.kk7.ch <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC-BY-NC-SA>/a>',
+    maxNativeZoom: 12,
+    tms: true // Keep TMS if the original source uses it
+    // Removed headers option as it's handled by the proxy
+  });
+
 // Create a simplified contour overlay specifically for use with satellite
 var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x}/{y}.pbf?key=c49iG8J3xvAkgCSZ8M8v', {
   attribution: 'MapTiler',
@@ -141,6 +149,7 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
 });
   // Layer groups - make them globally accessible
   window.windLayer = L.layerGroup().addTo(window.map);
+
   window.oaipMap = L.tileLayer(`https://a.api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png?apiKey=${process.env.OAIP_KEY}`, {
       attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
       className: 'oaip-layer'
@@ -267,6 +276,11 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
               { label: 'Radar', layer: window.rainviewerRadarLayer, checked: true  },
               { label: 'Satellite', layer: window.rainviewerSatelliteLayer },
             ]
+          },
+          { label: 'Thermals',
+            children: [
+              { label: 'kk7 Thermals', layer: kk7thermals  },
+          ]
           },
 
           { label: 'Spots',
