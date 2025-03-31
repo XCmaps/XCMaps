@@ -15,7 +15,7 @@ import createAirspacesXCRouter from "./src/api/airspacesXCfetch.js";
 import createAirspacesXCdbRouter from "./src/api/airspaces-xcontest.js";
 import createObstaclesRouter from './src/api/obstacles.js';
 import createMoselfalkenImageRouter from './src/api/moselfalken-cams.js';
-import kk7ThermalsProxy from './src/api/kk7thermals.js'; // Import the new proxy handler
+import kk7ThermalsProxy from './src/api/kk7thermals.js'; 
 import cron from 'node-cron';
 import { fetchAndStoreAirspaces, fetchAndStoreObstacles } from './src/modules/update-xc-airspaces.js';
 
@@ -71,7 +71,7 @@ app.use("/api/airspacesXC", createAirspacesXCRouter());
 app.use("/api/proxy", createMoselfalkenImageRouter());
 app.use("/api/airspacesXCdb", createAirspacesXCdbRouter(pool));
 app.use("/api/obstacles", createObstaclesRouter(pool));
-app.get("/api/kk7thermals/:z/:x/:y.png", kk7ThermalsProxy); // Add the kk7 thermals proxy route
+app.get("/api/kk7thermals/:z/:x/:y.png", kk7ThermalsProxy); 
 
 // Start server
 app.listen(PORT, () => {
