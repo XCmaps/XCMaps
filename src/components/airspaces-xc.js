@@ -60,9 +60,10 @@ function fetchAirspacesXC() {
   
         const airspaces = []; // Store polygons and data for later use
 
-      // Remove any existing click listeners to avoid duplicates
+      // Remove any existing click listeners from the LAYER GROUP to avoid duplicates
       if (airspaceClickHandler) {
-        window.map.off("click", airspaceClickHandler);
+        window.airspaceXC.off("click", airspaceClickHandler); // Changed from window.map
+        // console.log("[AirspaceXC] Removed previous click handler from layer group."); // Removed log
         airspaceClickHandler = null; // Clean up reference
       }
   
@@ -180,7 +181,6 @@ function fetchAirspacesXC() {
               const tzName = moment.tz.guess();
               const tzAbbreviation = moment.tz(tzName).zoneAbbr();
               const tzOffset = moment.tz(tzName).format('Z');
-              const timezoneInfo = `<div class="timezone-info" style="margin-top: 5px; font-size: 0.85em;">Local timezone: ${tzAbbreviation} (UTC${tzOffset})</div>`;
 
               // Create the description HTML if there are any descriptions
               let descriptionsHtml = '';
@@ -243,7 +243,6 @@ function fetchAirspacesXC() {
               <b>↧ </b>${lower} - <b>↥ </b>${upper}<br>
               ${descriptionsHtml}
               ${activationsHtml}
-              ${timezoneInfo}
               `;
             }, { className: 'airspace-popup' });
             
@@ -260,10 +259,20 @@ function fetchAirspacesXC() {
         // After processing all features 
         // Create a new click handler that captures the airspaces in its closure
         airspaceClickHandler = function(e) {
+          // console.log('[AirspaceXC] airspaceClickHandler invoked.'); // Removed log
+          // Stop the event from propagating further
+          L.DomEvent.stopPropagation(e);
+          // console.log('[AirspaceXC] Event propagation stopped.'); // Removed log
+ 
           // Check if the airspace layer is actually visible before processing clicks
-          if (!window.map.hasLayer(window.airspaceXC)) {
+          // console.log('[AirspaceXC] Checking if map has airspaceXC layer...'); // Removed log
+          const hasLayer = window.map.hasLayer(window.airspaceXC);
+          // console.log('[AirspaceXC] Map has airspaceXC layer:', hasLayer); // Removed log
+          if (!hasLayer) {
+            // console.log('[AirspaceXC] Exiting handler because layer is not visible.'); // Removed log
             return; // Exit if airspace layer is not visible
           }
+          // console.log('[AirspaceXC] Layer is visible, proceeding...'); // Removed log
   
           const clickedPoint = e.latlng;
           const overlappingAirspaces = [];
@@ -290,8 +299,6 @@ function fetchAirspacesXC() {
               const tzName = moment.tz.guess(); // Gets the user's timezone like "Europe/Berlin"
               const tzAbbreviation = moment.tz(tzName).zoneAbbr(); // Gets "CET"
               const tzOffset = moment.tz(tzName).format('Z'); // Gets "+01:00"
-
-              const timezoneInfo = `<div class="timezone-info" style="margin-top: 5px; font-size: 0.85em;">Local timezone: ${tzAbbreviation} (UTC${tzOffset})</div>`;
 
               const popupContent = overlappingAirspaces.map(a => {
               // Create the description HTML if there are any descriptions
@@ -375,21 +382,53 @@ function fetchAirspacesXC() {
               `;
             }).join("<hr style='margin: 3px 0;'>");
           
-            L.popup({
-              className: 'airspace-popup',
-              closeOnClick: false,
-              autoClose: false,
-              tap: false,
-              closeButton: true
-            })
-              .setLatLng(clickedPoint)
-              .setContent(popupContent)
-              .openOn(window.map);
+            // console.log('[AirspaceXC] Creating responsive popup instance...'); // Removed log
+            const popup = L.responsivePopup({ // Use responsivePopup
+              className: 'airspace-popup', // Keep custom class if needed
+              hasTip: true,          // Option from windstations.js
+              autoPan: false,        // Keep this false
+              offset: [15, 25],      // Option from windstations.js
+              closeOnClick: false,   // Keep existing options
+              autoClose: false,      // Keep existing options
+              tap: false,            // Keep existing options
+              closeButton: true      // Keep existing options
+            });
+            // console.log('[AirspaceXC] Responsive popup instance created.'); // Removed log
+
+            // Removed popup event listeners for add/remove
+            // popup.on('add', function() {
+            //   console.log('[AirspaceXC] Popup added to map.');
+            // });
+            // popup.on('remove', function() {
+            //   console.log('[AirspaceXC] Popup removed from map.');
+            // });
+            
+            // console.log('[AirspaceXC] Setting popup LatLng and content...'); // Removed log
+            popup.setLatLng(clickedPoint)
+                 .setContent(popupContent);
+            // console.log('[AirspaceXC] Popup LatLng and content set.'); // Removed log
+
+            // Delay opening slightly to allow map pan events to settle
+            // console.log('[AirspaceXC] Scheduling popup openOn with 50ms delay...'); // Removed log
+            setTimeout(() => {
+                // console.log('[AirspaceXC] setTimeout callback executing.'); // Removed log
+                // Check if map still exists and popup hasn't been closed by other means
+                if (window.map && !window.map.hasLayer(popup)) {
+                   // console.log('[AirspaceXC] Map exists and popup not already on map. Calling openOn...'); // Removed log
+                   popup.openOn(window.map);
+                   // console.log('[AirspaceXC] openOn called.'); // Removed log
+                } else {
+                   // console.log('[AirspaceXC] Condition not met for openOn (Map:', !!window.map, 'HasLayer:', window.map ? window.map.hasLayer(popup) : 'N/A', ')'); // Removed log
+                }
+            }, 50); // 50ms delay, adjust if needed
+          } else {
+            // console.log('[AirspaceXC] No overlapping airspaces found at click point.'); // Removed log
           }
         };
         
-        // Add the new click handler
-        window.map.on("click", airspaceClickHandler);
+        // Add the new click handler to the LAYER GROUP instead of the map
+        window.airspaceXC.on("click", airspaceClickHandler);
+        // console.log("[AirspaceXC] Click handler attached to airspaceXC layer group."); // Removed log
       })
       .catch(error => console.error("Error fetching airspaces:", error));
   }

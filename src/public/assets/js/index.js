@@ -8,8 +8,8 @@ import '../css/styles.css';
 import InfoControl from './../../../components/InfoControl.js';
 import moment from 'moment';
 import 'moment-timezone';
-
-import './../../../components/airspaces.js';
+ 
+// import './../../../components/airspaces.js'; // Removed EFG airspaces
 import '../../../components/deprecated/airspaces-gliding.js';
 import '../../../components/deprecated/airspaces-notam.js';
 import './../../../components/airspaces-xc.js';
@@ -38,7 +38,7 @@ function initMap() {
 
   // Base Layers
   var awgTerrain = L.tileLayer('https://tile.jawg.io/jawg-terrain/{z}/{x}/{y}{r}.png?access-token=qBDXRu1KSlZGhx4ROlceBD9hcxmrumL34oj29tUkzDVkafqx08tFWPeRNb0KSoKa', {
-      attribution: 'Jawg.io terrain'
+      attribution: 'Jawg.io'
   }).addTo(window.map);
 
   var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -130,7 +130,7 @@ function initMap() {
 
   // Use the local proxy for kk7 thermals to avoid CORS issues
   var kk7thermals = L.tileLayer('/api/kk7thermals/{z}/{x}/{y}.png', {
-    attribution: 'thermal.kk7.ch <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC-BY-NC-SA>/a>',
+    attribution: '<a href="https://thermal.kk7.ch">thermal.kk7.ch</a>',
     maxNativeZoom: 12,
     tms: true // Keep TMS if the original source uses it
     // Removed headers option as it's handled by the proxy
@@ -206,9 +206,9 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   
   // Track if the TimeDimension control is added to the map
   window.isTimeDimensionControlAdded = false;
-  window.airspaceEFG = L.layerGroup([], {
-    attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
-  });
+  // window.airspaceEFG = L.layerGroup([], { // Removed EFG airspaces
+  //   attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
+  // });
   window.airspaceGliding = L.layerGroup([], {
     attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
   });
@@ -317,7 +317,7 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
                           </div>
                       `
                       },
-                  // { label: 'Airspaces', layer: window.airspaceEFG },
+                  // { label: 'Airspaces', layer: window.airspaceEFG }, // Removed EFG airspaces layer from tree
                   { label: 'Airspaces', layer: window.airspaceXC },
                   { label: 'Obstacles', layer: window.obstacleLayer },
                   { label: 'OpenAIP Map', layer: window.oaipMap},
@@ -438,11 +438,11 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
       window.fetchPlacesLZ();
     }
 
-    // Airspaces
-    if (window.map.hasLayer(window.airspaceEFG) && typeof window.fetchAirspaces === 'function') {
-      console.log('Fetching airspaces after map move...');
-      window.fetchAirspaces();
-    }
+    // Airspaces EFG removed
+    // if (window.map.hasLayer(window.airspaceEFG) && typeof window.fetchAirspaces === 'function') {
+    //   console.log('Fetching airspaces after map move...');
+    //   window.fetchAirspaces();
+    // }
     // Airspaces Gliding
     if (window.map.hasLayer(window.airspaceGliding) && typeof window.fetchAirspacesGliding === 'function') {
       console.log('Fetching airspaces after map move...');
@@ -455,8 +455,13 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
     }
     // Airspaces XContest
     if (window.map.hasLayer(window.airspaceXC) && typeof window.fetchAirspacesXC === 'function') {
-      console.log('Fetching airspaces after map move...');
-      window.fetchAirspacesXC();
+      // Only fetch if no popup is currently open
+      if (!window.map._popup) {
+        console.log('Fetching XC airspaces after map move (no popup open)...');
+        window.fetchAirspacesXC();
+      } else {
+        console.log('Skipping XC airspace fetch on moveend because popup is open.');
+      }
     }
     // Obstacles XContest
     if (window.map.hasLayer(window.obstacleLayer) && typeof window.fetchObstacles === 'function') {
@@ -488,8 +493,8 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
       window.fetchPlacesHG();
     } else if (layer === window.placesLayerLZ && window.fetchPlacesLZ) {
       window.fetchPlacesLZ();
-    } else if (layer === window.airspaceEFG && typeof window.fetchAirspaces === 'function') {
-      window.fetchAirspaces();
+    // } else if (layer === window.airspaceEFG && typeof window.fetchAirspaces === 'function') { // Removed EFG airspaces
+    //   window.fetchAirspaces();
     } else if (layer === window.airspaceGliding && typeof window.fetchAirspacesGliding === 'function') {
       window.fetchAirspacesGliding();
     } else if (layer === window.airspaceNotam && typeof window.fetchAirspacesNotam === 'function') {
@@ -618,7 +623,6 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
           
           // Update the text content
           control.textContent = formattedTime;
-          console.log('Updated time display to:', formattedTime);
         }
       });
     } catch (error) {

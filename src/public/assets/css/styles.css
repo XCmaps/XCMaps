@@ -294,7 +294,6 @@
 
 /* Add some spacing between flex items */
 .leaflet-bar-timecontrol > * {
-  margin-right: 5px;
   vertical-align: middle; /* Ensure vertical alignment */
 }
 
@@ -323,7 +322,6 @@
   display: inline-block !important; /* Or flex item properties */
   width: auto !important;
   flex-shrink: 0; /* Prevent shrinking */
-  margin-right: 5px; /* Add some spacing between elements */
 }
 
 #fullScreenInfo {

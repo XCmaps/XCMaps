@@ -168,7 +168,6 @@ L.TimeDimension.Layer.Rainviewer = L.TimeDimension.Layer.extend({
           }
           this._currentLayer = layer;
           this._currentTime = time;
-          console.log('Show layer with time: ' + new Date(time).toISOString());
   
           this._evictCachedTimes(this._timeCacheForward, this._timeCacheBackward);
       },
