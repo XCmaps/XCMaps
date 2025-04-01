@@ -5,7 +5,7 @@ import './leaflet.responsive.popup.js';
 import './leaflet.responsive.popup.css';
 
 import '../css/styles.css';
-import InfoControl from './../../../components/InfoControl.js';
+import InfoControl from '../../../components/info-control.js';
 import moment from 'moment';
 import 'moment-timezone';
  

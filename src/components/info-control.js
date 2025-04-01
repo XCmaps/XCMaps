@@ -30,8 +30,8 @@ const InfoControl = L.Control.extend({
 
                 <h3>Contact</h3>
                 <p>You can reach out to us via the Feedback form below or by <a href="mailto:info@XCmaps.com" target="_blank">email</a>.</p>
-                <p>If you want to report any issues please consider using our GitHub project page.</p>
-                <p>To stay up-to date on latest updates, please follow us on <a href="https://facebook.com/xcmaps" target="_blank">Facebook</a> or GitHub.</p>
+                <p>If you’d like to report an issue, such as a bug or a feature request, please visit our <a href="https://github.com/XCmaps/XCmaps" target="_blank">GitHub</a> project page.</p>
+                <p>To stay up-to date on latest updates, please follow us on <a href="https://facebook.com/xcmaps" target="_blank">Facebook</a> or <a href="https://github.com/XCmaps/XCmaps" target="_blank">GitHub</a>.</p>
 
                 <p>If you enjoy our content, consider buying us a landing beer! Your support helps keep this service running, as we cover real costs for servers, storage, AI models, and data sources.<br>It’s simple: the more funding we receive, the faster we can roll out new features!</p>
                 <p><a href="https://buymeacoffee.com/XCmaps" target="_blank" class="donation-button"> 🍺 Buy us a Landing Beer</a></p>
@@ -157,8 +157,8 @@ const InfoControl = L.Control.extend({
 
             // GitHub Icon (Assuming no specific link for now)
             const ghLink = L.DomUtil.create('a', 'social-icon', headerRight);
-            ghLink.href = '#'; // Or link to your GitHub repo if available
-            // ghLink.target = '_blank'; // If linking externally
+            ghLink.href = 'https://github.com/XCmaps/XCmaps'; 
+            ghLink.target = '_blank'; 
             const ghImg = L.DomUtil.create('img', '', ghLink);
             ghImg.src = 'assets/images/github.svg';
             ghImg.alt = 'GitHub';
