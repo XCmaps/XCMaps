@@ -7,6 +7,9 @@ L.TimeDimension.Layer.Rainviewer = L.TimeDimension.Layer.extend({
       options['attribution'] = options['attribution'] || "<a href='https://www.rainviewer.com/api.html' rel='noopener noreferrer' target='_blank'>RainViewer</a>";
   
       L.TimeDimension.Layer.prototype.initialize.call(this, L.tileLayer(''), options);
+          this._endpoint = endpoint; // Store endpoint for refresh
+          this._refreshInterval = this.options.refreshInterval || 0; // Refresh interval in ms (0 = disabled)
+          this._refreshTimer = null; // Timer ID
           this._metadata = {};
           this._frames = {};
           this._layers = {};
@@ -19,7 +22,7 @@ L.TimeDimension.Layer.Rainviewer = L.TimeDimension.Layer.extend({
           this._type = this.options.type || 'radar';
           this._loaded = false;
   
-          fetchRainviewerMetadata(endpoint).then((metadata) => {
+          fetchRainviewerMetadata(this._endpoint).then((metadata) => {
             this._metadata = metadata;
             this._loaded = true;
             if(this._map && this._map.hasLayer(this)){
@@ -39,6 +42,18 @@ L.TimeDimension.Layer.Rainviewer = L.TimeDimension.Layer.extend({
           if (this._loaded) {
               this._setAvailableTimes();
           }
+          // Start refresh timer if interval is set
+          if (this._refreshInterval > 0 && !this._refreshTimer) {
+              this._refreshTimer = setInterval(this._refreshData.bind(this), this._refreshInterval);
+          }
+      },
+      onRemove: function(map) {
+          L.TimeDimension.Layer.prototype.onRemove.call(this, map);
+          // Clear refresh timer
+          if (this._refreshTimer) {
+              clearInterval(this._refreshTimer);
+              this._refreshTimer = null;
+          }
       },
       _setAvailableTimes() {
         if(this._type == 'radar'){
@@ -56,6 +71,20 @@ L.TimeDimension.Layer.Rainviewer = L.TimeDimension.Layer.extend({
         }
         if (this._updateCurrentTime && this._timeDimension && this._availableTimes.length) {
             this._timeDimension.setCurrentTime(this._availableTimes[this._defaultTime]);
+        }
+      },
+      _refreshData: async function() {
+        console.log('Refreshing Rainviewer data (' + this._type + ')...');
+        try {
+          const metadata = await fetchRainviewerMetadata(this._endpoint);
+          this._metadata = metadata;
+          // Clear old frames before setting new ones
+          this._frames = {};
+          this._setAvailableTimes(); // This updates _availableTimes and the timeDimension control
+          this._update(); // This updates the currently displayed layer
+          console.log('Rainviewer data refreshed (' + this._type + ').');
+        } catch (error) {
+          console.error('Error refreshing Rainviewer data:', error);
         }
       },
       eachLayer: function(method, context) {

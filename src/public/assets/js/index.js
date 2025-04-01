@@ -208,13 +208,15 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
     // Use different endpoints for radar and satellite to prevent conflicts
     window.rainviewerRadarLayer = L.timeDimension.layer.rainviewer("https://api.rainviewer.com/public/weather-maps.json", {
       opacity: 0.7,
-      cache: 5 // Limit cache size to improve performance
+      cache: 5, // Limit cache size to improve performance
+      refreshInterval: 300000 // Refresh every 5 minutes
     }).addTo(window.map); // Add radar layer to map by default
     
     window.rainviewerSatelliteLayer = L.timeDimension.layer.rainviewer("https://api.rainviewer.com/public/weather-maps.json", {
       type: 'satellite',
       opacity: 0.7,
-      cache: 5 // Limit cache size to improve performance
+      cache: 5, // Limit cache size to improve performance
+      refreshInterval: 300000 // Refresh every 5 minutes
     });
     
     console.log('RainViewer layers initialized successfully');
