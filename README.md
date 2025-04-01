@@ -2,9 +2,7 @@
 
 [![CC-BY-4.0][cc-by-shield]][cc-by]
 
-XCMAPS is an interactive web-based mapping application designed specifically for paragliding and hang gliding pilots. It provides critical flight planning information including airspaces, wind conditions, takeoff and landing spots, and obstacles in an intuitive, interactive interface.
-
-![XCMAPS Screenshot](https://placeholder-for-screenshot.com/xcmaps-screenshot.jpg)
+XCmaps is an interactive web-based map designed specifically for paragliding and hang gliding pilots. It provides critical flight planning information including airspaces, wind conditions, takeoff and landing spots, and obstacles in an intuitive, interactive interface.
 
 ## Features
 
@@ -177,7 +175,7 @@ The layer control panel on the right side of the map allows you to:
 
 ### Map Services
 
-XCMAPS uses several map services that may require API keys:
+XCmaps uses several map services that may require API keys:
 
 1. **OpenAIP** - For airspace data (requires API key)
 2. **MapTiler** - For terrain maps (API key included but may need updating)
@@ -185,7 +183,7 @@ XCMAPS uses several map services that may require API keys:
 
 ## API Documentation
 
-XCMAPS provides several API endpoints that can be used by other applications:
+XCmaps provides several API endpoints that can be used by other applications:
 
 ### Wind Data
 
@@ -232,7 +230,7 @@ XCMAPS provides several API endpoints that can be used by other applications:
 
 ## Contributing
 
-Contributions to XCMAPS are welcome! Please follow these steps:
+Contributions to XCmaps are welcome! Please follow these steps:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
