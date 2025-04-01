@@ -44,6 +44,7 @@ const InfoControl = L.Control.extend({
                   <li><strong>Spots:</strong> Para- and Hangliding take-off and Landing Zones (© <a href="https://paraglidingspots.com" target="_blank">paraglidingspots.com</a>)</li>
                   <li><strong>Airspaces:</strong> Xcontest Airspaces & Activations, filter for today and the next 6 days and lowest floor level</li>
                   <li><strong>Obstacles:</strong> OSM based obstacles from Xcontest</li>
+                  <li><strong>Locate and Track:</strong>Locate and Track your position using the Locate Control</li>
                 </ul>
 
                 <h3>Credits</h3>
