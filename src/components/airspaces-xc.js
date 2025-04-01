@@ -101,6 +101,21 @@ function fetchAirspacesXC() {
       return;
     }
 
+    // --- Zoom Level Check ---
+    const currentZoom = window.map.getZoom();
+    const minZoomLevel = 5;
+    if (currentZoom < minZoomLevel) {
+        console.log(`[AirspaceXC] Zoom level ${currentZoom} is below minimum (${minZoomLevel}), clearing layer and skipping fetch.`);
+        if (window.airspaceXC) { // Ensure layer group exists before clearing
+            window.airspaceXC.clearLayers(); // Clear existing layers
+        }
+        allLoadedAirspaces = []; // Reset data
+        // No need to manage popup listener here, it's handled elsewhere or irrelevant if no data is loaded
+        return; // Exit *before* constructing URL or fetching
+    }
+    // --- End Zoom Level Check ---
+
+
     const center = window.map.getCenter();
     const lat = center.lat.toFixed(6);
     const lng = center.lng.toFixed(6);
@@ -121,6 +136,9 @@ function fetchAirspacesXC() {
           window.map.off("popupopen", airspacePopupOpenListener); // Target MAP now
           airspacePopupOpenListener = null;
         }
+
+        // Redundant zoom check removed from here
+
 
         const features = data.features || [];
         const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -307,4 +325,37 @@ document.addEventListener('change', function(e) {
     }
 });
 
+function initializeAirspaceXCMapListeners(mapInstance) {
+    if (mapInstance) {
+        mapInstance.on('zoomend', function() {
+            // Check if the airspaceXC layer is currently supposed to be visible
+            // Ensure window.airspaceXC exists before checking hasLayer
+            if (window.airspaceXC && mapInstance.hasLayer(window.airspaceXC)) {
+                console.log("[AirspaceXC] Map zoom ended, re-fetching airspaces based on new zoom level.");
+                // Use a small debounce to avoid rapid calls if zoom changes quickly
+                clearTimeout(airspaceDebounceTimer);
+                airspaceDebounceTimer = setTimeout(() => {
+                    // Pass mapInstance to fetch function if it needs it,
+                    // otherwise ensure fetchAirspacesXC uses the correct map reference
+                    // (Assuming fetchAirspacesXC still relies on window.map internally for now)
+                    fetchAirspacesXC();
+                }, 150); // Shorter delay for zoom
+            }
+        });
+        console.log("[AirspaceXC] zoomend listener attached to map.");
+
+        // Also attach the popup listener here, ensuring it uses the correct map instance
+        // Remove the old listener attachment from fetchAirspacesXC if it's still there
+        mapInstance.on("popupopen", airspacePopupOpenListener);
+        console.log("[AirspaceXC] popupopen listener attached to MAP via initializer.");
+
+    } else {
+        console.error("[AirspaceXC] Invalid map instance provided to initializeAirspaceXCMapListeners.");
+    }
+}
+
+// Export the initializer and the fetch function
+export { fetchAirspacesXC, initializeAirspaceXCMapListeners };
+
+// Keep global assignment for potential legacy compatibility, though ideally refactor away
 window.fetchAirspacesXC = fetchAirspacesXC;

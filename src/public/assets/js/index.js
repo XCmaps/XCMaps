@@ -19,6 +19,7 @@ import '../../../components/spots-hg.js';
 import '../../../components/spots-lz.js';
 import '../../../components/obstacles.js';
 import '../../../components/rainviewer.js';
+import { initializeAirspaceXCMapListeners } from './../../../components/airspaces-xc.js';
 
 
 // Initialize map and make necessary objects globally available
@@ -426,6 +427,9 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
 
   // Initialize with base tree collapsed and selected overlays expanded
   treeLayersControl.collapseTree(false).expandSelected(true);
+
+  // Initialize AirspaceXC map listeners AFTER map and layer control are ready
+  initializeAirspaceXCMapListeners(window.map);
 
   // Add touch support for mobile devices
   const layersControlContainer = treeLayersControl.getContainer();
