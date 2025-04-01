@@ -415,7 +415,9 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
           position: 'bottomright',
           icon: 'locate',
           iconLoading: 'loading',
-          iconElementTag: 'div'
+          iconElementTag: 'div',
+          setView: 'always', // Keep map centered on user's location
+          flyTo: true // Use flyTo animation for smoother panning
       }).addTo(window.map);
 
   // Add layer control tree

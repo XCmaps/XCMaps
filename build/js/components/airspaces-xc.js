@@ -1,1 +1,361 @@
-import moment from"moment";import"moment-timezone";import*as turf from"@turf/turf";let airspaceDebounceTimer,airspacePopupOpenListener=null,currentLowerLimit=3e3,selectedDateStr=getCurrentDateStr(),allLoadedAirspaces=[];function getCurrentDateStr(){const e=new Date;return`${e.getFullYear()}-${(e.getMonth()+1).toString().padStart(2,"0")}-${e.getDate().toString().padStart(2,"0")}`}function getLimitMeters(e){if(!e)return null;switch(e.type){case"FL":case"AMSL":case"AGL":return.3048*e.height;default:return null}}function generateAirspacePopupHtml(e){const t=moment.tz.guess();let r="";if(e.descriptions&&Array.isArray(e.descriptions)&&e.descriptions.length>0){const t=e=>e?e.replace(/([ABCDEFGQ]\))/g,"<br>$1"):"";r=`\n      <div class="airspace-descriptions" style="font-size: 0.8em;">\n          ${e.descriptions.map((e=>`${t(e.airdescription||"")} ${e.airlanguage?`(${e.airlanguage})`:""}`)).join("")}\n      </div>\n    `}let i="";e.activations&&Array.isArray(e.activations)&&e.activations.length>0&&(i=`\n      <div class="airspace-activations">\n        <b>Activations:</b><br>\n        ${e.activations.map((e=>{const r=moment.utc(e[0]).tz(t),i=moment.utc(e[1]).tz(t);return`${r.format("MMM D, HH:mm z")} - ${i.format("MMM D, HH:mm z")}`})).join("<br>")}\n      </div>\n    `);const o=(e,t)=>{if(!e)return t||"N/A";const r=e.type,i=e.height;if("FL"===r){return`${Math.round(.3048*i)}m (FL${i/100})`}if("AMSL"===r||"AGL"===r){return`${Math.round(.3048*i)}m`}return t||"N/A"},a=o(e.airlower_j,e.lowerLimit),n=o(e.airupper_j,e.upperLimit);moment.tz(t).zoneAbbr(),moment.tz(t).format("Z");return`\n    <div class="airspace-detail">\n      <b>${e.name} (${e.airspaceClass})</b><br>\n      <b>↧ </b>${a} - <b>↥ </b>${n}<br>\n      ${r}\n      ${i}\n    </div>\n  `}function fetchAirspacesXC(){if(!window.map)return void console.error("Map not initialized yet");const e=window.map.getCenter(),t=(e.lat.toFixed(6),e.lng.toFixed(6),window.map.getBounds()),r=t.getNorthWest(),i=t.getSouthEast(),o=`/api/airspacesXCdb?startDate=${selectedDateStr}&nw_lat=${r.lat.toFixed(6)}&nw_lng=${r.lng.toFixed(6)}&se_lat=${i.lat.toFixed(6)}&se_lng=${i.lng.toFixed(6)}`;fetch(o).then((e=>e.json())).then((e=>{window.airspaceXC.clearLayers(),allLoadedAirspaces=[],airspacePopupOpenListener&&(window.map.off("popupopen",airspacePopupOpenListener),airspacePopupOpenListener=null);const t=e.features||[],r=Intl.DateTimeFormat().resolvedOptions().timeZone,i=moment.tz(selectedDateStr,"YYYY-MM-DD",r).startOf("day").utc().toDate();t.forEach((e=>{if(e.geometry&&"Polygon"===e.geometry.type){if(e.properties.name&&e.properties.name.startsWith("V00"))return;const t=getLimitMeters(e.properties.airlower_j);if(null===t||t>currentLowerLimit)return;let o=!1;if(e.properties.descriptions&&Array.isArray(e.properties.descriptions))for(const t of e.properties.descriptions){const e=(t.airdescription||"").match(/C\)\s*(\d{10})/);if(e&&e[1])try{const t=2e3+parseInt(e[1].substring(0,2)),r=parseInt(e[1].substring(2,4))-1,a=parseInt(e[1].substring(4,6)),n=parseInt(e[1].substring(6,8)),s=parseInt(e[1].substring(8,10));if(new Date(Date.UTC(t,r,a,n,s))<i){o=!0;break}}catch(e){console.error("Error parsing expiration date:",e)}}if(o)return;let a=!1;if(e.properties.activations&&Array.isArray(e.properties.activations)&&e.properties.activations.length>0){const t=moment.tz(selectedDateStr,"YYYY-MM-DD",r).endOf("day").utc().toDate();for(const r of e.properties.activations){const e=new Date(r[0]),o=new Date(r[1]);if(e<=t&&o>=i){a=!0;break}}if(!a)return}if("R"===e.properties.airspaceClass){let t=!1;if(e.properties.descriptions&&Array.isArray(e.properties.descriptions))for(const r of e.properties.descriptions)if((r.airdescription||"").match(/C\)\s*(\d{10})/)){t=!0;break}if(!t&&!a)return}const n=e.geometry.coordinates[0].map((e=>[e[1],e[0]])),s=L.polygon(n,{color:e.properties.strokeColor||"blue",weight:e.properties.strokeWeight||2,fillColor:e.properties.fillColor||"blue",fillOpacity:e.properties.fillOpacity||.3});s.bindPopup(`<b>${e.properties.name}</b><br><i>Loading details...</i>`,{className:"airspace-popup"}),allLoadedAirspaces.push({polygon:s,data:e.properties,geometry:e.geometry}),window.airspaceXC.addLayer(s)}})),airspacePopupOpenListener=function(e){const t=e.popup;if(!(t&&t.options&&t.options.className&&t.options.className.includes("airspace-popup")))return;const r=e.layer,i=t.getLatLng();if(!i)return;const o=[],a=turf.point([i.lng,i.lat]);if(allLoadedAirspaces.forEach((({data:e,geometry:t},r)=>{try{const r=turf.polygon(t.coordinates);turf.booleanPointInPolygon(a,r)&&o.push(e)}catch(e){console.error(`[AirspaceXC] Error checking point in polygon for index ${r}:`,e)}})),o.length>0){const e=o.map((e=>generateAirspacePopupHtml(e))).join("<hr style='margin: 5px 0; border-top: 1px solid #ccc;'>");t.setContent(e)}else{const e=allLoadedAirspaces.find((e=>e.polygon===r));e?t.setContent(generateAirspacePopupHtml(e.data)):(console.error("[AirspaceXC popupopen Listener - Attempt 13] Could not find data for the opened layer!"),t.setContent("Error: Could not find airspace details."))}},window.map.on("popupopen",airspacePopupOpenListener),console.log("[AirspaceXC] popupopen listener attached to MAP.")})).catch((e=>console.error("Error fetching airspaces:",e)))}document.addEventListener("change",(function(e){if(!e.target||"airspaceLowerLimit"!==e.target.id&&"airspaceTime"!==e.target.id||window.map&&window.map._popup&&window.map.closePopup(),e.target&&"airspaceLowerLimit"===e.target.id){const t=parseInt(e.target.value,10);t!==currentLowerLimit&&(currentLowerLimit=t,clearTimeout(airspaceDebounceTimer),airspaceDebounceTimer=setTimeout((()=>{window.map.hasLayer(window.airspaceXC)&&fetchAirspacesXC()}),300))}if(e.target&&"airspaceTime"===e.target.id){const t=e.target.value;t!==selectedDateStr&&(selectedDateStr=t,clearTimeout(airspaceDebounceTimer),airspaceDebounceTimer=setTimeout((()=>{window.map.hasLayer(window.airspaceXC)&&fetchAirspacesXC()}),300))}})),window.fetchAirspacesXC=fetchAirspacesXC;
+import moment from 'moment';
+import 'moment-timezone';
+import * as turf from '@turf/turf';
+
+let airspacePopupOpenListener = null; // Listener for popupopen
+let currentLowerLimit = 3000; // Default matches dropdown
+let airspaceDebounceTimer;
+let selectedDateStr = getCurrentDateStr(); // Store the selected date
+
+// Global array to store airspace data accessible by the popupopen listener
+let allLoadedAirspaces = [];
+
+// Helper function to get current date string in YYYY-MM-DD format
+function getCurrentDateStr() {
+  const today = new Date();
+  return `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+}
+
+// Helper function to convert limit to meters
+function getLimitMeters(limit) {
+  if (!limit) return null;
+
+  switch (limit.type) {
+    case 'FL': return limit.height * 0.3048;
+    case 'AMSL': case 'AGL': return limit.height * 0.3048;
+    default: return null;
+  }
+}
+
+// Helper function to generate HTML for a single airspace's popup content
+function generateAirspacePopupHtml(a) { // 'a' represents the airspace data (feature.properties)
+  const tzName = moment.tz.guess();
+
+  let descriptionsHtml = '';
+  if (a.descriptions && Array.isArray(a.descriptions) && a.descriptions.length > 0) {
+    const formatDescription = (text) => {
+      if (!text) return '';
+      return text.replace(/([ABCDEFGQ]\))/g, '<br>$1');
+    };
+    descriptionsHtml = `
+      <div class="airspace-descriptions" style="font-size: 0.8em;">
+          ${a.descriptions.map(desc => {
+            const formattedDesc = formatDescription(desc.airdescription || '');
+            return `${formattedDesc} ${desc.airlanguage ? `(${desc.airlanguage})` : ''}`;
+          }).join('')}
+      </div>
+    `;
+  }
+
+  let activationsHtml = '';
+  if (a.activations && Array.isArray(a.activations) && a.activations.length > 0) {
+    activationsHtml = `
+      <div class="airspace-activations">
+        <b>Activations:</b><br>
+        ${a.activations.map(activation => {
+          const startMoment = moment.utc(activation[0]).tz(tzName);
+          const endMoment = moment.utc(activation[1]).tz(tzName);
+          return `${startMoment.format('MMM D, HH:mm z')} - ${endMoment.format('MMM D, HH:mm z')}`;
+        }).join('<br>')}
+      </div>
+    `;
+  }
+
+  const formatLimit = (limit, original) => {
+    if (!limit) return original || 'N/A';
+    const type = limit.type;
+    const height = limit.height;
+    if (type === 'FL') {
+      const meters = Math.round(height * 0.3048);
+      const flNumber = height / 100;
+      return `${meters}m (FL${flNumber})`;
+    } else if (type === 'AMSL' || type === 'AGL') {
+      const meters = Math.round(height * 0.3048);
+      return `${meters}m`;
+    } else {
+      return original || 'N/A';
+    }
+  };
+
+  const lower = formatLimit(a.airlower_j, a.lowerLimit);
+  const upper = formatLimit(a.airupper_j, a.upperLimit);
+
+  // Add timezone info like in the old code example
+  const tzAbbreviation = moment.tz(tzName).zoneAbbr();
+  const tzOffset = moment.tz(tzName).format('Z');
+
+  return `
+    <div class="airspace-detail">
+      <b>${a.name} (${a.airspaceClass})</b><br>
+      <b>↧ </b>${lower} - <b>↥ </b>${upper}<br>
+      ${descriptionsHtml}
+      ${activationsHtml}
+    </div>
+  `;
+}
+
+
+function fetchAirspacesXC() {
+    if (!window.map) {
+      console.error("Map not initialized yet");
+      return;
+    }
+
+    // --- Zoom Level Check ---
+    const currentZoom = window.map.getZoom();
+    const minZoomLevel = 5;
+    if (currentZoom < minZoomLevel) {
+        console.log(`[AirspaceXC] Zoom level ${currentZoom} is below minimum (${minZoomLevel}), clearing layer and skipping fetch.`);
+        if (window.airspaceXC) { // Ensure layer group exists before clearing
+            window.airspaceXC.clearLayers(); // Clear existing layers
+        }
+        allLoadedAirspaces = []; // Reset data
+        // No need to manage popup listener here, it's handled elsewhere or irrelevant if no data is loaded
+        return; // Exit *before* constructing URL or fetching
+    }
+    // --- End Zoom Level Check ---
+
+
+    const center = window.map.getCenter();
+    const lat = center.lat.toFixed(6);
+    const lng = center.lng.toFixed(6);
+    const bounds = window.map.getBounds();
+    const nw = bounds.getNorthWest();
+    const se = bounds.getSouthEast();
+    const dateStr = selectedDateStr;
+    const apiUrl = `/api/airspacesXCdb?startDate=${dateStr}&nw_lat=${nw.lat.toFixed(6)}&nw_lng=${nw.lng.toFixed(6)}&se_lat=${se.lat.toFixed(6)}&se_lng=${se.lng.toFixed(6)}`;
+
+    fetch(apiUrl)
+    .then(response => response.json())
+    .then(data => {
+        window.airspaceXC.clearLayers();
+        allLoadedAirspaces = []; // Reset global array
+
+        // Remove any existing popupopen listeners from the MAP
+        if (airspacePopupOpenListener) {
+          window.map.off("popupopen", airspacePopupOpenListener); // Target MAP now
+          airspacePopupOpenListener = null;
+        }
+
+        // Redundant zoom check removed from here
+
+
+        const features = data.features || [];
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const selectedDateStartLocal = moment.tz(selectedDateStr, "YYYY-MM-DD", userTimezone).startOf('day');
+        const selectedDateStartUTC = selectedDateStartLocal.utc().toDate();
+
+        features.forEach(feature => {
+          if (feature.geometry && feature.geometry.type === "Polygon") {
+
+            // --- Filtering Logic (Unchanged) ---
+            if (feature.properties.name && feature.properties.name.startsWith("V00")) return;
+            const lowerLimitMeters = getLimitMeters(feature.properties.airlower_j);
+            if (lowerLimitMeters === null || lowerLimitMeters > currentLowerLimit) return;
+            let isExpired = false;
+            if (feature.properties.descriptions && Array.isArray(feature.properties.descriptions)) {
+              for (const desc of feature.properties.descriptions) {
+                const description = desc.airdescription || '';
+                const cMatch = description.match(/C\)\s*(\d{10})/);
+                if (cMatch && cMatch[1]) {
+                  try {
+                    const year = 2000 + parseInt(cMatch[1].substring(0, 2));
+                    const month = parseInt(cMatch[1].substring(2, 4)) - 1;
+                    const day = parseInt(cMatch[1].substring(4, 6));
+                    const hour = parseInt(cMatch[1].substring(6, 8));
+                    const minute = parseInt(cMatch[1].substring(8, 10));
+                    const expirationDate = new Date(Date.UTC(year, month, day, hour, minute));
+                    if (expirationDate < selectedDateStartUTC) { isExpired = true; break; }
+                  } catch (error) { console.error("Error parsing expiration date:", error); }
+                }
+              }
+            }
+            if (isExpired) return;
+            let hasActiveActivation = false;
+            if (feature.properties.activations && Array.isArray(feature.properties.activations) && feature.properties.activations.length > 0) {
+              const selectedDateEndLocal = moment.tz(selectedDateStr, "YYYY-MM-DD", userTimezone).endOf('day');
+              const selectedDateEndUTC = selectedDateEndLocal.utc().toDate();
+              for (const activation of feature.properties.activations) {
+                const activationStart = new Date(activation[0]);
+                const activationEnd = new Date(activation[1]);
+                if (activationStart <= selectedDateEndUTC && activationEnd >= selectedDateStartUTC) { hasActiveActivation = true; break; }
+              }
+              if (!hasActiveActivation) return;
+            }
+            if (feature.properties.airspaceClass === "R") {
+              let hasExpirationDate = false;
+              if (feature.properties.descriptions && Array.isArray(feature.properties.descriptions)) {
+                for (const desc of feature.properties.descriptions) {
+                  if ((desc.airdescription || '').match(/C\)\s*(\d{10})/)) { hasExpirationDate = true; break; }
+                }
+              }
+              if (!hasExpirationDate && !hasActiveActivation) return;
+            }
+            // --- End Filtering Logic ---
+
+            const coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
+            const polygon = L.polygon(coordinates, {
+              color: feature.properties.strokeColor || "blue",
+              weight: feature.properties.strokeWeight || 2,
+              fillColor: feature.properties.fillColor || "blue",
+              fillOpacity: feature.properties.fillOpacity || 0.3
+            });
+
+            // *** Bind a SIMPLE initial popup content ***
+            polygon.bindPopup(`<b>${feature.properties.name}</b><br><i>Loading details...</i>`, {
+                 className: 'airspace-popup' // Keep class
+            });
+
+            // Store polygon, data, and geometry globally
+            allLoadedAirspaces.push({
+              polygon, // Keep reference to layer
+              data: feature.properties,
+              geometry: feature.geometry
+            });
+            window.airspaceXC.addLayer(polygon);
+          }
+        });
+
+        // Define the popupopen listener function
+        airspacePopupOpenListener = function(e) {
+          // console.log('[AirspaceXC popupopen Listener - Attempt 13] Fired for layer:', e.layer); // DEBUG REMOVED
+
+          const popup = e.popup;
+          // Check if this is one of our airspaces popups before proceeding
+          if (!popup || !popup.options || !popup.options.className || !popup.options.className.includes('airspace-popup')) {
+              // console.log('[AirspaceXC popupopen Listener - Attempt 14] Ignoring popup without airspace-popup class.'); // DEBUG REMOVED
+              return;
+          }
+
+          const openedLayer = e.layer; // We know it's an airspace popup now
+          const latlng = popup.getLatLng();
+
+          if (!latlng) {
+              // console.log('[AirspaceXC popupopen Listener - Attempt 13] No LatLng found on popup.'); // DEBUG REMOVED
+              return;
+          }
+          // console.log('[AirspaceXC popupopen Listener - Attempt 13] Popup LatLng:', latlng); // DEBUG REMOVED
+
+          const overlappingAirspacesData = [];
+          const pt = turf.point([latlng.lng, latlng.lat]);
+
+          // console.log('[AirspaceXC popupopen Listener - Attempt 13] Checking overlaps in allLoadedAirspaces (count:', allLoadedAirspaces.length, ')'); // DEBUG REMOVED
+
+          // Find overlapping airspaces using the globally stored data
+          allLoadedAirspaces.forEach(({ data, geometry }, index) => {
+            try {
+              const poly = turf.polygon(geometry.coordinates);
+              if (turf.booleanPointInPolygon(pt, poly)) {
+                // console.log(`[AirspaceXC popupopen Listener - Attempt 13] Overlap found with airspace index ${index}:`, data.name); // DEBUG REMOVED
+                overlappingAirspacesData.push(data);
+              }
+            } catch (error) {
+              console.error(`[AirspaceXC] Error checking point in polygon for index ${index}:`, error); // Keep error log, remove debug marker
+            }
+          });
+
+          // console.log(`[AirspaceXC popupopen Listener - Attempt 13] Found ${overlappingAirspacesData.length} total overlaps.`); // DEBUG REMOVED
+          // Log the names for easier debugging
+          // console.log('[AirspaceXC popupopen Listener - Attempt 13] Overlapping names:', overlappingAirspacesData.map(d => d.name)); // DEBUG REMOVED
+
+          if (overlappingAirspacesData.length > 0) {
+              // Generate combined HTML content
+              const combinedHtml = overlappingAirspacesData
+                  .map(data => generateAirspacePopupHtml(data)) // Use helper for each
+                  .join("<hr style='margin: 5px 0; border-top: 1px solid #ccc;'>"); // Join with separator
+
+              // Update the content of the popup that just opened
+              // console.log('[AirspaceXC popupopen Listener - Attempt 13] Updating popup content.'); // DEBUG REMOVED
+              // console.log('[AirspaceXC popupopen Listener - Attempt 13] Combined HTML:', combinedHtml); // DEBUG (potentially very long)
+              popup.setContent(combinedHtml);
+
+          } else {
+              // console.log('[AirspaceXC popupopen Listener - Attempt 13] No overlaps found, setting default content.'); // DEBUG REMOVED
+              // Fallback: Set content to just the opened layer's default
+              const openedLayerEntry = allLoadedAirspaces.find(entry => entry.polygon === openedLayer);
+              if (openedLayerEntry) {
+                 popup.setContent(generateAirspacePopupHtml(openedLayerEntry.data));
+              } else {
+                 console.error('[AirspaceXC popupopen Listener - Attempt 13] Could not find data for the opened layer!'); // DEBUG
+                 popup.setContent("Error: Could not find airspace details.");
+              }
+          }
+        };
+
+        // Add the popupopen listener to the MAP
+        window.map.on("popupopen", airspacePopupOpenListener); // Target MAP now
+        console.log("[AirspaceXC] popupopen listener attached to MAP."); // INFO
+      })
+      .catch(error => console.error("Error fetching airspaces:", error));
+}
+
+
+document.addEventListener('change', function(e) {
+    //close open popups
+    if (e.target && (e.target.id === 'airspaceLowerLimit' || e.target.id === 'airspaceTime')) {
+      if (window.map && window.map._popup) {
+        window.map.closePopup();
+      }
+    }
+    // Handle airspaceLowerLimit changes
+    if (e.target && e.target.id === 'airspaceLowerLimit') {
+        const newLimit = parseInt(e.target.value, 10);
+        if (newLimit !== currentLowerLimit) {
+            currentLowerLimit = newLimit;
+            clearTimeout(airspaceDebounceTimer);
+            airspaceDebounceTimer = setTimeout(() => {
+                if (window.map.hasLayer(window.airspaceXC)) {
+                    fetchAirspacesXC();
+                }
+            }, 300);
+        }
+    }
+    // Handle date selection changes
+    if (e.target && e.target.id === 'airspaceTime') {
+      const newDate = e.target.value;
+      if (newDate !== selectedDateStr) {
+        selectedDateStr = newDate;
+        clearTimeout(airspaceDebounceTimer);
+        airspaceDebounceTimer = setTimeout(() => {
+          if (window.map.hasLayer(window.airspaceXC)) {
+            fetchAirspacesXC();
+          }
+        }, 300);
+      }
+    }
+});
+
+function initializeAirspaceXCMapListeners(mapInstance) {
+    if (mapInstance) {
+        mapInstance.on('zoomend', function() {
+            // Check if the airspaceXC layer is currently supposed to be visible
+            // Ensure window.airspaceXC exists before checking hasLayer
+            if (window.airspaceXC && mapInstance.hasLayer(window.airspaceXC)) {
+                console.log("[AirspaceXC] Map zoom ended, re-fetching airspaces based on new zoom level.");
+                // Use a small debounce to avoid rapid calls if zoom changes quickly
+                clearTimeout(airspaceDebounceTimer);
+                airspaceDebounceTimer = setTimeout(() => {
+                    // Pass mapInstance to fetch function if it needs it,
+                    // otherwise ensure fetchAirspacesXC uses the correct map reference
+                    // (Assuming fetchAirspacesXC still relies on window.map internally for now)
+                    fetchAirspacesXC();
+                }, 150); // Shorter delay for zoom
+            }
+        });
+        console.log("[AirspaceXC] zoomend listener attached to map.");
+
+        // Also attach the popup listener here, ensuring it uses the correct map instance
+        // Remove the old listener attachment from fetchAirspacesXC if it's still there
+        mapInstance.on("popupopen", airspacePopupOpenListener);
+        console.log("[AirspaceXC] popupopen listener attached to MAP via initializer.");
+
+    } else {
+        console.error("[AirspaceXC] Invalid map instance provided to initializeAirspaceXCMapListeners.");
+    }
+}
+
+// Export the initializer and the fetch function
+export { fetchAirspacesXC, initializeAirspaceXCMapListeners };
+
+// Keep global assignment for potential legacy compatibility, though ideally refactor away
+window.fetchAirspacesXC = fetchAirspacesXC;
