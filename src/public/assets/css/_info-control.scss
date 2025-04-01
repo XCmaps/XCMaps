@@ -1,86 +1,197 @@
-/* Info Control */
-.info-control .leaflet-control-button {
-    background-color: white;
-    border-radius: 4px;
-    padding-top: 3px;
-    padding-left: 3px;
-    padding-right: 5px;
-    padding-bottom: 5px;
-    transition: background-color 0.2s;
+// --- Modal Styles (for screens >= 768px) ---
+
+.info-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5); // Semi-transparent background
+  z-index: 1050; // Ensure it's above map but potentially below other UI
+  display: flex; // Used by JS to show/hide and center
+  align-items: center;
+  justify-content: center;
+  padding: 15px; // Padding around the modal content box
+  box-sizing: border-box;
 }
 
-.info-control .leaflet-control-button:hover {
-    background-color: #f8f9fa;
+.info-modal-content {
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  max-width: 700px; // Keep the desired max width
+  width: 100%; // Allow shrinking on small screens
+  height: 90vh; // Use viewport height
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column; // Stack header, content, footer
+  overflow: hidden; // Prevent content overflow from breaking layout
 }
 
-.info-control-icon {
-    width: 20px;
-    height: 20px;
-    display: block;
+// --- Shared Content Structure Styles ---
+// These apply to the .info-popup-container whether it's inside the modal or the fullscreen panel
+
+.info-popup-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%; // Take full height of parent (.info-modal-content or #fullScreenInfo)
+  background-color: #fff; // Ensure background
 }
 
-/* Info Popup - Only width remains */
-.info-popup .leaflet-popup-content-wrapper {
-    max-width: 700px;
+.info-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 45px; // Fixed height
+  padding: 0 10px;
+  background-color: #f8f8f8;
+  border-bottom: 1px solid #ddd;
+  flex-shrink: 0; // Prevent shrinking
 }
 
-.info-popup  .leaflet-popup-tip-container {
-    display: none;
+.info-popup-header-left {
+  display: flex;
+  align-items: center;
+  flex-grow: 1; // Allow left side to take up space
 }
 
-/* Info Control */
-.info-control .leaflet-control-button {
-    background-color: white;
-    border-radius: 4px;
-    padding-top: 3px;
-    padding-left: 3px;
-    padding-right: 5px;
-    padding-bottom: 5px;
-    transition: background-color 0.2s;
+// Container for right-side header elements
+.info-popup-header-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0; // Prevent right side from shrinking
+}
+
+// Styling for social icons
+.social-icon {
+  display: inline-block; // Or flex if more control needed
+  margin-left: 8px; // Space between icons and close button
+
+  img {
+    height: 24px; // Match approx height within 45px header
+    width: 24px;
+    vertical-align: middle; // Align nicely with text/other icons
+    opacity: 0.7;
+    transition: opacity 0.2s ease-in-out;
+
+    &:hover {
+      opacity: 1;
+    }
   }
-  
-  .info-control .leaflet-control-button:hover {
-    background-color: #f8f9fa;
-  }
-  
-  .info-control-icon {
-    width: 20px;
-    height: 20px;
-    display: block;
-  }
-  
-  /* Info Popup - Only width remains */
-  .info-popup .leaflet-popup-content-wrapper {
-    max-width: 700px;
-  }
-  
-  .info-popup .leaflet-popup-tip-container {
-    display: none;
-  }
-
-  .info-popup .leaflet-popup-content img {
-    max-width: 30%; /* Make sure images fit within the popup */
-    height: auto;    /* Maintain aspect ratio */
 }
 
-.popup-logo img {
-    max-width: 30%;
-    height: auto;
+.info-popup-logo {
+  height: 80%;
+  max-height: 35px;
+  width: auto;
+  margin-right: 10px;
 }
 
+.info-popup-breadcrumbs {
+  display: inline-block;
+  font-size: 0.9em;
+  color: #666;
+  vertical-align: middle;
+  .breadcrumb-link { color: #007bff; font-weight: bold; text-decoration: none; cursor: pointer; &:hover { text-decoration: underline; } }
+  .breadcrumb-current { font-weight: bold; color: #333; }
+}
+
+.info-popup-close { // Header close button
+  font-size: 24px; font-weight: bold; color: #555; cursor: pointer;
+  padding: 5px; line-height: 1;
+  &:hover { color: #000; }
+}
+
+.info-popup-content { // Scrollable content area
+  flex-grow: 1; // Take up remaining space
+  overflow-y: auto; // Enable scrolling
+  padding: 15px; // Consistent padding
+
+  a[data-section] { // Navigation links inside content
+      color: #007bff; text-decoration: none; cursor: pointer;
+      &:hover { text-decoration: underline; }
+  }
+}
+
+.info-popup-footer { // Fixed footer
+  padding: 10px 15px; // Match content padding
+  border-top: 1px solid #eee;
+  flex-shrink: 0; // Prevent shrinking
+  background-color: #f8f8f8; // Match header background
+  // Using d-flex, justify-content-between, align-items-center from JS
+
+  .footer-links {
+    display: flex;
+    flex-direction: column; // Stack links vertically
+    justify-content: center; // Center them vertically if footer has extra space
+    line-height: 1.3; // Adjust line spacing
+
+    a {
+      color: #007bff; // Standard link color
+      text-decoration: none;
+      font-size: 0.8em; // Make links slightly smaller
+      cursor: pointer;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+
+  // Ensure right side elements (message, buttons) are aligned
+  > .d-flex { // Target the direct child div with d-flex containing buttons/message
+      align-items: center;
+  }
+}
+
+// --- Other Styles ---
 
 .donation-button {
-  display: inline-block;
-  background-color: #ffcc00;
-  color: #000;
-  padding: 10px 20px;
-  font-size: 16px;
-  font-weight: bold;
-  border-radius: 25px;
-  text-decoration: none;
-  transition: background 0.3s ease-in-out;
+  display: inline-block; background-color: #ffcc00; color: #000;
+  padding: 10px 20px; font-size: 18px; font-weight: bold;
+  border-radius: 25px; text-decoration: none; transition: background 0.3s ease-in-out;
+  &:hover { background-color: #ffaa00; }
 }
 
-.donation-button:hover {
-  background-color: #ffaa00;
+// Feedback form styles (inside .info-popup-content)
+.feedback-modal {
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+
+  #infoDropzoneFeedback {
+    border: 2px dashed #007bff; border-radius: 5px; padding: 20px;
+    text-align: center; color: #666; cursor: pointer; background-color: #f9f9f9;
+    min-height: 80px;
+    &.dz-clickable { cursor: pointer; }
+    .dz-message { /* Style if needed */ }
+    .dz-preview {
+      margin: 5px; display: inline-block; vertical-align: top; position: relative;
+      .dz-image {
+        border-radius: 5px; overflow: hidden; width: 120px; height: 120px;
+        position: relative; display: block; z-index: 10;
+        img { display: block; width: 100%; height: 100%; object-fit: cover; }
+      }
+      .dz-remove {
+        display: block; text-align: center; margin-top: 5px; color: red;
+        cursor: pointer; font-size: 0.8em; text-decoration: underline;
+      }
+    }
+  }
+
+  .form-control { width: 100%; box-sizing: border-box; }
+  .form-group > div { box-sizing: border-box; }
 }
+
+// Class added to map container when fullscreen info is open (from index.js)
+.map-covered {
+    // Optional: Dim map layers slightly or disable pointer events
+    // .leaflet-tile-pane { opacity: 0.5; pointer-events: none; }
+}
+
+// REMOVE Leaflet-specific overrides (if they existed from previous step)
+// .info-popup .leaflet-popup-content-wrapper,
+// .info-popup .leaflet-popup-content {
+//    /* Styles removed */
+// }

@@ -53,42 +53,90 @@ function initMap() {
   /* JS */
     // Modified popupopen handler
   window.map.on('popupopen', function(ev){
-    var el = document.getElementById('fullScreenInfo');
-    var screenWidthThreshold = 768; // Match CSS media query
+    const el = document.getElementById('fullScreenInfo');
+    const screenWidthThreshold = 768; // Match CSS media query
+    const popupEl = ev.popup.getElement(); // Get popup DOM element
 
     if (window.innerWidth < screenWidthThreshold) {
-      // Skip fullscreen for obstacle popups (check for obstacle-popup class)
-      const popupEl = ev.popup.getElement();
+
+      // --- Handle Info Popup Specifically ---
+      if (popupEl && popupEl.classList.contains('info-popup')) {
+        console.log("Opening Info Popup in fullscreen mode.");
+        window.map.closePopup(); // Close the small popup first
+        try {
+          const infoContentElement = ev.popup.getContent(); // Get the DOM element from InfoControl
+
+          if (typeof infoContentElement !== 'object' || !infoContentElement.querySelector) {
+               console.error("Info popup content is not a valid DOM element.");
+               // Fallback or simply return
+               return;
+          }
+
+          el.innerHTML = ''; // Clear previous content
+          // Append the entire structure (header, content, footer) from InfoControl
+          el.appendChild(infoContentElement);
+
+          // Find close buttons *within the appended content* and attach fullscreen close handler
+          const headerCloseBtn = infoContentElement.querySelector('.info-popup-close');
+          const footerCloseBtn = infoContentElement.querySelector('.info-popup-footer-close');
+
+          if (headerCloseBtn) {
+              // Use L.DomEvent to prevent issues and manage listeners better if needed
+              L.DomEvent.on(headerCloseBtn, 'click', window.closeFullscreenInfo);
+              // Or simpler: headerCloseBtn.onclick = window.closeFullscreenInfo;
+          }
+          if (footerCloseBtn) {
+              L.DomEvent.on(footerCloseBtn, 'click', window.closeFullscreenInfo);
+              // Or simpler: footerCloseBtn.onclick = window.closeFullscreenInfo;
+          }
+
+          // Show the fullscreen panel
+          el.classList.add('visible');
+          el.style.display = 'block';
+          el.style.zIndex = '10000';
+          document.getElementById('map').classList.add('map-covered');
+
+        } catch (error) {
+          console.error('Error processing info popup for fullscreen:', error);
+        }
+        return; // Stop further processing for info popup
+      }
+
+      // --- Skip specific other popups ---
       if (popupEl && (
           popupEl.classList.contains('obstacle-popup') ||
           popupEl.classList.contains('airspace-popup')
+          // Add other classes to skip here if needed
       )) {
-        return;
+        console.log("Skipping fullscreen for obstacle/airspace popup.");
+        return; // Don't show these in fullscreen
       }
-      
-      // Force close any existing popup
-      window.map.closePopup();
 
+      // --- Handle Generic Popups (Original Logic) ---
+      console.log("Opening generic popup in fullscreen mode.");
+      window.map.closePopup(); // Close small popup
       try {
-        var content = ev.popup.getContent(); // Get initial content
+        var content = ev.popup.getContent(); // Get content (likely string)
 
-        // Always add default close button and footer initially, with IDs for removal
-        var closeButton = '<div id="default-fullscreen-close-btn" style="position: absolute; top: 10px; right: 10px;">' + // Added ID
+        // Add default close button and footer for generic popups
+        var closeButtonHTML = '<div id="default-fullscreen-close-btn" style="position: absolute; top: 10px; right: 10px;">' +
                           '<button onclick="closeFullscreenInfo()" style="background: none; border: none; font-size: 20px; cursor: pointer;">✕</button>' +
                           '</div>';
-        var footer = '<div id="default-fullscreen-footer" style="text-align: right; padding: 10px;">' + // Added ID
+        var footerHTML = '<div id="default-fullscreen-footer" style="text-align: right; padding: 10px;">' +
                      '<button class="btn btn-dark btn-sm" onclick="closeFullscreenInfo()">Close</button>' +
                      '</div>';
 
-        // Wrap the main content in a div for easier targeting
-        el.innerHTML = closeButton + `<div id="fullscreen-content-area">${content}</div>` + footer;
+        // Set content, wrapped with default controls
+        el.innerHTML = closeButtonHTML + `<div id="fullscreen-content-area">${content}</div>` + footerHTML;
 
+        // Show panel
         el.classList.add('visible');
-        el.style.display = 'block'; // Set display to block
-        el.style.zIndex = '10000'; // High z-index
+        el.style.display = 'block';
+        el.style.zIndex = '10000';
         document.getElementById('map').classList.add('map-covered');
+
       } catch (error) {
-        console.error('Error in popupopen handler:', error);
+        console.error('Error processing generic popup for fullscreen:', error);
       }
     }
   });
