@@ -79,79 +79,19 @@ function initMap() {
     const screenWidthThreshold = 768; // Match CSS media query
     const popupEl = ev.popup.getElement(); // Get popup DOM element
 
-    if (window.innerWidth < screenWidthThreshold) {
-
-      // --- Handle Info Popup Specifically ---
-      if (popupEl && popupEl.classList.contains('info-popup')) {
-        console.log("Opening Info Popup in fullscreen mode.");
-        window.map.closePopup(); // Close the small popup first
+    // Helper function to show content in fullscreen modal
+    function showInFullscreen(content) {
+        console.log("Attempting to show content in fullscreen modal.");
+        window.map.closePopup(); // Close small popup first
         try {
-          const infoContentElement = ev.popup.getContent(); // Get the DOM element from InfoControl
+            // Add default close button and footer
+            const closeButtonHTML = '<div id="default-fullscreen-close-btn" style="position: absolute; top: 10px; right: 10px;">' +
+                                  '<button onclick="closeFullscreenInfo()" style="background: none; border: none; font-size: 20px; cursor: pointer;">✕</button>' +
+                                  '</div>';
+            const footerHTML = '<div id="default-fullscreen-footer" style="text-align: right; padding: 10px;">' +
+                             '<button class="btn btn-dark btn-sm" onclick="closeFullscreenInfo()">Close</button>' +
+                             '</div>';
 
-          if (typeof infoContentElement !== 'object' || !infoContentElement.querySelector) {
-               console.error("Info popup content is not a valid DOM element.");
-               // Fallback or simply return
-               return;
-          }
-
-          el.innerHTML = ''; // Clear previous content
-          // Append the entire structure (header, content, footer) from InfoControl
-          el.appendChild(infoContentElement);
-
-          // Find close buttons *within the appended content* and attach fullscreen close handler
-          const headerCloseBtn = infoContentElement.querySelector('.info-popup-close');
-          const footerCloseBtn = infoContentElement.querySelector('.info-popup-footer-close');
-
-          if (headerCloseBtn) {
-              // Use L.DomEvent to prevent issues and manage listeners better if needed
-              L.DomEvent.on(headerCloseBtn, 'click', window.closeFullscreenInfo);
-              // Or simpler: headerCloseBtn.onclick = window.closeFullscreenInfo;
-          }
-          if (footerCloseBtn) {
-              L.DomEvent.on(footerCloseBtn, 'click', window.closeFullscreenInfo);
-              // Or simpler: footerCloseBtn.onclick = window.closeFullscreenInfo;
-          }
-
-          // Show the fullscreen panel
-          el.classList.add('visible');
-          el.style.display = 'block';
-          el.style.zIndex = '10000';
-          document.getElementById('map').classList.add('map-covered');
-
-        } catch (error) {
-          console.error('Error processing info popup for fullscreen:', error);
-        }
-        return; // Stop further processing for info popup
-      }
-
-      // --- Skip specific other popups ---
-      if (popupEl && (
-          popupEl.classList.contains('obstacle-popup') ||
-          popupEl.classList.contains('airspace-popup')
-          // Add other classes to skip here if needed
-      )) {
-        console.log("Skipping fullscreen for obstacle/airspace popup.");
-        return; // Don't show these in fullscreen
-      }
-
-      // --- Handle Generic Popups (Conditional on Config) ---
-      // Only attempt to put generic popups (like full spot popups) into fullscreen
-      // if the configuration allows it. Otherwise, let Leaflet handle them normally.
-      if (window.appConfig && window.appConfig.fullSpotsPopoup === true) {
-          console.log("Opening generic popup in fullscreen mode (config enabled).");
-          window.map.closePopup(); // Close small popup
-          try {
-            var content = ev.popup.getContent(); // Get content (likely string or element)
-
-            // Add default close button and footer for generic popups
-            var closeButtonHTML = '<div id="default-fullscreen-close-btn" style="position: absolute; top: 10px; right: 10px;">' +
-                              '<button onclick="closeFullscreenInfo()" style="background: none; border: none; font-size: 20px; cursor: pointer;">✕</button>' +
-                              '</div>';
-            var footerHTML = '<div id="default-fullscreen-footer" style="text-align: right; padding: 10px;">' +
-                         '<button class="btn btn-dark btn-sm" onclick="closeFullscreenInfo()">Close</button>' +
-                         '</div>';
-
-            // Set content, wrapped with default controls
             // Check if content is a node or string
             let contentHTML = '';
             if (typeof content === 'string') {
@@ -164,27 +104,87 @@ function initMap() {
             }
             el.innerHTML = closeButtonHTML + `<div id="fullscreen-content-area">${contentHTML}</div>` + footerHTML;
 
-
             // Show panel
-          } catch (error) {
-            console.error('Error processing generic popup for fullscreen:', error);
+            el.classList.add('visible');
+            el.style.display = 'block';
+            el.style.zIndex = '10000';
+            document.getElementById('map').classList.add('map-covered');
+
+        } catch (error) {
+            console.error('Error processing content for fullscreen:', error);
             // Optionally show an error message in the fullscreen panel
             el.innerHTML = '<div style="padding: 20px;">Error displaying popup content.</div>' +
                            '<div style="text-align: right; padding: 10px;"><button class="btn btn-dark btn-sm" onclick="closeFullscreenInfo()">Close</button></div>';
+            // Still show the panel even if there's an error
+            el.classList.add('visible');
+            el.style.display = 'block';
+            el.style.zIndex = '10000';
+            document.getElementById('map').classList.add('map-covered');
+        }
+    }
+
+    // --- Small Screen Logic ---
+    if (window.innerWidth < screenWidthThreshold) {
+
+      // --- Handle Info Popup Specifically (Uses its own fullscreen logic) ---
+      if (popupEl && popupEl.classList.contains('info-popup')) {
+        console.log("Opening Info Popup in fullscreen mode.");
+        window.map.closePopup(); // Close the small popup first
+        try {
+          const infoContentElement = ev.popup.getContent();
+          if (typeof infoContentElement !== 'object' || !infoContentElement.querySelector) {
+               console.error("Info popup content is not a valid DOM element."); return;
           }
-          // Ensure panel is visible if we attempted to show content
+          el.innerHTML = ''; // Clear previous content
+          el.appendChild(infoContentElement); // Append the entire structure
+
+          // Attach close handlers (assuming infoContentElement contains buttons with correct classes/onclick)
+          const headerCloseBtn = infoContentElement.querySelector('.info-popup-close');
+          const footerCloseBtn = infoContentElement.querySelector('.info-popup-footer-close');
+          if (headerCloseBtn) L.DomEvent.on(headerCloseBtn, 'click', window.closeFullscreenInfo);
+          if (footerCloseBtn) L.DomEvent.on(footerCloseBtn, 'click', window.closeFullscreenInfo);
+
+          // Show the fullscreen panel
           el.classList.add('visible');
           el.style.display = 'block';
           el.style.zIndex = '10000';
           document.getElementById('map').classList.add('map-covered');
+        } catch (error) {
+          console.error('Error processing info popup for fullscreen:', error);
+        }
+        return; // Stop further processing
+      }
 
+      // --- Skip specific other popups ---
+      if (popupEl && (
+          popupEl.classList.contains('obstacle-popup') ||
+          popupEl.classList.contains('airspace-popup')
+          // Add other classes to skip here if needed
+      )) {
+        console.log("Skipping fullscreen for obstacle/airspace popup.");
+        return; // Don't show these in fullscreen
+      }
+
+      // --- Handle Wind Station Popups (Always Fullscreen) ---
+      if (popupEl && popupEl.querySelector('.wind-station-popup-content')) {
+          console.log("Opening Wind Station popup in fullscreen mode.");
+          showInFullscreen(ev.popup.getContent());
+          return; // Stop further processing
+      }
+
+      // --- Handle Other Generic Popups (Conditional on Config) ---
+      // Includes full spot popups if config is true, simplified spot popups are handled by Leaflet if config is false
+      if (window.appConfig && window.appConfig.fullSpotsPopoup === true) {
+          console.log("Opening generic popup in fullscreen mode (config enabled).");
+          showInFullscreen(ev.popup.getContent());
+          // Note: Simplified spot popups won't reach here if config is false
       } else {
-          // If config is false, do nothing extra for generic popups on small screens.
+          // If config is false, do nothing extra for other generic popups (like simplified spots).
           // Leaflet will handle the standard popup display.
           console.log("Skipping fullscreen for generic popup (config disabled).");
       }
-      // Removed redundant panel showing code from here
     }
+    // --- End Small Screen Logic ---
   });
 
   // closeFullscreenInfo function (no changes needed here)
