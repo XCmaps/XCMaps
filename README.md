@@ -1,4 +1,4 @@
-# XCmaps - Interactive Map for Paragliding and Hang Gliding
+# XCmaps - Interactive Map for Para- and Hang-Gliding
 
 [![CC-BY-4.0][cc-by-shield]][cc-by]
 
