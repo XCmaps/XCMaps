@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  db:
+    env_file: ".env"
+    image: postgis/postgis:15-3.3
+    restart: always
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-postgis.sh:/docker-entrypoint-initdb.d/init-postgis.sh
+
+  app:
+    env_file: ".env"
+    build: .
+    restart: always
+    depends_on:
+      - db
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - NODE_ENV=production
+    volumes:
+      - ./src:/usr/src/app/src
+      - ./server.js:/usr/src/app/server.js
+
+volumes:
+  postgres_data:
