@@ -138,166 +138,186 @@ async function loadPlaceDetails(layer, placeId) {
             .trim();
 
         window.currentPlaceName = data.properties.name;
-        window.currentPlaceId = data.properties.id; 
-        window.currentStrPlacemarkId = data.properties.strPlacemarkId; 
+        window.currentPlaceId = data.properties.id;
+        window.currentStrPlacemarkId = data.properties.strPlacemarkId;
 
-        let popupContent = `<span style="color: #0087F7;"><h5>${data.properties.name}</h5></span>
-                            <table style="border-collapse: collapse; width: 70%;">
-                            <tr>
-                                <th style="text-align: left; vertical-align: top;">Type:</th>
-                                <td style="text-align: left; vertical-align: top;">${data.properties.type}</td>
-                            </tr>
-                            <tr>
-                                <th style="text-align: left; vertical-align: top;">Direction:</th>
-                                <td style="text-align: left; vertical-align: top;">${data.properties.direction}</td>
-                            </tr>
-                            <tr>
-                                <th style="text-align: left; vertical-align: top;">Rating:</th>
-                                <td style="text-align: left; vertical-align: top;">${data.properties.rating != null ? data.properties.rating + '/6' : ' -'}</td>
-                            </tr>
-                            <tr>
-                                <th style="text-align: left; vertical-align: top;">Height:</th>
-                                <td style="text-align: left; vertical-align: top;">${data.properties.height != null ? data.properties.height : ' -'}</td>
-                            </tr>
-                            <tr>
-                                <th style="text-align: left; vertical-align: top;">Height difference:</th>
-                                <td style="text-align: left; vertical-align: top;">${data.properties.heightdifference != null ? data.properties.heightdifference : ' -'}</td>
-                            </tr>
-                            <tr>
-                                <th style="text-align: left; vertical-align: top;">Last Update:</th>
-                                <td style="text-align: left; vertical-align: top;">${data.properties.lastupdate}</td>
-                            </tr>
-                            </table><br>
-                            <b>Description:</b> <div class="spot-description">${description}</div><br>
-                            <b>© <a href="https://paraglidingspots.com" target="_blank">paraglidingspots.com</a></b>
-                            <div class="modal-footer d-flex justify-content-between">
-                            <div id="feedback-message" class="text-start"></div> <!-- Message on the left -->
-                            <div class="d-flex ms-auto">
-                                <button class="btn btn-primary btn-sm me-2" onclick="showFeebackForm()">Feedback/Correction</button>
-                                <button class="btn btn-dark btn-sm close-popup">Close</button>
-                            </div>
-                            </div>
-                            `;
+        // --- Apply fullSpotsPopoup configuration ---
+        if (window.appConfig && window.appConfig.fullSpotsPopoup === true) {
+            // --- FULL POPUP LOGIC ---
+            console.log("Generating full spot popup (config enabled)");
 
-        // Apply maxWidth CSS directly to popup content if needed
-        popupContent += `<style>
-        /* Limit the height of the Swiper container */
-        .swiper-container {
-            max-height: 460px !important;
-            height: 460px !important;
-            overflow: hidden !important;
-        }
+            let popupContent = `<span style="color: #0087F7;"><h5>${data.properties.name}</h5></span>
+                                <table style="border-collapse: collapse; width: 70%;">
+                                <tr>
+                                    <th style="text-align: left; vertical-align: top;">Type:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.type}</td>
+                                </tr>
+                                <tr>
+                                    <th style="text-align: left; vertical-align: top;">Direction:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.direction}</td>
+                                </tr>
+                                <tr>
+                                    <th style="text-align: left; vertical-align: top;">Rating:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.rating != null ? data.properties.rating + '/6' : ' -'}</td>
+                                </tr>
+                                <tr>
+                                    <th style="text-align: left; vertical-align: top;">Height:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.height != null ? data.properties.height : ' -'}</td>
+                                </tr>
+                                <tr>
+                                    <th style="text-align: left; vertical-align: top;">Height difference:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.heightdifference != null ? data.properties.heightdifference : ' -'}</td>
+                                </tr>
+                                <tr>
+                                    <th style="text-align: left; vertical-align: top;">Last Update:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.lastupdate}</td>
+                                </tr>
+                                </table><br>
+                                <b>Description:</b> <div class="spot-description">${description}</div><br>
+                                <b>© <a href="https://paraglidingspots.com" target="_blank">paraglidingspots.com</a></b>
+                                <div class="modal-footer d-flex justify-content-between">
+                                <div id="feedback-message" class="text-start"></div> <!-- Message on the left -->
+                                <div class="d-flex ms-auto">
+                                    <button class="btn btn-primary btn-sm me-2" onclick="showFeebackForm()">Feedback/Correction</button>
+                                    <button class="btn btn-dark btn-sm close-popup">Close</button>
+                                </div>
+                                </div>
+                                `;
 
-        /* Ensure individual Swipers don't expand beyond this height */
-        .swiper, .swiper1, .swiper2 {
-            max-height: 460px !important;
-            height: 460px !important;
-            overflow: hidden !important;
-        }
-
-        /* Limit Swiper wrapper height */
-        .swiper-wrapper {
-            max-height: 460px !important;
-        }
-
-        /* Ensure Swiper slides don't stretch */
-        .swiper-slide {
-            max-height: 460px !important;
-            display: flex !important;
-            align-items: center !important; /* Keep images centered */
-            justify-content: center !important;
-        }
-
-        /* Prevent images from exceeding the swiper height */
-        .swiper-slide img {
-            max-height: 100% !important;
-            width: auto !important;
-        }
-        
-        /* Keep the overall popup size unchanged */
-        .leaflet-popup-content {
-            max-height: 780px !important; /* Keep original popup height */
-            overflow-y: auto; /* Allow scrolling inside the popup if needed */
-        }
-
-        .swiper-clear {
-            clear: both;
-            margin-bottom: 1px;
-        }
-        </style>`;
-
-        // Check if fullscreen info is visible and update its content area
-        const fullScreenInfo = document.getElementById('fullScreenInfo');
-        const fullScreenContentArea = document.getElementById('fullscreen-content-area');
-        if (fullScreenInfo && fullScreenInfo.classList.contains('visible') && fullScreenContentArea) {
-            console.log("Updating fullscreen info content area for spot"); // Updated logging
-            
-            // Remove default button/footer added by index.js
-            const defaultCloseBtn = fullScreenInfo.querySelector('#default-fullscreen-close-btn');
-            const defaultFooter = fullScreenInfo.querySelector('#default-fullscreen-footer');
-            if (defaultCloseBtn) defaultCloseBtn.remove();
-            if (defaultFooter) defaultFooter.remove();
-            
-            // Set the spot-specific content (which includes its own buttons/footer)
-            fullScreenContentArea.innerHTML = popupContent;
-        }
-
-        // Update the original Leaflet popup (still useful for larger screens or if fullscreen fails)
-        layer.setPopupContent(popupContent);
-
-        // Wait for the popup to open before initializing Swiper
-        setTimeout(() => {
-            let firstImg = document.querySelector(".swiper1 .swiper-slide img");
-            if (firstImg) {
-                let idImg = parseInt(firstImg.id.replace(/\D/g, ""), 10) || 1;
-                initSwiper(idImg); // Call existing Swiper function
+            // Apply maxWidth CSS directly to popup content if needed
+            popupContent += `<style>
+            /* Limit the height of the Swiper container */
+            .swiper-container {
+                max-height: 460px !important;
+                height: 460px !important;
+                overflow: hidden !important;
             }
-    
-        }, 300);
 
-        // Attach close button listener, considering fullscreen context
-        setTimeout(() => {
+            /* Ensure individual Swipers don't expand beyond this height */
+            .swiper, .swiper1, .swiper2 {
+                max-height: 460px !important;
+                height: 460px !important;
+                overflow: hidden !important;
+            }
+
+            /* Limit Swiper wrapper height */
+            .swiper-wrapper {
+                max-height: 460px !important;
+            }
+
+            /* Ensure Swiper slides don't stretch */
+            .swiper-slide {
+                max-height: 460px !important;
+                display: flex !important;
+                align-items: center !important; /* Keep images centered */
+                justify-content: center !important;
+            }
+
+            /* Prevent images from exceeding the swiper height */
+            .swiper-slide img {
+                max-height: 100% !important;
+                width: auto !important;
+            }
+            
+            /* Keep the overall popup size unchanged */
+            .leaflet-popup-content {
+                max-height: 780px !important; /* Keep original popup height */
+                overflow-y: auto; /* Allow scrolling inside the popup if needed */
+            }
+
+            .swiper-clear {
+                clear: both;
+                margin-bottom: 1px;
+            }
+            </style>`;
+
+            // Check if fullscreen info is visible and update its content area
+            // Note: The actual showing/hiding of fullscreen is handled by index.js popupopen handler
+            // This part just ensures the content is ready if fullscreen is triggered.
             const fullScreenInfo = document.getElementById('fullScreenInfo');
-            let closeButton = null;
+            const fullScreenContentArea = document.getElementById('fullscreen-content-area');
+            if (fullScreenInfo && fullScreenInfo.classList.contains('visible') && fullScreenContentArea) {
+                console.log("Updating fullscreen info content area for spot (config enabled)");
+                // Remove default button/footer added by index.js
+                const defaultCloseBtn = fullScreenInfo.querySelector('#default-fullscreen-close-btn');
+                const defaultFooter = fullScreenInfo.querySelector('#default-fullscreen-footer');
+                if (defaultCloseBtn) defaultCloseBtn.remove();
+                if (defaultFooter) defaultFooter.remove();
+                // Set the spot-specific content
+                fullScreenContentArea.innerHTML = popupContent;
+            }
 
-            if (fullScreenInfo && fullScreenInfo.classList.contains('visible')) {
-                // Target close button within fullscreen view
-                closeButton = fullScreenInfo.querySelector('#fullscreen-content-area .close-popup');
-                if (closeButton) {
-                    // Remove potential old listeners before adding new one
-                    closeButton.replaceWith(closeButton.cloneNode(true));
-                    closeButton = fullScreenInfo.querySelector('#fullscreen-content-area .close-popup'); // Re-select after clone
-                    
-                    closeButton.addEventListener("click", function () {
-                        console.log("Fullscreen close button clicked"); // Logging
-                        window.closeFullscreenInfo(); // Use the fullscreen close function
-                    });
-                } else {
-                    console.error("Close button not found in fullscreen view");
+            // Update the original Leaflet popup
+            layer.setPopupContent(popupContent);
+
+            // Wait for the popup to open before initializing Swiper
+            setTimeout(() => {
+                let firstImg = document.querySelector(".swiper1 .swiper-slide img");
+                if (firstImg) {
+                    let idImg = parseInt(firstImg.id.replace(/\D/g, ""), 10) || 1;
+                    initSwiper(idImg); // Call existing Swiper function
                 }
-            } else {
-                // Target close button within the standard Leaflet popup
-                // Assuming the popup is the context, query within the layer's popup element
-                const popupElement = layer.getPopup().getElement();
-                if (popupElement) {
-                    closeButton = popupElement.querySelector(".close-popup");
+            }, 300);
+
+            // Attach close button listener, considering fullscreen context
+            setTimeout(() => {
+                const fullScreenInfo = document.getElementById('fullScreenInfo');
+                let closeButton = null;
+
+                if (fullScreenInfo && fullScreenInfo.classList.contains('visible')) {
+                    // Target close button within fullscreen view
+                    closeButton = fullScreenInfo.querySelector('#fullscreen-content-area .close-popup');
                     if (closeButton) {
-                        // Remove potential old listeners before adding new one
-                        closeButton.replaceWith(closeButton.cloneNode(true));
-                        closeButton = popupElement.querySelector(".close-popup"); // Re-select after clone
-                        
+                        closeButton.replaceWith(closeButton.cloneNode(true)); // Remove old listeners
+                        closeButton = fullScreenInfo.querySelector('#fullscreen-content-area .close-popup'); // Re-select
                         closeButton.addEventListener("click", function () {
-                            console.log("Standard popup close button clicked"); // Logging
-                            if (window.map) {
-                                window.map.closePopup(); // Use standard map close
-                            }
+                            console.log("Fullscreen close button clicked");
+                            window.closeFullscreenInfo();
                         });
-                    } else {
-                        console.error("Close button not found in standard popup");
+                    } else { console.error("Close button not found in fullscreen view"); }
+                } else {
+                    // Target close button within the standard Leaflet popup
+                    const popupElement = layer.getPopup()?.getElement();
+                    if (popupElement) {
+                        closeButton = popupElement.querySelector(".close-popup");
+                        if (closeButton) {
+                            closeButton.replaceWith(closeButton.cloneNode(true)); // Remove old listeners
+                            closeButton = popupElement.querySelector(".close-popup"); // Re-select
+                            closeButton.addEventListener("click", function () {
+                                console.log("Standard popup close button clicked");
+                                if (window.map) { window.map.closePopup(); }
+                            });
+                        } else { console.error("Close button not found in standard popup"); }
                     }
                 }
-            }
-        }, 350); // Slightly increased delay to ensure content is rendered
+            }, 350);
+
+        } else {
+            // --- SIMPLIFIED POPUP LOGIC ---
+            console.log("Generating simplified spot popup (config disabled)");
+
+            // Add the 'simplified-spot-popup' class here
+            const simplifiedPopupContent = `
+                <div class="simplified-spot-popup" style="padding: 5px;">
+                    <span style="color: #0087F7;"><h5>${data.properties.name}</h5></span>
+                    <p style="font-size: 0.9em; margin-top: 10px;">
+                        All Spots are provided under the copyright of paraglidingspots.com.
+                        If you want to see the full details for this spot, please visit
+                        <a href="https://paraglidingspots.com/online/" target="_blank" rel="noopener noreferrer">https://paraglidingspots.com/online/</a>
+                    </p>
+                    <b>© <a href="https://paraglidingspots.com" target="_blank">paraglidingspots.com</a></b>
+                </div>
+            `;
+            // Set the simplified content for the standard Leaflet popup
+            layer.setPopupContent(simplifiedPopupContent);
+
+            // Ensure fullscreen is closed if it was somehow opened
+            const fullScreenInfo = document.getElementById('fullScreenInfo');
+             if (fullScreenInfo && fullScreenInfo.classList.contains('visible')) {
+                 window.closeFullscreenInfo();
+             }
+        }
+        // --- End configuration application ---
 
     } catch (error) {
         console.error("Error fetching place details:", error);

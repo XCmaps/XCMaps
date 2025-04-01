@@ -21,6 +21,27 @@ import '../../../components/obstacles.js';
 import '../../../components/rainviewer.js';
 import { initializeAirspaceXCMapListeners } from './../../../components/airspaces-xc.js';
 
+// --- Global App Configuration ---
+window.appConfig = {
+  fullSpotsPopoup: false // Default value, will be overwritten by fetched config
+};
+
+async function fetchAppConfig() {
+  try {
+    const response = await fetch('/api/config');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const config = await response.json();
+    window.appConfig = { ...window.appConfig, ...config }; // Merge fetched config with defaults
+    console.log('App configuration loaded:', window.appConfig);
+  } catch (error) {
+    console.error('Failed to fetch app configuration:', error);
+    // Keep using default config in case of error
+  }
+}
+// --- End Global App Configuration ---
+
 
 // Initialize map and make necessary objects globally available
 function initMap() {
@@ -113,32 +134,56 @@ function initMap() {
         return; // Don't show these in fullscreen
       }
 
-      // --- Handle Generic Popups (Original Logic) ---
-      console.log("Opening generic popup in fullscreen mode.");
-      window.map.closePopup(); // Close small popup
-      try {
-        var content = ev.popup.getContent(); // Get content (likely string)
+      // --- Handle Generic Popups (Conditional on Config) ---
+      // Only attempt to put generic popups (like full spot popups) into fullscreen
+      // if the configuration allows it. Otherwise, let Leaflet handle them normally.
+      if (window.appConfig && window.appConfig.fullSpotsPopoup === true) {
+          console.log("Opening generic popup in fullscreen mode (config enabled).");
+          window.map.closePopup(); // Close small popup
+          try {
+            var content = ev.popup.getContent(); // Get content (likely string or element)
 
-        // Add default close button and footer for generic popups
-        var closeButtonHTML = '<div id="default-fullscreen-close-btn" style="position: absolute; top: 10px; right: 10px;">' +
-                          '<button onclick="closeFullscreenInfo()" style="background: none; border: none; font-size: 20px; cursor: pointer;">✕</button>' +
-                          '</div>';
-        var footerHTML = '<div id="default-fullscreen-footer" style="text-align: right; padding: 10px;">' +
-                     '<button class="btn btn-dark btn-sm" onclick="closeFullscreenInfo()">Close</button>' +
-                     '</div>';
+            // Add default close button and footer for generic popups
+            var closeButtonHTML = '<div id="default-fullscreen-close-btn" style="position: absolute; top: 10px; right: 10px;">' +
+                              '<button onclick="closeFullscreenInfo()" style="background: none; border: none; font-size: 20px; cursor: pointer;">✕</button>' +
+                              '</div>';
+            var footerHTML = '<div id="default-fullscreen-footer" style="text-align: right; padding: 10px;">' +
+                         '<button class="btn btn-dark btn-sm" onclick="closeFullscreenInfo()">Close</button>' +
+                         '</div>';
 
-        // Set content, wrapped with default controls
-        el.innerHTML = closeButtonHTML + `<div id="fullscreen-content-area">${content}</div>` + footerHTML;
+            // Set content, wrapped with default controls
+            // Check if content is a node or string
+            let contentHTML = '';
+            if (typeof content === 'string') {
+                contentHTML = content;
+            } else if (content instanceof Node && typeof content.outerHTML === 'string') {
+                contentHTML = content.outerHTML; // Use outerHTML if it's a DOM node
+            } else {
+                 console.warn("Popup content is neither string nor DOM node, cannot display in fullscreen.");
+                 contentHTML = 'Error: Invalid popup content.';
+            }
+            el.innerHTML = closeButtonHTML + `<div id="fullscreen-content-area">${contentHTML}</div>` + footerHTML;
 
-        // Show panel
-        el.classList.add('visible');
-        el.style.display = 'block';
-        el.style.zIndex = '10000';
-        document.getElementById('map').classList.add('map-covered');
 
-      } catch (error) {
-        console.error('Error processing generic popup for fullscreen:', error);
+            // Show panel
+          } catch (error) {
+            console.error('Error processing generic popup for fullscreen:', error);
+            // Optionally show an error message in the fullscreen panel
+            el.innerHTML = '<div style="padding: 20px;">Error displaying popup content.</div>' +
+                           '<div style="text-align: right; padding: 10px;"><button class="btn btn-dark btn-sm" onclick="closeFullscreenInfo()">Close</button></div>';
+          }
+          // Ensure panel is visible if we attempted to show content
+          el.classList.add('visible');
+          el.style.display = 'block';
+          el.style.zIndex = '10000';
+          document.getElementById('map').classList.add('map-covered');
+
+      } else {
+          // If config is false, do nothing extra for generic popups on small screens.
+          // Leaflet will handle the standard popup display.
+          console.log("Skipping fullscreen for generic popup (config disabled).");
       }
+      // Removed redundant panel showing code from here
     }
   });
 
@@ -823,10 +868,12 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
 }
 
 // Wait for DOM to be fully loaded
-document.addEventListener('DOMContentLoaded', function() {
-console.log("DOM content loaded, initializing map");
-// Initialize the map
-const map = initMap();
+document.addEventListener('DOMContentLoaded', async function() { // Make listener async
+    console.log("DOM content loaded, fetching config...");
+    await fetchAppConfig(); // Fetch configuration first
+    console.log("Config fetched, initializing map...");
+    // Initialize the map
+    const map = initMap();
 
 // Setup geolocation after map is initialized
 navigator.geolocation.getCurrentPosition(position => {

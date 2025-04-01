@@ -5,6 +5,7 @@ import { config } from "dotenv";
 import pkg from "pg";
 import 'dotenv/config';
 import fetch from 'node-fetch';
+import fs from 'fs'; // Added for file system operations
 
 // Import routes
 import createPlacesRouter from "./src/api/places.js";
@@ -38,6 +39,44 @@ cron.schedule('0 3 * * *', async () => {
         console.error('Scheduled airspace update failed:', err);
     }
 });
+
+// --- Configuration Loading ---
+const configPath = path.join(process.cwd(), 'src', 'config.json');
+let currentConfig = {};
+
+function loadConfig() {
+    try {
+        console.log(`Attempting to load configuration from ${configPath}`);
+        const rawData = fs.readFileSync(configPath, 'utf8');
+        currentConfig = JSON.parse(rawData);
+        console.log('Configuration loaded successfully:', currentConfig);
+    } catch (err) {
+        console.error('Error loading or parsing configuration file:', err);
+        // Keep the old config or default to empty if initial load fails
+        if (Object.keys(currentConfig).length === 0) {
+            currentConfig = {}; // Ensure it's an object even on error
+        }
+    }
+}
+
+// Initial load
+loadConfig();
+
+// Watch for changes (with debounce)
+let fsWait = false;
+fs.watch(configPath, (eventType, filename) => {
+    if (filename && eventType === 'change') {
+        if (fsWait) return;
+        fsWait = setTimeout(() => {
+            fsWait = false;
+        }, 100); // Debounce timeout
+        console.log(`Configuration file ${filename} changed. Reloading...`);
+        loadConfig();
+    }
+});
+// --- End Configuration Loading ---
+
+
 const PORT = 3000;
 
 // Enable CORS
@@ -71,7 +110,13 @@ app.use("/api/airspacesXC", createAirspacesXCRouter());
 app.use("/api/proxy", createMoselfalkenImageRouter());
 app.use("/api/airspacesXCdb", createAirspacesXCdbRouter(pool));
 app.use("/api/obstacles", createObstaclesRouter(pool));
-app.get("/api/kk7thermals/:z/:x/:y.png", kk7ThermalsProxy); 
+app.get("/api/kk7thermals/:z/:x/:y.png", kk7ThermalsProxy);
+
+// --- Configuration Endpoint ---
+app.get("/api/config", (req, res) => {
+    res.json(currentConfig);
+});
+// --- End Configuration Endpoint ---
 
 // Start server
 app.listen(PORT, () => {

@@ -393,6 +393,10 @@
   overflow-wrap: break-word;
 }
 
+.simplified-spot-popup {
+  max-width: 320px !important;
+}
+
 /* Base styles for the time control */
 .leaflet-control-timecontrol .timecontrol-date {
   display: inline-block;

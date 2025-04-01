@@ -3,3 +3,9 @@
   overflow-wrap: break-word; // Force break for long strings like URLs
   // Add other description-specific styles here if needed in the future
 }
+
+// Style for the simplified spot popup when full details are disabled
+.simplified-spot-popup {
+  max-width: 320px !important; // Apply max-width as requested
+  // Add any other specific styles for the simplified popup here
+}
