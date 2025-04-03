@@ -1,0 +1,58 @@
+/* Custom XCmaps Keycloak Login Theme */
+
+/* Ensure body background is white and overrides defaults */
+.login-pf body, body { /* Target both general body and specific login body */
+    background: #ffffff !important; /* White background, override parent theme image/color */
+}
+
+/* Style the login card */
+.login-pf-page .card-pf {
+    max-width: 450px; /* Set max width */
+    margin-left: auto; /* Center horizontally */
+    margin-right: auto; /* Center horizontally */
+    border: 1px solid #ccc; /* Optional: add a light border */
+    background-color: #ffffff; /* Keep card background white for contrast if body ever changes */
+    padding: 20px; /* Add some padding inside the card */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Optional: add subtle shadow */
+}
+
+/* Style the header or logo area */
+/* Style the header/logo area ABOVE the card */
+/* Apply logo ONLY to the main header wrapper */
+#kc-header > #kc-header-wrapper, /* Standard theme: wrapper inside main header */
+.login-pf-page-header > .login-pf-header /* PatternFly theme: header inside page header */ {
+    background-image: url(../img/XCmapsLogo.png);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    height: 80px;
+    border-bottom: none;
+    margin: 20px auto;
+    width: 100%;
+    max-width: 450px;
+    background-color: transparent; /* Ensure no background color interferes */
+}
+
+/* Hide the default Keycloak logo text/image if necessary */
+/* Hide the default Keycloak logo text/image more forcefully */
+.login-pf-page .pf-c-brand,
+#kc-logo-text,
+#kc-header-wrapper .kc-logo-text span { /* Target the specific span too */
+    display: none !important;
+}
+
+/* You might need to adjust selectors based on the specific Keycloak version */
+/* and the base theme ('keycloak' in this case) */
+
+/* Ensure no logo background appears INSIDE the login card */
+.login-pf-page .card-pf #kc-header-wrapper {
+    background-image: none !important; /* Remove background if wrapper appears in card */
+    height: auto; /* Reset height if necessary */
+    margin: 0; /* Reset margin */
+    border: none; /* Reset border */
+}
+
+/* Also hide any img tag just in case */
+.login-pf-page .card-pf img {
+    display: none !important;
+}

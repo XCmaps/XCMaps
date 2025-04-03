@@ -27,6 +27,7 @@
     "express": "^4.21.2",
     "fs": "^0.0.1-security",
     "jquery": "^3.7.1",
+    "keycloak-js": "^23.0.0",
     "leaflet": "^1.9.4",
     "leaflet-canvasicon": "^0.1.6",
     "leaflet-responsive-popup": "^1.0.0",

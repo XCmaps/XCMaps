@@ -5,6 +5,7 @@ import './leaflet.responsive.popup.js';
 import './leaflet.responsive.popup.css';
 
 import '../css/styles.css';
+import '../css/user-control.css';
 import InfoControl from '../../../components/info-control.js';
 import moment from 'moment';
 import 'moment-timezone';
@@ -20,6 +21,7 @@ import '../../../components/spots-lz.js';
 import '../../../components/obstacles.js';
 import '../../../components/rainviewer.js';
 import { initializeAirspaceXCMapListeners } from './../../../components/airspaces-xc.js';
+import { initKeycloak, createUserControl } from '../../../components/keycloak-auth.js';
 
 // --- Global App Configuration ---
 window.appConfig = {
@@ -863,6 +865,18 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   const mapReadyEvent = new Event('map_initialized');
   document.dispatchEvent(mapReadyEvent);
   console.log("Map initialized event dispatched");
+
+  // Initialize Keycloak and create user control
+  initKeycloak()
+    .then(authenticated => {
+      console.log('Keycloak initialized, authenticated:', authenticated);
+      createUserControl();
+    })
+    .catch(error => {
+      console.error('Failed to initialize Keycloak:', error);
+      // Still create the user control even if Keycloak fails
+      createUserControl();
+    });
 
   return window.map;
 }
