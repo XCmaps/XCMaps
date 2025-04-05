@@ -172,6 +172,12 @@ The layer control panel on the right side of the map allows you to:
 | MAIL_HOST | SMTP server for feedback emails | smtp.example.com |
 | MAIL_USER | Email username | user@example.com |
 | MAIL_PASSWORD | Email password | password |
+| KEYCLOAK_AUTH_SERVER_URL | Base URL of Keycloak auth endpoint | http://keycloak:8080/auth |
+| KEYCLOAK_CLIENT_ID | Public client ID for frontend | xcmaps-client |
+| KEYCLOAK_REALM_NAME | Keycloak realm name | master |
+| KEYCLOAK_ADMIN_URL | Keycloak Admin API URL for backend | http://keycloak:8080/auth/admin/realms/master |
+| KEYCLOAK_ADMIN_CLIENT_ID | Service account client ID for backend | xcmaps-backend-service |
+| KEYCLOAK_ADMIN_CLIENT_SECRET | Service account client secret | your_kc_admin_secret |
 
 ### Map Services
 
@@ -180,6 +186,48 @@ XCmaps uses several map services that may require API keys:
 1. **OpenAIP** - For airspace data (requires API key)
 2. **MapTiler** - For terrain maps (API key included but may need updating)
 3. **Winds.mobi** - For wind station data (no key required)
+### Keycloak Setup (for User Authentication & Preferences)
+
+If you are using Keycloak for user authentication (recommended for features like saving layer preferences), follow these steps:
+
+1.  **Run Keycloak:** Ensure Keycloak is running (e.g., via Docker Compose using the provided `docker-compose.yml` or your own setup).
+2.  **Configure `.env`:** Add the Keycloak-related variables to your `.env` file as shown in the table above. Adjust `KEYCLOAK_AUTH_SERVER_URL` and `KEYCLOAK_ADMIN_URL` if your Keycloak service name or port differs in your Docker network or deployment.
+3.  **Create Frontend Client (`xcmaps-client`):**
+    *   Log in to the Keycloak Admin Console (usually at `KEYCLOAK_AUTH_SERVER_URL`).
+    *   Select your realm (e.g., `master`).
+    *   Go to `Clients` -> `Create client`.
+    *   Set `Client ID` to `xcmaps-client`.
+    *   Ensure `Client authentication` is **OFF** (this is a public client).
+    *   Set `Valid redirect URIs` to your application's base URL (e.g., `http://localhost:3000/*`).
+    *   Set `Web origins` to your application's base URL (e.g., `http://localhost:3000`). Add others like `+` for all or specific production URLs if needed.
+    *   Save the client.
+4.  **Create Backend Service Client (`xcmaps-backend-service`):**
+    *   Go to `Clients` -> `Create client`.
+    *   Set `Client ID` to `xcmaps-backend-service`.
+    *   Ensure `Client authentication` is **ON**.
+    *   Ensure `Authorization` is **OFF**.
+    *   Under `Authentication flow`, uncheck `Standard flow` and `Direct access grants`. Check **ON** `Service accounts roles`.
+    *   Save the client.
+    *   Go to the `Service Account Roles` tab for this client.
+    *   Click `Assign role`.
+    *   Use the `Filter by clients` dropdown to select `realm-management`.
+    *   Select both `manage-users` and `view-users` from the list.
+    *   Click `Assign`.
+    *   Go to the `Credentials` tab.
+    *   Copy the `Client secret`.
+    *   Paste this secret into your `.env` file as the value for `KEYCLOAK_ADMIN_CLIENT_SECRET`.
+5.  **Create User Role:**
+    *   Go to `Realm Roles` -> `Create role`.
+    *   Set `Role name` to `user`.
+    *   Save the role.
+6.  **Assign User Role:**
+    *   Go to `Users`. Find or create a test user.
+    *   Go to the `Role mapping` tab for the user.
+    *   Click `Assign role`.
+    *   Find and select the `user` role created previously.
+    *   Click `Assign`.
+
+This setup allows the frontend to authenticate users and the backend to securely manage user attributes (like layer preferences) via the Keycloak Admin API.
 
 ## API Documentation
 

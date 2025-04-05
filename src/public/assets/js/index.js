@@ -21,7 +21,7 @@ import '../../../components/spots-lz.js';
 import '../../../components/obstacles.js';
 import '../../../components/rainviewer.js';
 import { initializeAirspaceXCMapListeners } from './../../../components/airspaces-xc.js';
-import { initKeycloak, createUserControl } from '../../../components/keycloak-auth.js';
+import { initKeycloak, createUserControl, loadUserPreferences } from '../../../components/keycloak-auth.js'; // Import loadUserPreferences
 
 // --- Global App Configuration ---
 window.appConfig = {
@@ -469,7 +469,8 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
 
   // Add layer control tree
 
-  var treeLayersControl = L.control.layers.tree(baseTree, overlayTree, {
+  // Add layer control tree and make it global
+  window.treeLayersControl = L.control.layers.tree(baseTree, overlayTree, {
     namedToggle: false,
     collapsed: true
   }).addTo(window.map);
@@ -871,6 +872,7 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
     .then(authenticated => {
       console.log('Keycloak initialized, authenticated:', authenticated);
       createUserControl();
+      loadUserPreferences(); // Load preferences after auth and control are ready
     })
     .catch(error => {
       console.error('Failed to initialize Keycloak:', error);

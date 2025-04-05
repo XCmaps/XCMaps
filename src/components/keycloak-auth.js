@@ -75,11 +75,90 @@ const login = () => {
   }
 };
 
-// Logout function - redirect to Keycloak logout
-const logout = () => {
-  console.log('Logout clicked - redirecting to Keycloak logout');
+// Helper function to get selected overlay layer labels (placeholder - needs actual implementation based on L.Control.Layers.Tree)
+function getSelectedOverlayLabels(control) {
+    if (!control || !control.getContainer) {
+        console.warn("Layer control not available for getting selected layers.");
+        return [];
+    }
+    const selectedLabels = [];
+    const inputs = control.getContainer().querySelectorAll('input[type="checkbox"]');
+
+    // This is a basic example assuming checkbox labels correspond to layer names in overlayTree
+    // It might need significant adjustment based on the actual structure and methods of L.Control.Layers.Tree
+    inputs.forEach(input => {
+        if (input.checked) {
+            // Find the corresponding label text - this depends heavily on the DOM structure
+            let labelElement = input.closest('label') || input.parentElement.querySelector('span'); // Adjust selector as needed
+            if (labelElement && labelElement.textContent.trim()) {
+                 // We need to filter out base layers and parent nodes if necessary
+                 // This logic is complex and depends on how L.Control.Layers.Tree renders nodes
+                 const labelText = labelElement.textContent.trim();
+                 // Add checks here to ensure it's an actual overlay layer node
+                 // For now, adding all checked ones for demonstration
+                 console.log("Found checked layer label:", labelText);
+                 selectedLabels.push(labelText);
+            }
+        }
+    });
+     // TODO: Refine this logic to accurately get only selected *overlay* leaf nodes/layers
+     // It might involve inspecting the control's internal state if available, or more complex DOM traversal.
+    console.log("Selected overlay labels (raw):", selectedLabels);
+    // Example filter (needs proper implementation): filter out parent labels like 'Weather Stations', 'Airspaces' etc.
+    const knownParentLabels = ['Rain Viewer', 'Thermals', 'Spots']; // Removed 'Airspaces' and 'Weather Stations'
+    const filteredLabels = selectedLabels.filter(label => !knownParentLabels.includes(label));
+    console.log("Selected overlay labels (filtered):", filteredLabels);
+    return filteredLabels;
+}
+
+
+// Logout function - saves preferences before redirecting to Keycloak logout
+const logout = async () => { // Make async
+  console.log('Logout clicked - attempting to save preferences...');
+
+  // --- Save Preferences before logout ---
+  if (isAuthenticated && keycloak.hasRealmRole('user')) {
+    console.log("User is authenticated and has 'user' role. Saving preferences.");
+    try {
+      const selectedLayers = getSelectedOverlayLabels(window.treeLayersControl); // Assumes global treeLayersControl
+      // Always prepare and send the current selection, even if empty
+      const preferences = { selectedLayers: selectedLayers };
+      console.log("Sending preferences to save:", preferences);
+
+      const response = await fetch('/api/user/preferences', {
+          method: 'PUT',
+          headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${keycloak.token}`
+          },
+          body: JSON.stringify(preferences)
+      });
+
+      if (!response.ok) {
+          console.error(`Failed to save preferences: ${response.status} ${response.statusText}`);
+          // Optionally inform user, but proceed with logout
+      } else {
+          console.log("Preferences saved successfully (including empty state if applicable).");
+      }
+    } catch (error) {
+      console.error('Error saving user preferences:', error);
+      // Proceed with logout even if saving fails
+    }
+  } else {
+      console.log("User not logged in or does not have 'user' role. Skipping preference saving.");
+  }
+  // --- End Save Preferences ---
+
+
+  console.log('Proceeding with Keycloak logout...');
   try {
-    keycloak.logout({ redirectUri: window.location.origin });
+    // Clear local state immediately before redirect
+    const redirectUri = window.location.origin;
+    isAuthenticated = false;
+    userProfile = null;
+    // updateUserIcon(false); // This might not run fully before redirect, handle UI update on page load
+
+    keycloak.logout({ redirectUri: redirectUri });
   } catch (error) {
     console.error('Error during logout:', error);
     // Fallback to manual logout
@@ -255,6 +334,89 @@ const showProfileBadge = (container) => {
   }, 100);
 };
 
+// Function to load and apply user preferences (called from index.js after init)
+const loadUserPreferences = async () => {
+    if (!isAuthenticated || !keycloak.hasRealmRole('user')) {
+        console.log("User not logged in or not 'user' role. Skipping preference loading.");
+        return;
+    }
+
+    console.log("User is authenticated 'user'. Loading preferences...");
+    try {
+        const response = await fetch('/api/user/preferences', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${keycloak.token}`
+            }
+        });
+
+        if (!response.ok) {
+            if (response.status === 404) {
+                 console.log("No preferences found for user.");
+                 return; // No preferences saved yet, do nothing.
+            }
+            console.error(`Failed to load preferences: ${response.status} ${response.statusText}`);
+            return;
+        }
+
+        const preferences = await response.json();
+        console.log("Received preferences:", preferences);
+
+        if (preferences && preferences.selectedLayers && Array.isArray(preferences.selectedLayers) && window.treeLayersControl) {
+            console.log("Applying preferences to layer control:", preferences.selectedLayers);
+            applyPreferencesToLayerControl(preferences.selectedLayers, window.treeLayersControl);
+        } else {
+             console.log("No valid selectedLayers found in preferences or layer control not ready.");
+        }
+
+    } catch (error) {
+        console.error('Error loading user preferences:', error);
+    }
+};
+
+// Helper function to apply preferences (placeholder - needs actual implementation)
+function applyPreferencesToLayerControl(selectedLabels, control) {
+     if (!control || !control.getContainer) {
+        console.warn("Layer control not available for applying preferences.");
+        return;
+    }
+    console.log("Attempting to apply labels:", selectedLabels);
+
+    // This logic is highly dependent on L.Control.Layers.Tree implementation
+    // We need to find the checkbox inputs corresponding to the labels and check them.
+    const inputs = control.getContainer().querySelectorAll('input[type="checkbox"]');
+    const labelsToApply = new Set(selectedLabels); // Use a Set for efficient lookup
+
+    inputs.forEach(input => {
+        let labelElement = input.closest('label') || input.parentElement.querySelector('span'); // Adjust selector
+        if (labelElement) {
+            const labelText = labelElement.textContent.trim();
+            if (labelsToApply.has(labelText)) {
+                if (!input.checked) {
+                    console.log(`Checking layer: ${labelText}`);
+                    input.click(); // Simulate a click to check the box and trigger layer addition
+                    // Note: Directly setting input.checked = true might not trigger Leaflet's layer add events.
+                    // Clicking is generally safer but might have side effects if click handlers do more than toggle.
+                } else {
+                     console.log(`Layer already checked: ${labelText}`);
+                }
+            } else {
+                 // Uncheck layers not in the preferences list, especially defaults
+                 // Check if the current layer is one of the defaults ('Weather Stations' or 'Radar')
+                 const defaultLabels = ['Weather Stations', 'Radar'];
+                 if (input.checked && defaultLabels.includes(labelText)) {
+                    console.log(`Unchecking default layer not in preferences: ${labelText}`);
+                    input.click(); // Simulate click to uncheck and trigger layer removal
+                 }
+            }
+        }
+    });
+     console.log("Finished applying preferences.");
+     // It might be necessary to explicitly update the map or control state after changing checkboxes.
+     // control.expandSelected(true); // Example: Re-expand nodes if needed
+}
+
+
 // Export functions
 export {
   initKeycloak,
@@ -262,5 +424,6 @@ export {
   logout,
   isUserAuthenticated,
   getUserProfile,
-  createUserControl
+  createUserControl,
+  loadUserPreferences // Export the new function
 };

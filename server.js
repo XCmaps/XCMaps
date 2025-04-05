@@ -19,6 +19,7 @@ import createMoselfalkenImageRouter from './src/api/moselfalken-cams.js';
 import kk7ThermalsProxy from './src/api/kk7thermals.js'; 
 import cron from 'node-cron';
 import { fetchAndStoreAirspaces, fetchAndStoreObstacles } from './src/modules/update-xc-airspaces.js';
+import createUserPreferencesRouter from './src/api/user-preferences.js'; // Import the new router
 
 
 const { Pool } = pkg;
@@ -111,7 +112,7 @@ app.use("/api/proxy", createMoselfalkenImageRouter());
 app.use("/api/airspacesXCdb", createAirspacesXCdbRouter(pool));
 app.use("/api/obstacles", createObstaclesRouter(pool));
 app.get("/api/kk7thermals/:z/:x/:y.png", kk7ThermalsProxy);
-
+app.use("/api/user", createUserPreferencesRouter()); // Use the user preferences router (auth middleware is inside the router)
 // --- Configuration Endpoint ---
 app.get("/api/config", (req, res) => {
     res.json(currentConfig);
