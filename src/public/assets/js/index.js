@@ -63,7 +63,7 @@ function initMap() {
   // Base Layers
   var awgTerrain = L.tileLayer('https://tile.jawg.io/jawg-terrain/{z}/{x}/{y}{r}.png?access-token=qBDXRu1KSlZGhx4ROlceBD9hcxmrumL34oj29tUkzDVkafqx08tFWPeRNb0KSoKa', {
       attribution: 'Jawg.io'
-  }).addTo(window.map);
+  }); // Don't add to map by default
 
   var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap'
@@ -869,9 +869,24 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
 
   // Initialize Keycloak and create user control
   initKeycloak()
-    .then(authenticated => {
+    .then(async (authenticated) => { // Make the callback async
       console.log('Keycloak initialized, authenticated:', authenticated);
       createUserControl();
+      // Load preferences and check if a base layer was applied
+      const baseLayerApplied = await loadUserPreferences();
+      // If no base layer preference was loaded/applied, add the default
+      if (!baseLayerApplied && window.map && !window.map.hasLayer(awgTerrain)) {
+          console.log("No base layer preference found or applied, adding default Terrain layer.");
+          awgTerrain.addTo(window.map);
+          // Ensure the corresponding radio button is checked in the layer control
+          const controlContainer = window.treeLayersControl?.getContainer();
+          if (controlContainer) {
+              const terrainRadio = controlContainer.querySelector('.leaflet-control-layers-base input[type="radio"]'); // Assuming Terrain is the first
+              if (terrainRadio && !terrainRadio.checked) {
+                  terrainRadio.checked = true; // Directly check it (less ideal than click, but avoids potential event issues)
+              }
+          }
+      }
       loadUserPreferences(); // Load preferences after auth and control are ready
     })
     .catch(error => {

@@ -75,40 +75,50 @@ const login = () => {
   }
 };
 
-// Helper function to get selected overlay layer labels (placeholder - needs actual implementation based on L.Control.Layers.Tree)
-function getSelectedOverlayLabels(control) {
+// Helper function to get the current state of base and overlay layers
+function getCurrentMapState(control) {
     if (!control || !control.getContainer) {
-        console.warn("Layer control not available for getting selected layers.");
-        return [];
+        console.warn("Layer control not available for getting map state.");
+        return { selectedBaseLayer: null, selectedOverlays: [] };
     }
-    const selectedLabels = [];
-    const inputs = control.getContainer().querySelectorAll('input[type="checkbox"]');
 
-    // This is a basic example assuming checkbox labels correspond to layer names in overlayTree
-    // It might need significant adjustment based on the actual structure and methods of L.Control.Layers.Tree
-    inputs.forEach(input => {
-        if (input.checked) {
-            // Find the corresponding label text - this depends heavily on the DOM structure
-            let labelElement = input.closest('label') || input.parentElement.querySelector('span'); // Adjust selector as needed
+    const controlContainer = control.getContainer();
+    let selectedBaseLayerLabel = null;
+    const selectedOverlayLabels = [];
+
+    // Find selected base layer (radio button)
+    const baseLayerRadios = controlContainer.querySelectorAll('.leaflet-control-layers-base input[type="radio"]');
+    baseLayerRadios.forEach(radio => {
+        if (radio.checked) {
+            let labelElement = radio.closest('label') || radio.parentElement.querySelector('span'); // Adjust selector if needed
             if (labelElement && labelElement.textContent.trim()) {
-                 // We need to filter out base layers and parent nodes if necessary
-                 // This logic is complex and depends on how L.Control.Layers.Tree renders nodes
-                 const labelText = labelElement.textContent.trim();
-                 // Add checks here to ensure it's an actual overlay layer node
-                 // For now, adding all checked ones for demonstration
-                 console.log("Found checked layer label:", labelText);
-                 selectedLabels.push(labelText);
+                selectedBaseLayerLabel = labelElement.textContent.trim();
+                console.log("Found selected base layer label:", selectedBaseLayerLabel);
             }
         }
     });
-     // TODO: Refine this logic to accurately get only selected *overlay* leaf nodes/layers
-     // It might involve inspecting the control's internal state if available, or more complex DOM traversal.
-    console.log("Selected overlay labels (raw):", selectedLabels);
-    // Example filter (needs proper implementation): filter out parent labels like 'Weather Stations', 'Airspaces' etc.
-    const knownParentLabels = ['Rain Viewer', 'Thermals', 'Spots']; // Removed 'Airspaces' and 'Weather Stations'
-    const filteredLabels = selectedLabels.filter(label => !knownParentLabels.includes(label));
-    console.log("Selected overlay labels (filtered):", filteredLabels);
-    return filteredLabels;
+
+    // Find selected overlay layers (checkboxes)
+    const overlayCheckboxes = controlContainer.querySelectorAll('.leaflet-control-layers-overlays input[type="checkbox"]');
+    overlayCheckboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            let labelElement = checkbox.closest('label') || checkbox.parentElement.querySelector('span'); // Adjust selector if needed
+            if (labelElement && labelElement.textContent.trim()) {
+                const labelText = labelElement.textContent.trim();
+                // Basic filtering attempt - might need refinement if labels are ambiguous
+                const knownParentLabels = ['Rain Viewer', 'Thermals', 'Spots']; // Labels of nodes that contain other layers
+                if (!knownParentLabels.includes(labelText)) {
+                    console.log("Found checked overlay layer label:", labelText);
+                    selectedOverlayLabels.push(labelText);
+                } else {
+                    console.log("Skipping potential parent label:", labelText);
+                }
+            }
+        }
+    });
+
+    console.log("Current map state:", { selectedBaseLayer: selectedBaseLayerLabel, selectedOverlays: selectedOverlayLabels });
+    return { selectedBaseLayer: selectedBaseLayerLabel, selectedOverlays: selectedOverlayLabels };
 }
 
 
@@ -120,9 +130,12 @@ const logout = async () => { // Make async
   if (isAuthenticated && keycloak.hasRealmRole('user')) {
     console.log("User is authenticated and has 'user' role. Saving preferences.");
     try {
-      const selectedLayers = getSelectedOverlayLabels(window.treeLayersControl); // Assumes global treeLayersControl
-      // Always prepare and send the current selection, even if empty
-      const preferences = { selectedLayers: selectedLayers };
+      const currentMapState = getCurrentMapState(window.treeLayersControl); // Get base and overlays state
+      // Always prepare and send the current state
+      const preferences = {
+          selectedBaseLayer: currentMapState.selectedBaseLayer, // Will be null if none selected
+          selectedOverlays: currentMapState.selectedOverlays   // Will be [] if none selected
+      };
       console.log("Sending preferences to save:", preferences);
 
       const response = await fetch('/api/user/preferences', {
@@ -362,58 +375,81 @@ const loadUserPreferences = async () => {
         const preferences = await response.json();
         console.log("Received preferences:", preferences);
 
-        if (preferences && preferences.selectedLayers && Array.isArray(preferences.selectedLayers) && window.treeLayersControl) {
-            console.log("Applying preferences to layer control:", preferences.selectedLayers);
-            applyPreferencesToLayerControl(preferences.selectedLayers, window.treeLayersControl);
+        // Check if preferences exist and layer control is ready
+        let baseLayerApplied = false;
+        if (preferences && window.treeLayersControl) {
+             console.log("Applying preferences to layer control:", preferences);
+             baseLayerApplied = applyMapPreferences(preferences, window.treeLayersControl);
         } else {
-             console.log("No valid selectedLayers found in preferences or layer control not ready.");
+             console.log("No preferences found or layer control not ready.");
         }
+        return baseLayerApplied; // Return whether the preferred base layer was found and applied
 
     } catch (error) {
         console.error('Error loading user preferences:', error);
     }
 };
 
-// Helper function to apply preferences (placeholder - needs actual implementation)
-function applyPreferencesToLayerControl(selectedLabels, control) {
-     if (!control || !control.getContainer) {
+// Helper function to apply saved preferences (base layer and overlays)
+function applyMapPreferences(preferences, control) {
+    if (!control || !control.getContainer) {
         console.warn("Layer control not available for applying preferences.");
-        return;
+        return false; // Indicate base layer not set
     }
-    console.log("Attempting to apply labels:", selectedLabels);
 
-    // This logic is highly dependent on L.Control.Layers.Tree implementation
-    // We need to find the checkbox inputs corresponding to the labels and check them.
-    const inputs = control.getContainer().querySelectorAll('input[type="checkbox"]');
-    const labelsToApply = new Set(selectedLabels); // Use a Set for efficient lookup
+    const controlContainer = control.getContainer();
+    // Use defaults if properties are missing/null in preferences
+    const { selectedBaseLayer = null, selectedOverlays = [] } = preferences;
+    const overlayLabelsToApply = new Set(selectedOverlays);
+    let baseLayerApplied = false;
 
-    inputs.forEach(input => {
-        let labelElement = input.closest('label') || input.parentElement.querySelector('span'); // Adjust selector
+    console.log("Applying Base Layer:", selectedBaseLayer);
+    console.log("Applying Overlays:", selectedOverlays);
+
+    // Apply base layer selection
+    const baseLayerRadios = controlContainer.querySelectorAll('.leaflet-control-layers-base input[type="radio"]');
+    baseLayerRadios.forEach(radio => {
+        let labelElement = radio.closest('label') || radio.parentElement.querySelector('span');
+        if (labelElement) {
+             const labelText = labelElement.textContent.trim();
+             // Check if this radio corresponds to the saved preference
+             if (labelText === selectedBaseLayer) {
+                 if (!radio.checked) {
+                     console.log(`Clicking base layer radio: ${selectedBaseLayer}`);
+                     radio.click(); // Click to select the base layer
+                 } else {
+                      console.log(`Base layer already selected: ${selectedBaseLayer}`);
+                 }
+                 baseLayerApplied = true;
+             }
+        }
+    });
+
+     if (selectedBaseLayer && !baseLayerApplied) {
+         console.warn(`Could not find base layer radio button for label: ${selectedBaseLayer}`);
+     }
+
+    // Apply overlay selections
+    const overlayCheckboxes = controlContainer.querySelectorAll('.leaflet-control-layers-overlays input[type="checkbox"]');
+    overlayCheckboxes.forEach(checkbox => {
+        let labelElement = checkbox.closest('label') || checkbox.parentElement.querySelector('span');
         if (labelElement) {
             const labelText = labelElement.textContent.trim();
-            if (labelsToApply.has(labelText)) {
-                if (!input.checked) {
-                    console.log(`Checking layer: ${labelText}`);
-                    input.click(); // Simulate a click to check the box and trigger layer addition
-                    // Note: Directly setting input.checked = true might not trigger Leaflet's layer add events.
-                    // Clicking is generally safer but might have side effects if click handlers do more than toggle.
-                } else {
-                     console.log(`Layer already checked: ${labelText}`);
-                }
+            const shouldBeChecked = overlayLabelsToApply.has(labelText);
+
+            // Only click if the state needs changing
+            if (checkbox.checked !== shouldBeChecked) {
+                console.log(`Clicking overlay checkbox for: ${labelText} (Should be checked: ${shouldBeChecked})`);
+                checkbox.click(); // Click to toggle state
             } else {
-                 // Uncheck layers not in the preferences list, especially defaults
-                 // Check if the current layer is one of the defaults ('Weather Stations' or 'Radar')
-                 const defaultLabels = ['Weather Stations', 'Radar'];
-                 if (input.checked && defaultLabels.includes(labelText)) {
-                    console.log(`Unchecking default layer not in preferences: ${labelText}`);
-                    input.click(); // Simulate click to uncheck and trigger layer removal
-                 }
+                 console.log(`Overlay checkbox already in correct state for: ${labelText} (Checked: ${checkbox.checked})`);
             }
         }
     });
-     console.log("Finished applying preferences.");
-     // It might be necessary to explicitly update the map or control state after changing checkboxes.
-     // control.expandSelected(true); // Example: Re-expand nodes if needed
+
+    console.log("Finished applying preferences.");
+    // control.expandSelected(true); // Optional: Re-expand nodes if needed
+    return baseLayerApplied; // Return whether the preferred base layer was found and applied
 }
 
 
@@ -425,5 +461,5 @@ export {
   isUserAuthenticated,
   getUserProfile,
   createUserControl,
-  loadUserPreferences // Export the new function
+  loadUserPreferences // Name remains the same, functionality updated
 };
