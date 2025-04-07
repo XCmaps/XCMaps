@@ -481,6 +481,51 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   // Initialize AirspaceXC map listeners AFTER map and layer control are ready
   initializeAirspaceXCMapListeners(window.map);
 
+  // --- Wind Layer Auto-Refresh ---
+  let windRefreshIntervalId = null;
+  const refreshWindStations = () => {
+    // Ensure the layer is still on the map before fetching
+    if (window.map.hasLayer(window.windLayer)) {
+      console.log('[Wind Refresh Interval] Calling fetchWindStations...'); // Added log
+      fetchWindStations(); // Assumes fetchWindStations is globally available
+    } else {
+      console.log('[Wind Refresh Interval] Layer not active, skipping refresh and clearing interval.'); // Modified log
+      if (windRefreshIntervalId) {
+        clearInterval(windRefreshIntervalId);
+        windRefreshIntervalId = null;
+        console.log('Cleared wind refresh interval due to layer removal.');
+      }
+    }
+  };
+
+  window.map.on('layeradd', function(e) {
+      if (e.layer === window.windLayer) {
+          console.log('[Wind Layer] Layer added. Initial fetch and starting refresh interval.'); // Modified log
+          // Clear any existing interval just in case
+          if (windRefreshIntervalId) {
+              console.log('[Wind Layer] Clearing pre-existing interval ID:', windRefreshIntervalId); // Added log
+              clearInterval(windRefreshIntervalId);
+          }
+          // Fetch immediately on add
+          refreshWindStations();
+          // Start interval
+          windRefreshIntervalId = setInterval(refreshWindStations, 60000); // 60000 ms = 1 minute
+          console.log('[Wind Layer] Refresh interval started with ID:', windRefreshIntervalId); // Added log
+      }
+  });
+
+  window.map.on('layerremove', function(e) {
+      if (e.layer === window.windLayer) {
+          console.log('[Wind Layer] Layer removed, clearing refresh interval ID:', windRefreshIntervalId); // Modified log
+          if (windRefreshIntervalId) {
+              clearInterval(windRefreshIntervalId);
+              windRefreshIntervalId = null;
+          }
+      }
+  });
+  // --- End Wind Layer Auto-Refresh ---
+
+
   // Add touch support for mobile devices
   const layersControlContainer = treeLayersControl.getContainer();
   const layersControlToggle = layersControlContainer.querySelector('.leaflet-control-layers-toggle');
