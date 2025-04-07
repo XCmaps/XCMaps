@@ -197,7 +197,7 @@ const getUserProfile = () => {
   return userProfile;
 };
 
-// Update user icon based on authentication state (Reverted to innerHTML version)
+// Update user icon based on authentication state
 const updateUserIcon = (authenticated) => {
   console.log('Updating user icon, authenticated:', authenticated);
   
@@ -254,14 +254,12 @@ const createUserControl = () => {
         console.log('Adding user control to map');
         const container = L.DomUtil.create('div', 'leaflet-control-user');
         container.id = 'user-control';
-        // Removed: container.tabIndex = -1; 
         
         // Create container for the icon
-        const iconContainer = L.DomUtil.create('div', 'user-icon-container', container); 
-        // Removed: iconContainer.tabIndex = -1; 
+        container.innerHTML = `<div class="user-icon-container"></div>`;
         
         // Set initial icon based on authentication state
-        updateUserIcon(isAuthenticated); // Call the reverted function
+        updateUserIcon(isAuthenticated);
         
         // Add click event listener
         L.DomEvent.on(container, 'click', function(e) {
@@ -353,7 +351,7 @@ const showProfileBadge = (container) => {
 const loadUserPreferences = async () => {
     if (!isAuthenticated || !keycloak.hasRealmRole('user')) {
         console.log("User not logged in or not 'user' role. Skipping preference loading.");
-        return false; // Indicate base layer not applied
+        return;
     }
 
     console.log("User is authenticated 'user'. Loading preferences...");
@@ -368,10 +366,10 @@ const loadUserPreferences = async () => {
         if (!response.ok) {
             if (response.status === 404) {
                  console.log("No preferences found for user.");
-                 return false; // No preferences saved yet, base layer not applied from prefs
+                 return; // No preferences saved yet, do nothing.
             }
             console.error(`Failed to load preferences: ${response.status} ${response.statusText}`);
-            return false; // Error, base layer not applied
+            return;
         }
 
         const preferences = await response.json();
@@ -379,104 +377,78 @@ const loadUserPreferences = async () => {
 
         // Check if preferences exist and layer control is ready
         let baseLayerApplied = false;
-        if (preferences && window.treeLayersControl && window.map) { // Ensure map is also ready
+        if (preferences && window.treeLayersControl) {
              console.log("Applying preferences to layer control:", preferences);
              baseLayerApplied = applyMapPreferences(preferences, window.treeLayersControl);
         } else {
-             console.log("No preferences found or layer control/map not ready.");
+             console.log("No preferences found or layer control not ready.");
         }
         return baseLayerApplied; // Return whether the preferred base layer was found and applied
 
     } catch (error) {
         console.error('Error loading user preferences:', error);
-        return false; // Error, base layer not applied
     }
 };
 
-// Helper function to apply saved preferences (Refactored to avoid clicks)
+// Helper function to apply saved preferences (base layer and overlays)
 function applyMapPreferences(preferences, control) {
-    if (!control || !control.getContainer || !window.map || !control._layers) { // Check for map and internal _layers
-        console.warn("Layer control, map, or internal layer mapping not available for applying preferences.");
+    if (!control || !control.getContainer) {
+        console.warn("Layer control not available for applying preferences.");
         return false; // Indicate base layer not set
     }
 
     const controlContainer = control.getContainer();
-    const { selectedBaseLayer: preferredBaseLayerLabel = null, selectedOverlays: preferredOverlayLabels = [] } = preferences;
-    const preferredOverlaysSet = new Set(preferredOverlayLabels);
+    // Use defaults if properties are missing/null in preferences
+    const { selectedBaseLayer = null, selectedOverlays = [] } = preferences;
+    const overlayLabelsToApply = new Set(selectedOverlays);
     let baseLayerApplied = false;
 
-    console.log("Applying Preferences (No Click):");
-    console.log(" - Base Layer:", preferredBaseLayerLabel);
-    console.log(" - Overlays:", preferredOverlayLabels);
+    console.log("Applying Base Layer:", selectedBaseLayer);
+    console.log("Applying Overlays:", selectedOverlays);
 
-    // Iterate through all layers managed by the control
-    control._layers.forEach(layerInfo => {
-        const layer = layerInfo.layer;
-        const layerLabel = layerInfo.name?.trim(); // Get label from control's internal structure
-        const inputElement = layerInfo.input; // Get input element from control's internal structure
-
-        if (!layerLabel || !inputElement) {
-            console.warn("Skipping layer due to missing label or input element in control structure:", layerInfo);
-            return; // Skip if essential info is missing
+    // Apply base layer selection
+    const baseLayerRadios = controlContainer.querySelectorAll('.leaflet-control-layers-base input[type="radio"]');
+    baseLayerRadios.forEach(radio => {
+        let labelElement = radio.closest('label') || radio.parentElement.querySelector('span');
+        if (labelElement) {
+             const labelText = labelElement.textContent.trim();
+             // Check if this radio corresponds to the saved preference
+             if (labelText === selectedBaseLayer) {
+                 if (!radio.checked) {
+                     console.log(`Clicking base layer radio: ${selectedBaseLayer}`);
+                     radio.click(); // Click to select the base layer
+                 } else {
+                      console.log(`Base layer already selected: ${selectedBaseLayer}`);
+                 }
+                 baseLayerApplied = true;
+             }
         }
+    });
 
-        if (layerInfo.overlay) {
-            // Handle Overlay Layer
-            const shouldBeVisible = preferredOverlaysSet.has(layerLabel);
-            const isVisible = window.map.hasLayer(layer);
+     if (selectedBaseLayer && !baseLayerApplied) {
+         console.warn(`Could not find base layer radio button for label: ${selectedBaseLayer}`);
+     }
 
-            if (shouldBeVisible && !isVisible) {
-                console.log(`Adding overlay: ${layerLabel}`);
-                window.map.addLayer(layer);
-            } else if (!shouldBeVisible && isVisible) {
-                console.log(`Removing overlay: ${layerLabel}`);
-                window.map.removeLayer(layer);
-            }
+    // Apply overlay selections
+    const overlayCheckboxes = controlContainer.querySelectorAll('.leaflet-control-layers-overlays input[type="checkbox"]');
+    overlayCheckboxes.forEach(checkbox => {
+        let labelElement = checkbox.closest('label') || checkbox.parentElement.querySelector('span');
+        if (labelElement) {
+            const labelText = labelElement.textContent.trim();
+            const shouldBeChecked = overlayLabelsToApply.has(labelText);
 
-            // Update checkbox UI without clicking
-            if (inputElement.checked !== shouldBeVisible) {
-                console.log(`Setting checkbox UI for ${layerLabel} to ${shouldBeVisible}`);
-                inputElement.checked = shouldBeVisible;
-            }
-
-        } else {
-            // Handle Base Layer
-            const shouldBeVisible = (layerLabel === preferredBaseLayerLabel);
-            const isVisible = window.map.hasLayer(layer); // Check if THIS layer is on map
-
-            if (shouldBeVisible) {
-                if (!isVisible) {
-                    console.log(`Adding base layer: ${layerLabel}`);
-                    window.map.addLayer(layer);
-                }
-                // Update radio button UI without clicking
-                if (!inputElement.checked) {
-                    console.log(`Setting radio UI for ${layerLabel} to true`);
-                    inputElement.checked = true;
-                }
-                baseLayerApplied = true; // Mark that the preferred base layer was handled
+            // Only click if the state needs changing
+            if (checkbox.checked !== shouldBeChecked) {
+                console.log(`Clicking overlay checkbox for: ${labelText} (Should be checked: ${shouldBeChecked})`);
+                checkbox.click(); // Click to toggle state
             } else {
-                if (isVisible) {
-                    console.log(`Removing base layer: ${layerLabel}`);
-                    window.map.removeLayer(layer);
-                }
-                 // Update radio button UI without clicking
-                if (inputElement.checked) {
-                    console.log(`Setting radio UI for ${layerLabel} to false`);
-                    inputElement.checked = false;
-                }
+                 console.log(`Overlay checkbox already in correct state for: ${labelText} (Checked: ${checkbox.checked})`);
             }
         }
     });
 
-    // If a preferred base layer was specified but not found/applied (e.g., label mismatch), log warning
-    if (preferredBaseLayerLabel && !baseLayerApplied) {
-        console.warn(`Preferred base layer "${preferredBaseLayerLabel}" was not found or applied.`);
-    }
-
-    console.log("Finished applying preferences (No Click).");
-    // No focus management needed here anymore as we didn't simulate clicks
-    // Removed: setTimeout(() => { window.map?.getContainer()?.focus(); }, 0); 
+    console.log("Finished applying preferences.");
+    // control.expandSelected(true); // Optional: Re-expand nodes if needed
     return baseLayerApplied; // Return whether the preferred base layer was found and applied
 }
 
