@@ -828,6 +828,8 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
     }, 100); // 100ms debounce time
   }
   
+  // Removed focusMapContainerDeferred function definition
+
   window.map.on('overlayadd', function(e) {
     try {
       console.log('overlayadd event triggered for layer:', e.name);
@@ -838,6 +840,7 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
         console.log('RainViewer Satellite layer added');
         debouncedUpdateTimeDimensionControl();
       }
+      // Removed call to focusMapContainerDeferred(); 
     } catch (error) {
       console.error('Error in overlayadd event handler:', error);
     }
@@ -853,9 +856,16 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
         console.log('RainViewer Satellite layer removed');
         debouncedUpdateTimeDimensionControl();
       }
+      // Removed call to focusMapContainerDeferred(); 
     } catch (error) {
       console.error('Error in overlayremove event handler:', error);
     }
+  });
+
+  // Add listener for base layer changes
+  window.map.on('baselayerchange', function(e) {
+      console.log('baselayerchange event triggered for layer:', e.name);
+      // Removed call to focusMapContainerDeferred(); 
   });
 
   // Signal that the map is fully initialized
@@ -887,12 +897,25 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
               }
           }
       }
-      loadUserPreferences(); // Load preferences after auth and control are ready
+      // loadUserPreferences(); // Load preferences after auth and control are ready - Redundant call? Already called above.
     })
     .catch(error => {
       console.error('Failed to initialize Keycloak:', error);
       // Still create the user control even if Keycloak fails
       createUserControl();
+      // If Keycloak fails, we might still want to load a default base layer
+      if (window.map && !window.map.hasLayer(awgTerrain)) {
+          console.log("Keycloak failed, adding default Terrain layer.");
+          awgTerrain.addTo(window.map);
+           // Ensure the corresponding radio button is checked in the layer control
+           const controlContainer = window.treeLayersControl?.getContainer();
+           if (controlContainer) {
+               const terrainRadio = controlContainer.querySelector('.leaflet-control-layers-base input[type="radio"]'); // Assuming Terrain is the first
+               if (terrainRadio && !terrainRadio.checked) {
+                   terrainRadio.checked = true;
+               }
+           }
+      }
     });
 
   return window.map;
@@ -942,16 +965,17 @@ setTimeout(() => {
         }
     }
 
-    if (typeof window.fetchAirspaces === 'function' &&
-        window.mapInitialized &&
-        window.map.hasLayer(window.airspaceEFG)) {
-        try {
-            console.log("Fetching airspaces");
-            window.fetchAirspaces();
-        } catch (error) {
-            console.error('Error fetching airspaces:', error);
-        }
-    }
+    // EFG Removed
+    // if (typeof window.fetchAirspaces === 'function' &&
+    //     window.mapInitialized &&
+    //     window.map.hasLayer(window.airspaceEFG)) {
+    //     try {
+    //         console.log("Fetching airspaces");
+    //         window.fetchAirspaces();
+    //     } catch (error) {
+    //         console.error('Error fetching airspaces:', error);
+    //     }
+    // }
 
     if (typeof window.fetchAirspacesGliding === 'function' &&
       window.mapInitialized &&
