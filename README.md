@@ -186,48 +186,46 @@ XCmaps uses several map services that may require API keys:
 1. **OpenAIP** - For airspace data (requires API key)
 2. **MapTiler** - For terrain maps (API key included but may need updating)
 3. **Winds.mobi** - For wind station data (no key required)
-### Keycloak Setup (for User Authentication & Preferences)
+### Keycloak Setup (Automated)
 
-If you are using Keycloak for user authentication (recommended for features like saving layer preferences), follow these steps:
+If you are using Keycloak for user authentication (recommended for features like saving layer preferences), you can automate the client and role setup using the provided script.
 
-1.  **Run Keycloak:** Ensure Keycloak is running (e.g., via Docker Compose using the provided `docker-compose.yml` or your own setup).
-2.  **Configure `.env`:** Add the Keycloak-related variables to your `.env` file as shown in the table above. Adjust `KEYCLOAK_AUTH_SERVER_URL` and `KEYCLOAK_ADMIN_URL` if your Keycloak service name or port differs in your Docker network or deployment.
-3.  **Create Frontend Client (`xcmaps-client`):**
-    *   Log in to the Keycloak Admin Console (usually at `KEYCLOAK_AUTH_SERVER_URL`).
-    *   Select your realm (e.g., `master`).
-    *   Go to `Clients` -> `Create client`.
-    *   Set `Client ID` to `xcmaps-client`.
-    *   Ensure `Client authentication` is **OFF** (this is a public client).
-    *   Set `Valid redirect URIs` to your application's base URL (e.g., `http://localhost:3000/*`).
-    *   Set `Web origins` to your application's base URL (e.g., `http://localhost:3000`). Add others like `+` for all or specific production URLs if needed.
-    *   Save the client.
-4.  **Create Backend Service Client (`xcmaps-backend-service`):**
-    *   Go to `Clients` -> `Create client`.
-    *   Set `Client ID` to `xcmaps-backend-service`.
-    *   Ensure `Client authentication` is **ON**.
-    *   Ensure `Authorization` is **OFF**.
-    *   Under `Authentication flow`, uncheck `Standard flow` and `Direct access grants`. Check **ON** `Service accounts roles`.
-    *   Save the client.
-    *   Go to the `Service Account Roles` tab for this client.
-    *   Click `Assign role`.
-    *   Use the `Filter by clients` dropdown to select `realm-management`.
-    *   Select both `manage-users` and `view-users` from the list.
-    *   Click `Assign`.
-    *   Go to the `Credentials` tab.
-    *   Copy the `Client secret`.
-    *   Paste this secret into your `.env` file as the value for `KEYCLOAK_ADMIN_CLIENT_SECRET`.
-5.  **Create User Role:**
-    *   Go to `Realm Roles` -> `Create role`.
-    *   Set `Role name` to `user`.
-    *   Save the role.
-6.  **Assign User Role:**
-    *   Go to `Users`. Find or create a test user.
+1.  **Run Keycloak:** Ensure Keycloak is running (e.g., via Docker Compose using the provided `docker-compose.yml` or your own setup). The default admin credentials are often `admin`/`admin` for initial setup.
+2.  **Configure `.env`:** Ensure the following Keycloak-related variables are set in your `.env` file. Default values used by the script are shown if the variable is not set, but you should configure them for your environment:
+    *   `KEYCLOAK_AUTH_SERVER_URL`: Base URL of Keycloak auth endpoint (Default: `http://localhost:8080/auth`)
+    *   `KEYCLOAK_REALM_NAME`: Keycloak realm name (Default: `master`)
+    *   `KEYCLOAK_ADMIN_USER`: Keycloak admin username (Default: `admin`)
+    *   `KEYCLOAK_ADMIN_PASSWORD`: Keycloak admin password (Default: `admin`)
+    *   `KEYCLOAK_CLIENT_ID`: Public client ID for frontend (Default: `xcmaps-client`)
+    *   `KEYCLOAK_ADMIN_CLIENT_ID`: Service account client ID for backend (Default: `xcmaps-backend-service`)
+    *   `APP_DOMAIN`: Base URL of the XCmaps application (Default: `http://localhost:3000`)
+    *   `KEYCLOAK_ADMIN_CLIENT_SECRET`: *Leave this blank initially.* The script will generate and display the secret for you to add.
+3.  **Run the Setup Script:**
+    *   **Linux/macOS:**
+        ```bash
+        chmod +x setup-keycloak-client.sh
+        ./setup-keycloak-client.sh
+        ```
+    *   **Windows (using Git Bash or WSL):**
+        ```bash
+        ./setup-keycloak-client.sh
+        ```
+    *   **Windows (using PowerShell):** *Note: The PowerShell script `setup-keycloak-client.ps1` may need similar updates if you prefer using it.*
+        ```powershell
+        .\setup-keycloak-client.ps1
+        ```
+        *(Currently, only the `.sh` script has been updated for full automation)*
+
+4.  **Update `.env` with Secret:** The script will output the generated `KEYCLOAK_ADMIN_CLIENT_SECRET`. Copy this value and add it to your `.env` file.
+
+5.  **Assign User Role (Manual Step):** The script creates the `user` role, but you still need to assign this role to your users manually via the Keycloak Admin Console:
+    *   Go to `Users`. Find or create a user.
     *   Go to the `Role mapping` tab for the user.
     *   Click `Assign role`.
-    *   Find and select the `user` role created previously.
+    *   Find and select the `user` role.
     *   Click `Assign`.
 
-This setup allows the frontend to authenticate users and the backend to securely manage user attributes (like layer preferences) via the Keycloak Admin API.
+This automated setup configures the necessary clients and roles, allowing the frontend to authenticate users and the backend to securely manage user attributes via the Keycloak Admin API.
 
 ## API Documentation
 
