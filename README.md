@@ -43,61 +43,40 @@ XCmaps is an interactive web-based map designed specifically for paragliding and
 - PostgreSQL with PostGIS extension
 - API keys for map services (see Configuration section)
 
-### Setup
+### Setup (Docker Compose - Recommended)
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/yourusername/xcmaps.git
-   cd xcmaps
-   ```
+This project uses Docker Compose to manage the application, database (PostgreSQL/PostGIS), and Keycloak services.
 
-2. Install dependencies:
-   ```
-   npm install
-   ```
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/yourusername/xcmaps.git # Replace with actual repo URL if different
+    cd xcmaps
+    ```
 
-3. Create a `.env` file in the root directory with the following variables:
-   ```
-   # Server
-   PORT=3000
-   APP_DOMAIN=http://localhost:3000
-   
-   # Database
-   DB_HOST=localhost
-   DB_PORT=5432
-   DB_USER=your_db_user
-   DB_PASSWORD=your_db_password
-   DB_NAME=xcmaps
-   
-   # API Keys
-   OAIP_KEY=your_openaip_key
-   
-   # Email (for feedback)
-   MAIL_HOST=your_smtp_host
-   MAIL_USER=your_email
-   MAIL_PASSWORD=your_email_password
-   ```
+2.  **Create and configure `.env` file:**
+    *   Copy the `.env.example` file (if one exists) or create a new `.env` file in the root directory.
+    *   Fill in the required environment variables. Refer to the **Configuration -> Environment Variables** section below for details (Database credentials, Keycloak settings, etc.).
+    *   **Important:** For Keycloak setup, leave `KEYCLOAK_ADMIN_CLIENT_SECRET` blank initially if you plan to use the setup script.
 
-4. Set up the database:
-   ```
-   # Create database tables (example - adjust as needed)
-   psql -U your_db_user -d xcmaps -f database/schema.sql
-   
-   # Import initial data if available
-   psql -U your_db_user -d xcmaps -f database/initial_data.sql
-   ```
+3.  **Build and Start Services:**
+    ```bash
+    docker-compose up -d --build
+    ```
+    *   This command builds the application image and starts all services defined in `docker-compose.yml` in detached mode.
 
-5. Build the frontend assets:
-   ```
-   npm run build
-   ```
+4.  **Database Initialization:**
+    *   The first time you run `docker-compose up` with an empty database volume (`postgres_data`), the `init-postgis.sh` script will run inside the `db` container. This script **only enables necessary PostGIS extensions**.
+    *   **It does NOT create the application tables** (`places`, `obstacles`, `xcairspaces`, etc.).
+    *   **Action Required:** You must manually create these tables after the containers are running. You can do this by:
+        *   Restoring a database backup into the `db` container.
+        *   Connecting to the `db` container (e.g., `docker exec -it xcmaps-db-1 psql -U $DB_USER -d $DB_NAME`) and running the required `CREATE TABLE` SQL statements (ensure you have the schema definition).
 
-6. Start the server:
-   ```
-   npm start
-   ```
+5.  **Keycloak Client Setup (Optional but Recommended):**
+    *   If using Keycloak, run the setup script (after containers are running) to configure clients and roles automatically. See the **Keycloak Setup (Automated)** section below for details.
+    *   Remember to add the generated `KEYCLOAK_ADMIN_CLIENT_SECRET` to your `.env` file after running the script.
 
-7. Access the application at `http://localhost:3000`
+6.  **Access the application:**
+    *   Open your browser and navigate to `http://localhost:3000` (or the `APP_DOMAIN` you configured).
 
 ## Usage Guide
 
@@ -175,7 +154,7 @@ The layer control panel on the right side of the map allows you to:
 | KEYCLOAK_AUTH_SERVER_URL | Base URL of Keycloak auth endpoint | http://keycloak:8080/auth |
 | KEYCLOAK_CLIENT_ID | Public client ID for frontend | xcmaps-client |
 | KEYCLOAK_REALM_NAME | Keycloak realm name | master |
-| KEYCLOAK_ADMIN_URL | Keycloak Admin API URL for backend | http://keycloak:8080/auth/admin/realms/master |
+# | KEYCLOAK_ADMIN_URL | Keycloak Admin API URL for backend | http://keycloak:8080/auth/admin/realms/master | # (Not currently used by setup script/app)
 | KEYCLOAK_ADMIN_CLIENT_ID | Service account client ID for backend | xcmaps-backend-service |
 | KEYCLOAK_ADMIN_CLIENT_SECRET | Service account client secret | your_kc_admin_secret |
 
@@ -210,11 +189,11 @@ If you are using Keycloak for user authentication (recommended for features like
         ```bash
         ./setup-keycloak-client.sh
         ```
-    *   **Windows (using PowerShell):** *Note: The PowerShell script `setup-keycloak-client.ps1` may need similar updates if you prefer using it.*
+    *   **Windows (using PowerShell):**
         ```powershell
         .\setup-keycloak-client.ps1
         ```
-        *(Currently, only the `.sh` script has been updated for full automation)*
+        *   **Warning:** The PowerShell script (`setup-keycloak-client.ps1`) is currently **outdated and incomplete**. It does not configure the backend client or roles correctly. Use the Bash script (`.sh`) via Git Bash or WSL for full automation.
 
 4.  **Update `.env` with Secret:** The script will output the generated `KEYCLOAK_ADMIN_CLIENT_SECRET`. Copy this value and add it to your `.env` file.
 

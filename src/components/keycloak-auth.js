@@ -20,35 +20,34 @@ const initKeycloak = () => {
   return new Promise((resolve, reject) => {
     try {
       keycloak.init({
-        onLoad: 'check-sso',
-        // Disable silent check SSO to avoid 404 errors
-        silentCheckSsoRedirectUri: null,
-        checkLoginIframe: false
+        onLoad: 'check-sso', // Reverted to check-sso
+        // Using default options
       })
         .then(authenticated => {
           console.log('Keycloak initialized, authenticated:', authenticated);
           isAuthenticated = authenticated;
-          
+
           if (authenticated) {
             return keycloak.loadUserProfile();
+          } else {
+            resolve(authenticated); // Resolve immediately if not authenticated
+            return null; // Stop promise chain
           }
-          
-          resolve(authenticated);
         })
         .then(profile => {
-          if (profile) {
+          if (profile) { // Only runs if authenticated
             userProfile = profile;
             updateUserIcon(true);
+            resolve(isAuthenticated); // Resolve after profile load
           }
-          resolve(isAuthenticated);
         })
         .catch(error => {
           console.error('Failed to initialize Keycloak:', error);
-          resolve(false);
+          reject(error); // Reject with the actual error
         });
     } catch (error) {
       console.error('Error in initKeycloak:', error);
-      resolve(false);
+      reject(error); // Reject with the actual error
     }
   });
 };
@@ -348,6 +347,8 @@ const showProfileBadge = (container) => {
 };
 
 // Function to load and apply user preferences (called from index.js after init)
+// Function to load and apply user preferences (called from index.js after init)
+// Function to load and apply user preferences (called from index.js after init)
 const loadUserPreferences = async () => {
     if (!isAuthenticated || !keycloak.hasRealmRole('user')) {
         console.log("User not logged in or not 'user' role. Skipping preference loading.");
@@ -366,10 +367,10 @@ const loadUserPreferences = async () => {
         if (!response.ok) {
             if (response.status === 404) {
                  console.log("No preferences found for user.");
-                 return; // No preferences saved yet, do nothing.
+                 return false; // No preferences saved yet
             }
             console.error(`Failed to load preferences: ${response.status} ${response.statusText}`);
-            return;
+            return false; // Indicate failure
         }
 
         const preferences = await response.json();
@@ -387,6 +388,7 @@ const loadUserPreferences = async () => {
 
     } catch (error) {
         console.error('Error loading user preferences:', error);
+        return false; // Indicate failure
     }
 };
 
@@ -461,5 +463,5 @@ export {
   isUserAuthenticated,
   getUserProfile,
   createUserControl,
-  loadUserPreferences // Name remains the same, functionality updated
+  loadUserPreferences
 };

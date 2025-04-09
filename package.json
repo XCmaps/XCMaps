@@ -30,7 +30,7 @@
     "jquery": "^3.7.1",
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^3.2.0",
-    "keycloak-js": "^23.0.0",
+    "keycloak-js": "^26.0.0",
     "leaflet": "^1.9.4",
     "leaflet-canvasicon": "^0.1.6",
     "leaflet-responsive-popup": "^1.0.0",

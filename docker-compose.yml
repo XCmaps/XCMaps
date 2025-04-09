@@ -51,7 +51,7 @@ services:
       - app-network
 
   keycloak:
-    image: quay.io/keycloak/keycloak:23.0.0
+    image: quay.io/keycloak/keycloak:26.0.0
     env_file: ".env"
     restart: always
     depends_on:
@@ -62,16 +62,17 @@ services:
       - KC_DB_URL_DATABASE=keycloak
       - KC_DB_USERNAME=${KC_DB_USERNAME}
       - KC_DB_PASSWORD=${KC_DB_PASSWORD}
-      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
-      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+      - KC_ADMIN=${KEYCLOAK_ADMIN} # Use KC_ADMIN for Keycloak >= 17
+      - KC_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD} # Use KC_ADMIN_PASSWORD for Keycloak >= 17
       - KC_HTTP_RELATIVE_PATH=/auth
-      - KC_PROXY=edge
-      - KC_HOSTNAME_STRICT=false
-      - KC_HOSTNAME=${KEYCLOAK_HOSTNAME}
-      - KC_HOSTNAME_ADMIN=${KEYCLOAK_HOSTNAME}
+      - KC_PROXY=edge # Keep this as Nginx is the edge proxy
+      - KC_HOSTNAME_STRICT=false # Disable strict hostname checking for start command
+      - KC_HOSTNAME_STRICT_HTTPS=false # Explicitly disable strict HTTPS check
+      - KC_HOSTNAME_URL=http://localhost:3000/auth # Explicit public URL
+      # - KC_HOSTNAME_ADMIN_URL=http://localhost:3000/auth # Explicit public admin URL (Removed, should derive from KC_HOSTNAME_URL)
     volumes:
-      - ./keycloak-themes:/opt/keycloak/themes
-    command: ["start-dev"]
+      - ./keycloak-themes:/opt/keycloak/themes # Re-enable custom themes
+    command: ["start"] # Use standard start command
     networks:
       - app-network
 

@@ -173,15 +173,7 @@ export default (env, argv) => {
       }),
       new CopyWebpackPlugin({
         patterns: [
-          {
-            from: 'src/components',
-            to: 'js/components',
-            filter: (resourcePath) => {
-              // Exclude the original windstations.js file
-              return path.extname(resourcePath) === '.js' && !resourcePath.endsWith('windstations.js');
-            },
-            noErrorOnMissing: true
-          },
+          // Removed: Copying JS from src/components as they are now imported and bundled
           {
             from: 'src/public/assets/js/L.Control.Layers.Tree.js',
             to: 'assets/js/[name][ext]'

@@ -15,13 +15,13 @@ import '../../../components/deprecated/airspaces-gliding.js';
 import '../../../components/deprecated/airspaces-notam.js';
 import './../../../components/airspaces-xc.js';
 import './../../../components/windstations.js';
-import '../../../components/spots-pg.js';
-import '../../../components/spots-hg.js';
-import '../../../components/spots-lz.js';
+import { initSpotPG } from '../../../components/spots-pg.js';
+import { initSpotHG } from '../../../components/spots-hg.js'; // Assuming similar export
+import { initSpotLZ } from '../../../components/spots-lz.js'; // Assuming similar export
 import '../../../components/obstacles.js';
 import '../../../components/rainviewer.js';
 import { initializeAirspaceXCMapListeners } from './../../../components/airspaces-xc.js';
-import { initKeycloak, createUserControl, loadUserPreferences } from '../../../components/keycloak-auth.js'; // Import loadUserPreferences
+import { initKeycloak, createUserControl, loadUserPreferences, isUserAuthenticated } from '../../../components/keycloak-auth.js'; // Import necessary functions
 
 // --- Global App Configuration ---
 window.appConfig = {
@@ -46,7 +46,16 @@ async function fetchAppConfig() {
 
 
 // Initialize map and make necessary objects globally available
+let mapInitialized = false; // Flag to prevent multiple initializations
+
 function initMap() {
+  if (mapInitialized) {
+      console.log("Map already initialized, skipping re-initialization.");
+      return window.map; // Return existing map instance
+  }
+  mapInitialized = true; // Set flag early
+  console.log("Initializing map for the first time...");
+
   // Create the map object and make it globally accessible
   window.map = L.map('map', {
       center: [50, 6],
@@ -61,7 +70,8 @@ function initMap() {
   }).addTo(window.map);
 
   // Base Layers
-  var awgTerrain = L.tileLayer('https://tile.jawg.io/jawg-terrain/{z}/{x}/{y}{r}.png?access-token=qBDXRu1KSlZGhx4ROlceBD9hcxmrumL34oj29tUkzDVkafqx08tFWPeRNb0KSoKa', {
+  // Define and make awgTerrain globally accessible
+  window.awgTerrain = L.tileLayer('https://tile.jawg.io/jawg-terrain/{z}/{x}/{y}{r}.png?access-token=qBDXRu1KSlZGhx4ROlceBD9hcxmrumL34oj29tUkzDVkafqx08tFWPeRNb0KSoKa', {
       attribution: 'Jawg.io'
   }); // Don't add to map by default
 
@@ -922,76 +932,134 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   document.dispatchEvent(mapReadyEvent);
   console.log("Map initialized event dispatched");
 
-  // Initialize Keycloak and create user control
-  initKeycloak()
-    .then(async (authenticated) => { // Make the callback async
-      console.log('Keycloak initialized, authenticated:', authenticated);
-      createUserControl();
-      // Load preferences and check if a base layer was applied
-      const baseLayerApplied = await loadUserPreferences();
-      // If no base layer preference was loaded/applied, add the default
-      if (!baseLayerApplied && window.map && !window.map.hasLayer(awgTerrain)) {
-          console.log("No base layer preference found or applied, adding default Terrain layer.");
-          awgTerrain.addTo(window.map);
-          // Ensure the corresponding radio button is checked in the layer control
-          const controlContainer = window.treeLayersControl?.getContainer();
-          if (controlContainer) {
-              const terrainRadio = controlContainer.querySelector('.leaflet-control-layers-base input[type="radio"]'); // Assuming Terrain is the first
-              if (terrainRadio && !terrainRadio.checked) {
-                  terrainRadio.checked = true; // Directly check it (less ideal than click, but avoids potential event issues)
-              }
-          }
-      }
-      // loadUserPreferences(); // Load preferences after auth and control are ready - Redundant call? Already called above.
-    })
-    .catch(error => {
-      console.error('Failed to initialize Keycloak:', error);
-      // Still create the user control even if Keycloak fails
-      createUserControl();
-      // If Keycloak fails, we might still want to load a default base layer
-      if (window.map && !window.map.hasLayer(awgTerrain)) {
-          console.log("Keycloak failed, adding default Terrain layer.");
-          awgTerrain.addTo(window.map);
-           // Ensure the corresponding radio button is checked in the layer control
-           const controlContainer = window.treeLayersControl?.getContainer();
-           if (controlContainer) {
-               const terrainRadio = controlContainer.querySelector('.leaflet-control-layers-base input[type="radio"]'); // Assuming Terrain is the first
-               if (terrainRadio && !terrainRadio.checked) {
-                   terrainRadio.checked = true;
-               }
-           }
-      }
-    });
+  // Keycloak initialization is now handled in DOMContentLoaded
 
   return window.map;
-}
+} // End of initMap function
 
 // Wait for DOM to be fully loaded
-document.addEventListener('DOMContentLoaded', async function() { // Make listener async
-    console.log("DOM content loaded, fetching config...");
-    await fetchAppConfig(); // Fetch configuration first
-    console.log("Config fetched, initializing map...");
-    // Initialize the map
-    const map = initMap();
+document.addEventListener('DOMContentLoaded', async () => { // Use arrow function for consistency
+  console.log('DOM content loaded, fetching config...');
+  try {
+      await fetchAppConfig(); // Wait for config first
+  } catch (error) {
+      console.error("Failed to fetch app config, proceeding with defaults:", error);
+      // Continue with defaults if config fetch fails
+  }
 
-// Setup geolocation after map is initialized
-navigator.geolocation.getCurrentPosition(position => {
-    console.log("Geolocation received");
-    const userLat = position.coords.latitude;
-    const userLng = position.coords.longitude;
-    map.setView([userLat, userLng], 10);
+  console.log('Config fetched/defaulted, initializing map...');
+  const map = initMap(); // Initialize map globally (initMap ensures it only runs once)
 
-    // Create a user location ready event
-    const locationReadyEvent = new CustomEvent('user_location_ready', {
-        detail: { lat: userLat, lng: userLng }
-    });
-    document.dispatchEvent(locationReadyEvent);
-    console.log("User location event dispatched");
+  try {
+    console.log('Attempting to initialize Keycloak...');
+    const authenticated = await initKeycloak(); // Wait for Keycloak initialization
+    console.log(`Keycloak init finished. Authenticated: ${authenticated}`);
+
+    // Now that Keycloak is initialized (or failed gracefully), proceed
+    createUserControl(); // Create user icon/control
+
+    // Load preferences only if authenticated
+    let baseLayerApplied = false;
+    if (authenticated) {
+        console.log("User authenticated, loading preferences...");
+        baseLayerApplied = await loadUserPreferences(); // Wait for preferences
+        console.log("Preferences loaded, base layer applied:", baseLayerApplied);
+    } else {
+        console.log("User not authenticated, skipping preference loading.");
+    }
+
+    // Apply default base layer if preferences didn't set one OR user is not authenticated
+    if (!baseLayerApplied) {
+        console.log("No base layer preference found/applied or user not authenticated, adding default Terrain layer.");
+        // Assuming awgTerrain is globally accessible or defined within initMap scope accessible here
+        if (window.map && window.awgTerrain) { // Check if map and layer exist
+             // Check if the layer is already on the map (e.g., added by default in initMap)
+             if (!window.map.hasLayer(window.awgTerrain)) {
+                 window.map.addLayer(window.awgTerrain);
+                 console.log("Default Terrain layer added.");
+             } else {
+                 console.log("Default Terrain layer was already present.");
+             }
+             // Ensure the layer control reflects the state if needed
+             const controlContainer = window.treeLayersControl?.getContainer();
+             if (controlContainer) {
+                 const terrainRadio = controlContainer.querySelector('.leaflet-control-layers-base input[type="radio"]'); // Assuming Terrain is the first
+                 if (terrainRadio && !terrainRadio.checked) {
+                     // Find the label associated with the radio button
+                     let labelElement = terrainRadio.closest('label') || terrainRadio.parentElement.querySelector('span');
+                     if (labelElement && labelElement.textContent.trim() === 'Terrain') { // Double-check it's the correct one
+                         terrainRadio.checked = true;
+                         console.log("Default Terrain radio button checked in layer control.");
+                     }
+                 }
+             }
+        } else {
+             console.warn("Map or default base layer (awgTerrain) not available to set default.");
+        }
+    }
+
+    // Initialize other map modules that might depend on auth state or map layers
+    // These should ideally be called *after* the map and layers (including default/preferred base) are set up.
+    initSpotPG(); // Corrected function name
+    initSpotHG(); // Corrected function name
+    initSpotLZ(); // Corrected function name
+    // ... any other module initializations
+
+  } catch (error) {
+    console.error('Error during Keycloak initialization or subsequent setup:', error);
+    // Handle initialization failure - maybe show a message to the user
+    // Still create the user control so the login button is visible
+    createUserControl();
+    // Apply default base layer even on error?
+    if (window.map && window.awgTerrain && !window.map.hasLayer(window.awgTerrain)) {
+         console.log("Applying default base layer after Keycloak init error.");
+         window.map.addLayer(window.awgTerrain);
+          // Ensure the layer control reflects the state if needed
+         const controlContainer = window.treeLayersControl?.getContainer();
+         if (controlContainer) {
+             const terrainRadio = controlContainer.querySelector('.leaflet-control-layers-base input[type="radio"]');
+             if (terrainRadio && !terrainRadio.checked) {
+                 let labelElement = terrainRadio.closest('label') || terrainRadio.parentElement.querySelector('span');
+                 if (labelElement && labelElement.textContent.trim() === 'Terrain') {
+                     terrainRadio.checked = true;
+                     console.log("Default Terrain radio button checked in layer control after error.");
+                 }
+             }
+         }
+    }
+     // Initialize other modules gracefully if possible
+    initSpotPG(); // Corrected function name
+    initSpotHG(); // Corrected function name
+    initSpotLZ(); // Corrected function name
+
+  } finally {
+      // Code that should run regardless of success or failure
+      console.log("Initial setup sequence complete (Keycloak attempted).");
+      // Initialize geolocation after map and potentially Keycloak init attempt
+      if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(position => {
+              console.log("Geolocation received");
+              const userLat = position.coords.latitude;
+              const userLng = position.coords.longitude;
+              const currentMap = window.map; // Map should be initialized by now
+              if (currentMap) {
+                   currentMap.setView([userLat, userLng], 10);
+              } else {
+                   console.error("Map object not available for geolocation setView.");
+              }
+              const locationReadyEvent = new CustomEvent('user_location_ready', { detail: { lat: userLat, lng: userLng } });
+              document.dispatchEvent(locationReadyEvent);
+              console.log("User location event dispatched");
+          }, error => {
+               console.error("Geolocation error:", error);
+          });
+      } else {
+          console.log("Geolocation is not supported by this browser.");
+      }
+  }
 });
 
-// Load component scripts after map is initialized
 
-});
 
 // Special patch for initial data loading
 document.addEventListener('user_location_ready', function(e) {
