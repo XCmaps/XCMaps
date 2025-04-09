@@ -80,7 +80,7 @@ function initMap() {
   });
 
   var xcontest = L.tileLayer('https://topo.xcontest.app/elev/{z}/{x}/{y}.jpg', {
-      attribution: 'XContest&copy; <a href="https://www.xcontest.org">XContest</a>',
+      attribution: '&copy; <a href="https://www.xcontest.org">XContest</a>',
       className: 'xcontest-layer'
   });
 
@@ -257,7 +257,7 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   window.windLayer = L.layerGroup().addTo(window.map);
 
   window.oaipMap = L.tileLayer(`https://a.api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png?apiKey=${process.env.OAIP_KEY}`, {
-      attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
+      attribution: '&copy; <a href="https://www.openaip.net">OpenAIP</a>',
       className: 'oaip-layer'
   });
   
@@ -318,13 +318,13 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   //   attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
   // });
   window.airspaceGliding = L.layerGroup([], {
-    attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
+    attribution: '&copy; <a href="https://www.openaip.net">OpenAIP</a>',
   });
   window.airspaceNotam = L.layerGroup([], {
-    attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
+    attribution: '&copy; <a href="https://www.openaip.net">OpenAIP</a>',
   });
   window.airspaceXC = L.layerGroup([], {
-    attribution: 'XContest&copy; <a href="https://xcontest.org">XContest</a>',
+    attribution: '&copy; <a href="https://xcontest.org">XContest</a>',
   });
 
   window.placesLayerPG = L.layerGroup( [], {
