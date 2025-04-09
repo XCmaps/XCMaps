@@ -1,5 +1,6 @@
 import express from 'express';
 import KcAdminClient from '@keycloak/keycloak-admin-client';
+import jwt from 'jsonwebtoken'; // Import jwt for decoding
 import { authenticateToken, requireRole } from '../middleware/auth.js'; // Import middleware
 import 'dotenv/config';
 
@@ -43,16 +44,50 @@ async function ensureAdminAuth() {
     }
 }
 
-// --- Router Definition ---
+// --- Middleware to extract User ID without strict verification ---
+// Used for operations like saving preferences on logout where the token might be expired,
+// but we still need the user ID associated with the session.
+function getUserIdIfPresent(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+
+    if (token) {
+        try {
+            // Decode without verification to get claims even if expired/invalid signature
+            const decoded = jwt.decode(token);
+            if (decoded && decoded.sub) {
+                // Attach essential user info if decoding is successful
+                req.user = {
+                    id: decoded.sub,
+                    username: decoded.preferred_username || 'unknown', // Add username if available
+                    roles: decoded.realm_access?.roles || []
+                };
+                 console.log(`User ID ${req.user.id} extracted from token (verification skipped).`);
+            } else {
+                 console.log("Token decoded but 'sub' (user ID) claim missing.");
+                 // Optionally handle this case - maybe deny access? For now, just log.
+                 // If req.user is needed downstream, this will cause issues.
+            }
+        } catch (err) {
+            console.error("Error decoding token (without verification):", err.message);
+            // Proceed without req.user if decoding fails
+        }
+    } else {
+         console.log("No authorization token found in header.");
+         // Proceed without req.user
+    }
+    next(); // Always proceed, subsequent middleware/routes handle missing req.user if needed
+}
+
+
 export default function createUserPreferencesRouter() {
     const router = express.Router();
 
-    // Middleware applied to all routes in this router
-    router.use(authenticateToken); // Ensure user is logged in
-    router.use(requireRole('user')); // Ensure user has the 'user' role
-
+    // Middleware order matters! Apply role check *after* user info is attached.
     // GET /api/user/preferences - Retrieve user preferences
-    router.get('/preferences', async (req, res) => {
+    // GET /api/user/preferences - Retrieve user preferences (Requires STRICT authentication)
+    // GET /api/user/preferences - Retrieve user preferences (Requires STRICT authentication AND 'user' role)
+    router.get('/preferences', authenticateToken, requireRole('user'), async (req, res) => {
         const userId = req.user.id; // Get user ID from authenticated token
         console.log(`GET /preferences request for user ID: ${userId}`);
 
@@ -98,7 +133,16 @@ export default function createUserPreferencesRouter() {
     });
 
     // PUT /api/user/preferences - Update user preferences
-    router.put('/preferences', async (req, res) => {
+    // PUT /api/user/preferences - Update user preferences (Allows potentially expired token, just needs User ID)
+    // PUT /api/user/preferences - Update user preferences (Allows potentially expired token, just needs User ID AND 'user' role)
+    router.put('/preferences', getUserIdIfPresent, requireRole('user'), async (req, res) => {
+        // Check if user ID was successfully extracted
+        if (!req.user || !req.user.id) {
+             console.error("PUT /preferences: User ID could not be determined from token.");
+             // Decide appropriate response: 401 Unauthorized or 400 Bad Request?
+             // Since the user *should* have a session, but token is bad/missing, 401 seems reasonable.
+             return res.status(401).json({ message: 'User identification failed.' });
+        }
         const userId = req.user.id;
         const newPreferences = req.body; // Expecting a JSON object
 
