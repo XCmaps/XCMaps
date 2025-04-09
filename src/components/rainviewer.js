@@ -300,10 +300,10 @@ L.TimeDimension.Layer.Rainviewer = L.TimeDimension.Layer.extend({
           if (index > 0) {
               index--;
           }
-          if (time != this._availableTimes[index]) {
-              console.log('Search layer time: ' + new Date(time).toISOString());
-              console.log('Return layer time: ' + new Date(this._availableTimes[index]).toISOString());
-          }
+          // if (time != this._availableTimes[index]) {
+          //     console.log('Search layer time: ' + new Date(time).toISOString());
+          //     console.log('Return layer time: ' + new Date(this._availableTimes[index]).toISOString());
+          // }
           return this._availableTimes[index];
       },
   });
