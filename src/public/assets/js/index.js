@@ -831,7 +831,8 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
             
             // Refresh radar layer if active
             if (hasRadar) {
-              fetchRainviewerMetadata("https://api.rainviewer.com/public/weather-maps.json")
+              fetch("https://api.rainviewer.com/public/weather-maps.json")
+                .then(response => response.json()) // Fetch and parse JSON
                 .then(metadata => {
                   window.rainviewerRadarLayer._metadata = metadata;
                   window.rainviewerRadarLayer._loaded = true;
@@ -844,7 +845,8 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
             
             // Refresh satellite layer if active
             if (hasSatellite) {
-              fetchRainviewerMetadata("https://api.rainviewer.com/public/weather-maps.json")
+              fetch("https://api.rainviewer.com/public/weather-maps.json")
+                .then(response => response.json()) // Fetch and parse JSON
                 .then(metadata => {
                   window.rainviewerSatelliteLayer._metadata = metadata;
                   window.rainviewerSatelliteLayer._loaded = true;
