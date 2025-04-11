@@ -197,6 +197,7 @@ function fetchWindStations() {
                     <g transform="rotate(${windDirection + 90}, 400, 400)" stroke="${strokeColor}" stroke-width="60">
                       <path d="M203,391 L75,144 L738,391 L75,637 L203,391 Z" fill="${fillColor}"/>
                     </g>
+                    <rect x="-60" y="620" width="780" height="280" rx="30" fill="white" />
                     <text x="330" y="850" font-size="220" text-anchor="middle" fill="black" font-weight="bold">
                       ${peakArrow}${Math.round(windAvg)} / ${Math.round(windMax)}
                     </text>
@@ -272,6 +273,7 @@ function fetchWindStations() {
                 <g transform="rotate(${windDirection + 90}, 400, 400)" stroke="${strokeColor}" stroke-width="60">
                   <path d="M203,391 L75,144 L738,391 L75,637 L203,391 Z" fill="${fillColor}"/>
                 </g>
+                <rect x="-60" y="620" width="920" height="280" rx="30" fill="white" />
                 <text x="330" y="850" font-size="220" text-anchor="middle" fill="black" font-weight="bold">
                   ${peakArrow}${Math.round(windAvg)} / ${Math.round(windMax)}
                 </text>
