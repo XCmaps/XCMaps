@@ -189,6 +189,8 @@ function fetchWindStations() {
                 const fillColor = getFillColor(windAvg);
                 const strokeColor = getStrokeColor(windMax);
                 const peakArrow = newStationData.peak ? "▲" : "▼";
+                const compassDirection = getCompassDirection(windDirection);
+                const lastUpdate = new Date(newStationData.last["_id"] * 1000).toLocaleTimeString("de-DE", {hour: "2-digit", minute: "2-digit", });
 
                 const newArrowSvg = `
                   <svg width="30" height="30" viewBox="0 0 800 900" xmlns="http://www.w3.org/2000/svg">
@@ -208,6 +210,29 @@ function fetchWindStations() {
                 });
 
                 marker.setIcon(newArrowIcon);
+                
+                // Update the popup content if it exists
+                if (marker.getPopup()) {
+                    const popupContent = marker.getPopup().getContent();
+                    const popupEl = document.createElement('div');
+                    popupEl.innerHTML = popupContent;
+                    
+                    // Update the current wind data in the popup
+                    const stationInfoDiv = popupEl.querySelector('.wind-station-popup-content');
+                    if (stationInfoDiv) {
+                        const tagNames = stationInfoDiv.querySelectorAll('tag-name');
+                        if (tagNames.length >= 4) {
+                            tagNames[0].innerHTML = `Wind Speed:&#9;&#9;${windAvg} km/h<br>`;
+                            tagNames[1].innerHTML = `Max Wind:&#9;&#9;${windMax} km/h<br>`;
+                            tagNames[2].innerHTML = `Wind Direction:&#9;${windDirection}° (${compassDirection})<br>`;
+                            tagNames[3].innerHTML = `Last Update:&#9;&#9;${lastUpdate}<br><br>`;
+                        }
+                        
+                        // Update the popup content
+                        marker.getPopup().setContent(popupEl.innerHTML);
+                    }
+                }
+                
                 updatedCount++;
 
                 // Remove from map so we know it's been processed and won't be added again
@@ -378,15 +403,100 @@ function fetchWindStations() {
                   }).setContent(popupHtml)
                 );
 
-                // When the popup is opened, initialize the chart and camera logic.
+                // When the popup is opened, fetch fresh historical data and initialize the chart and camera logic.
                 marker.on("popupopen", () => {
+                  // Fetch fresh historical data when popup is opened
+                  fetch(
+                    `https://winds.mobi/api/2.3/stations/${station._id}/historic/?duration=21000&keys=w-dir&keys=w-avg&keys=w-max&keys=temp`
+                  )
+                    .then((response) => response.json())
+                    .then((historyData) => {
+                      // Process historyData into 10‑minute averages.
+                      const aggregatedData = processHistoricalData(historyData);
+                      
+                      // --- TABLE SETUP (10‑minute averages, limited to last 5 hours) ---
+                      const fiveHoursAgo = Date.now() - 5 * 60 * 60 * 1000;
+                      const limitedData = aggregatedData.filter(
+                        (entry) => entry._id * 1000 >= fiveHoursAgo
+                      ).slice(0, 24); // Limit to 24 most recent entries
+                      
+                      // Update the table content
+                      let historyTable = `<div class="table-responsive"><table class="wind-data-table table">
+                        <thead>
+                          <tr>
+                            <th>Wind (m/s)</th>
+                            <th>Gusts (m/s)</th>
+                            <th>Direction</th>
+                            <th>Temp C°</th>
+                            <th>Time</th>
+                          </tr>
+                        </thead>
+                        <tbody>`;
+                      limitedData.forEach((entry) => {
+                        const timeFormatted = new Date(entry._id * 1000).toLocaleTimeString("de-DE", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        });
+                        const compassDir = getCompassDirection(entry["w-dir"]);
+                        historyTable += `<tr>
+                          <td class="wind-avg-cell" style="color: ${getTextColor(getFillColor(entry["w-avg"]))}; background-color: ${getFillColor(entry["w-avg"])};">
+                            ${entry["w-avg"].toFixed(1)}
+                          </td>
+                          <td class="wind-max-cell" style="color: ${getTextColor(getStrokeColor(entry["w-max"]))}; background-color: ${getStrokeColor(entry["w-max"])};">
+                            ${entry["w-max"].toFixed(1)}
+                          </td>
+                          <td style="white-space: nowrap;">
+                            <span class="wind-direction-arrow" style="transform: rotate(${entry["w-dir"] + 180}deg);">
+                                <i class="fa fa-long-arrow-up"></i>
+                            </span>
+                            &nbsp;&nbsp;${compassDir}
+                          </td>
+                          <td>${entry["temp"] !== undefined ? entry["temp"].toFixed(1) : "N/A"}</td>
+                          <td>${timeFormatted}</td>
+                        </tr>`;
+                      });
+                      historyTable += `</tbody></table></div>`;
+                      
+                      // Update the table content in the popup
+                      const tableContent = document.getElementById(`table-${station._id}`);
+                      if (tableContent) {
+                        tableContent.innerHTML = historyTable;
+                      }
+                      
+                      // For the chart we want ascending order (oldest first).
+                      const chartData = aggregatedData.slice().reverse();
+                      
+                      // Update the chart if it exists
+                      const canvas = document.getElementById(`canvas-${station._id}`);
+                      if (canvas && canvas.chartInstance) {
+                        // Transform chartData so that each point has an x (timestamp) and y (value)
+                        const chartDataPointsAvg = chartData.map((entry) => ({
+                          x: entry._id * 1000, // convert seconds to ms
+                          y: entry["w-avg"],
+                        }));
+                        const chartDataPointsMax = chartData.map((entry) => ({
+                          x: entry._id * 1000,
+                          y: entry["w-max"],
+                        }));
+                        
+                        // Update chart data
+                        canvas.chartInstance.data.datasets[0].data = chartDataPointsAvg;
+                        canvas.chartInstance.data.datasets[1].data = chartDataPointsMax;
+                        canvas.chartInstance.update();
+                      }
+                    })
+                    .catch((error) => {
+                      console.error(`Error fetching updated historical wind data for ${station._id}:`, error);
+                    });
+                  
                   setTimeout(() => {
                     const canvas = document.getElementById(`canvas-${station._id}`);
-                    if (canvas) {
+                    if (canvas && !canvas.chartInstance) {
+                      // Only initialize the chart if it doesn't exist yet
                       canvas.style.height = "300px";
                       const ctx = canvas.getContext("2d");
                       if (ctx) {
-                        // Transform chartData so that each point has an x (timestamp) and y (value)
+                        // Get the chart data from the fetch result above
                         const chartDataPointsAvg = chartData.map((entry) => ({
                           x: entry._id * 1000, // convert seconds to ms
                           y: entry["w-avg"],
