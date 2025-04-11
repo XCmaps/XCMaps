@@ -59,10 +59,15 @@ This project uses Docker Compose to manage the application, database (PostgreSQL
     *   **Important:** For Keycloak setup, leave `KEYCLOAK_ADMIN_CLIENT_SECRET` blank initially if you plan to use the setup script.
 
 3.  **Build and Start Services:**
-    ```bash
-    docker-compose up -d --build
-    ```
-    *   This command builds the application image and starts all services defined in `docker-compose.yml` in detached mode.
+    *   First, build the frontend application:
+        ```bash
+        npm run build
+        ```
+    *   Then, build the Docker images and start the services:
+        ```bash
+        docker-compose up -d --build
+        ```
+    *   This command builds the application image (using the pre-built frontend assets) and starts all services defined in `docker-compose.yml` in detached mode.
 
 4.  **Database Initialization:**
     *   The first time you run `docker-compose up` with an empty database volume (`postgres_data`), the `init-postgis.sh` script will run inside the `db` container. This script **only enables necessary PostGIS extensions**.
