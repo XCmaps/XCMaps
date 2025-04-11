@@ -154,7 +154,7 @@ The layer control panel on the right side of the map allows you to:
 | KEYCLOAK_AUTH_SERVER_URL | Base URL of Keycloak auth endpoint | http://keycloak:8080/auth |
 | KEYCLOAK_CLIENT_ID | Public client ID for frontend | xcmaps-client |
 | KEYCLOAK_REALM_NAME | Keycloak realm name | master |
-# | KEYCLOAK_ADMIN_URL | Keycloak Admin API URL for backend | http://keycloak:8080/auth/admin/realms/master | # (Not currently used by setup script/app)
+| KEYCLOAK_ADMIN_URL | Keycloak Admin API URL for backend (Not currently used by setup script/app) | http://keycloak:8080/auth/admin/realms/master |
 | KEYCLOAK_ADMIN_CLIENT_ID | Service account client ID for backend | xcmaps-backend-service |
 | KEYCLOAK_ADMIN_CLIENT_SECRET | Service account client secret | your_kc_admin_secret |
 
