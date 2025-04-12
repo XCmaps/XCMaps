@@ -56,3 +56,16 @@
 .login-pf-page .card-pf img {
     display: none !important;
 }
+
+/* Ensure social login list item takes full width */
+.pf-c-login__main-footer-links.kc-social-links > li {
+    width: 100%; /* Make the list item take full width */
+    margin-bottom: 5px; /* Add space between multiple social buttons if they exist */
+}
+
+/* Ensure the button (a tag) inside is also full width */
+.pf-c-login__main-footer-links.kc-social-links > li > a.pf-c-button {
+    width: 100%; /* Explicitly set button width to 100% */
+    display: block; /* Ensure it behaves as a block element */
+    box-sizing: border-box; /* Include padding/border in width calculation */
+}
