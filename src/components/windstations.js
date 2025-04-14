@@ -102,6 +102,29 @@ function getStrokeColor(speed) {
 function getTextColor(backgroundColor) {
     return backgroundColor === "black" ? "white" : "black";
 }
+function formatLastUpdate(timestampSeconds) {
+    const now = new Date();
+    const updateDate = new Date(timestampSeconds * 1000);
+
+    // Reset time part for comparison to compare dates only
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const updateDay = new Date(updateDate.getFullYear(), updateDate.getMonth(), updateDate.getDate());
+
+    const diffTime = today.getTime() - updateDay.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // Difference in full days
+
+    if (diffDays === 0) {
+        // Today: return time HH:MM
+        return updateDate.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    } else if (diffDays === 1) {
+        // Yesterday
+        return "1 day ago";
+    } else {
+        // 2 or more days ago
+        return `${diffDays} days ago`;
+    }
+}
+
 
 // Helper: Process raw historical data into 10‑minute averages.
 function processHistoricalData(data) {
@@ -179,18 +202,30 @@ function fetchWindStations() {
         let removedCount = 0;
         let addedCount = 0;
         // --- Update existing markers or remove old ones ---
+        const currentTimeSeconds = Math.floor(Date.now() / 1000);
+        const outdatedThresholdSeconds = 3660; // 1 hour and 1 minute
+
         existingMarkersMap.forEach((marker, stationId) => {
             const newStationData = newStationsMap.get(stationId);
             if (newStationData) {
                 // Station exists, update its icon
+                const lastUpdateTimestamp = newStationData.last["_id"];
+                const ageInSeconds = currentTimeSeconds - lastUpdateTimestamp;
+
                 const windDirection = newStationData.last["w-dir"];
                 const windAvg = newStationData.last["w-avg"];
                 const windMax = newStationData.last["w-max"];
-                const fillColor = getFillColor(windAvg);
-                const strokeColor = getStrokeColor(windMax);
+                let fillColor, strokeColor;
+                if (ageInSeconds > outdatedThresholdSeconds) {
+                    fillColor = '#808080'; // Grey for outdated
+                    strokeColor = '#808080';
+                } else {
+                    fillColor = getFillColor(windAvg);
+                    strokeColor = getStrokeColor(windMax);
+                }
                 const peakArrow = newStationData.peak ? "▲" : "▼";
                 const compassDirection = getCompassDirection(windDirection);
-                const lastUpdate = new Date(newStationData.last["_id"] * 1000).toLocaleTimeString("de-DE", {hour: "2-digit", minute: "2-digit", });
+                const lastUpdate = formatLastUpdate(newStationData.last["_id"]); // Use new formatting function
 
                 const newArrowSvg = `
                   <svg width="30" height="30" viewBox="0 0 800 900" xmlns="http://www.w3.org/2000/svg">
@@ -252,14 +287,23 @@ function fetchWindStations() {
             addedCount++;
             // console.log(`Adding new marker for station: ${station._id}`); // Debugging
             const [lon, lat] = station.loc.coordinates;
+            const lastUpdateTimestamp = station.last["_id"];
+            const ageInSeconds = currentTimeSeconds - lastUpdateTimestamp;
+
             const windDirection = station.last["w-dir"];
             const windAvg = station.last["w-avg"];
             const windMax = station.last["w-max"];
             // const tempC = station.last["temp"]; // Keep for potential future use in popup
             const compassDirection = getCompassDirection(windDirection);
-            const lastUpdate = new Date(station.last["_id"] * 1000).toLocaleTimeString("de-DE", {hour: "2-digit", minute: "2-digit", });
-            const fillColor = getFillColor(windAvg);
-            const strokeColor = getStrokeColor(windMax);
+            const lastUpdate = formatLastUpdate(lastUpdateTimestamp); // Use new formatting function
+            let fillColor, strokeColor;
+             if (ageInSeconds > outdatedThresholdSeconds) {
+                fillColor = '#808080'; // Grey for outdated
+                strokeColor = '#808080';
+            } else {
+                fillColor = getFillColor(windAvg);
+                strokeColor = getStrokeColor(windMax);
+            }
             const peakArrow = station.peak ? "▲" : "▼";
             const isHolfuy = station._id.includes("holfuy");
             let holfuyStationId = '';
@@ -357,7 +401,7 @@ function fetchWindStations() {
                 const popupHtml = `
                   <div style="display: flex; gap: 1px; align-items: flex-end; max-width: 700px">
                     <div style="flex: 1;" class="wind-station-popup-content">
-                      <strong>${station.short}</strong><br><br>
+                      <strong style="font-size: 15px;">${station.short}</strong> <span style="font-weight: normal; color: black; font-size: 12px;">(${station['pv-name']})</span><br><br>
                       <tag-name>Wind Speed:&#9;&#9;${currentWindAvg} km/h<br></tag-name>
                       <tag-name>Max Wind:&#9;&#9;${currentWindMax} km/h<br></tag-name>
                       <tag-name>Wind Direction:&#9;${currentWindDir}° (${currentCompassDir})<br></tag-name>
