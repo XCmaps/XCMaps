@@ -139,9 +139,21 @@ function processHistoricalData(data) {
 }
 
 function formatLastUpdate(timestampSeconds) {
-  // Use moment.js to format the time relative to now
-  // Ensure moment is loaded or imported where this function is used.
-  return moment(timestampSeconds * 1000).fromNow();
+  const now = moment();
+  const updateTime = moment(timestampSeconds * 1000);
+
+  // Use startOf('day') to compare dates accurately, ignoring time
+  const diffDays = now.startOf('day').diff(updateTime.startOf('day'), 'days');
+
+  if (diffDays === 0) {
+    // If it's today, show the time HH:mm using the original method
+    const dateObj = new Date(timestampSeconds * 1000);
+    return dateObj.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  } else if (diffDays === 1) {
+    return "1 day ago";
+  } else {
+    return `${diffDays} days ago`;
+  }
 }
 
 // Main function to fetch and display/update wind stations.
@@ -246,7 +258,7 @@ function fetchWindStations() {
                             tagNames[0].innerHTML = `Wind Speed:&#9;&#9;${windAvg} km/h<br>`;
                             tagNames[1].innerHTML = `Max Wind:&#9;&#9;${windMax} km/h<br>`;
                             tagNames[2].innerHTML = `Wind Direction:&#9;${windDirection}° (${compassDirection})<br>`;
-                            tagNames[3].innerHTML = `Last Update:&#9;&#9;${lastUpdate}<br><br>`;
+                            tagNames[3].innerHTML = `Last Update:&#9;&#9;${formatLastUpdate(newStationData.last["_id"])}<br><br>`;
                         }
                         
                         // Update the popup content
@@ -391,7 +403,7 @@ function fetchWindStations() {
                       <tag-name>Wind Speed:&#9;&#9;${currentWindAvg} km/h<br></tag-name>
                       <tag-name>Max Wind:&#9;&#9;${currentWindMax} km/h<br></tag-name>
                       <tag-name>Wind Direction:&#9;${currentWindDir}° (${currentCompassDir})<br></tag-name>
-                      <tag-name>Last Update:&#9;&#9;${currentLastUpdate}<br><br></tag-name>
+                      <tag-name>Last Update:&#9;&#9;${formatLastUpdate(station.last["_id"])}<br><br></tag-name>
                     </div>
                     ${isHolfuy ? `
                       <div style="flex: 0 0 auto; width: 110px; margin-right: 15px; position: relative;">
