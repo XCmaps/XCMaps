@@ -309,8 +309,8 @@ function fetchWindStations() {
                 let historyTable = `<div class="table-responsive"><table class="wind-data-table table">
                   <thead>
                     <tr>
-                      <th>Wind (m/s)</th>
-                      <th>Gusts (m/s)</th>
+                      <th>Wind (km/h)</th>
+                      <th>Gusts (km/h)</th>
                       <th>Direction</th>
                       <th>Temp C°</th>
                       <th>Time</th>
