@@ -25,16 +25,16 @@ const InfoControl = L.Control.extend({
         // --- Content Definitions ---
         const popupSections = {
             home: `
-                <h3>About XCmaps</h3>
-                <p>XCmaps is a non-commercial project that brings together various data sources for para- and hang-gliders, providing valuable insights for the community.</p>
+                <h3>About XCMaps</h3>
+                <p>XCMaps is a non-commercial, fre and open-source project that brings together various data sources for para- and hang-gliders, providing valuable insights for the community.</p>
 
                 <h3>Contact</h3>
-                <p>You can reach out to us via the Feedback form below or by <a href="mailto:info@XCmaps.com" target="_blank">email</a>.</p>
-                <p>If you’d like to report an issue, such as a bug or a feature request, please visit our <a href="https://github.com/XCmaps/XCmaps" target="_blank">GitHub</a> project page.</p>
-                <p>To stay up-to date on latest updates, please follow us on <a href="https://facebook.com/xcmaps" target="_blank">Facebook</a> or <a href="https://github.com/XCmaps/XCmaps" target="_blank">GitHub</a>.</p>
+                <p>You can reach out to us via the Feedback form below or by <a href="mailto:info@XCMaps.com" target="_blank">email</a>.</p>
+                <p>If you’d like to report an issue, such as a bug or a feature request, please visit our <a href="https://github.com/XCMaps/XCMaps" target="_blank">GitHub</a> project page.</p>
+                <p>To stay up-to date on latest updates, please follow us on <a href="https://facebook.com/xcmaps" target="_blank">Facebook</a> or <a href="https://github.com/XCMaps/XCMaps" target="_blank">GitHub</a>.</p>
 
                 <p>If you enjoy our content, consider buying us a landing beer! Your support helps keep this service running, as we cover real costs for servers, storage, AI models, and data sources.<br>It’s simple: the more funding we receive, the faster we can roll out new features!</p>
-                <p><a href="https://buymeacoffee.com/XCmaps" target="_blank" class="donation-button"> 🍺 Buy us a Landing Beer</a></p>
+                <p><a href="https://buymeacoffee.com/XCMaps" target="_blank" class="donation-button"> 🍺 Buy us a Landing Beer</a></p>
 
                 <h3>Features</h3>
                 <ul>
@@ -45,7 +45,7 @@ const InfoControl = L.Control.extend({
                   <li><strong>Airspaces:</strong> Xcontest Airspaces & Activations in local time zone, filter for today and the next 6 days and lowest floor level</li>
                   <li><strong>Obstacles:</strong> OSM based obstacles from Xcontest</li>
                   <li><strong>Locate and Track:</strong> Locate and Track your position using the Locate Control</li>
-                  <li><strong>XCmaps User Account:</strong> By using your account, your preferred map layers will be saved when you log out—so every time you log in, you'll return to your personalized view.</li>
+                  <li><strong>XCMaps User Account:</strong> By using your account, your preferred map layers will be saved when you log out—so every time you log in, you'll return to your personalized view.</li>
                 </ul>
 
                 <h3>Credits</h3>
@@ -60,11 +60,11 @@ const InfoControl = L.Control.extend({
                 </ul>
 
                 <h3>License and Code</h3>
-                <p>As some integrations are licensed under CC BY-NC-SA 4.0, XCmaps applied the same level and is licensed under a <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.</a></p>
+                <p>As some integrations are licensed under CC BY-NC-SA 4.0, XCMaps applied the same level and is licensed under a <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.</a></p>
             `,
             privacy: `
-                <h3>XCmaps Privacy Policy</h3>
-                <p>At XCmaps (referred to as "we", "us" or "our" in this policy), we understand the importance of protecting your personal data. This privacy policy explains how we collect, use, share and store information when you access our website at XCmaps.com, which is operated by us, and any other services provided by flyXC (collectively referred to as the "Services").</p>
+                <h3>XCMaps Privacy Policy</h3>
+                <p>At XCMaps (referred to as "we", "us" or "our" in this policy), we understand the importance of protecting your personal data. This privacy policy explains how we collect, use, share and store information when you access our website at XCMaps.com, which is operated by us, and any other services provided by flyXC (collectively referred to as the "Services").</p>
                 <p>You acknowledge that this Privacy Policy is part of our Site Terms of Use, and by accessing or using our site, you agree to be bound by all of its terms and conditions. If you do not agree to these terms, please do not access or use this site.</p>
                 <p>We reserve the right to change this Privacy Policy at any time. Such changes, modifications, additions or deletions shall be effective immediately upon notice thereof, which may be given by means including, but not limited to issuing an email to the email address listed by registered users and posting the revised Policy on this page. You acknowledge and agree that it is your responsibility to maintain a valid email address as a registered user, review this site and this Policy periodically and to be aware of any modifications. Your continued use of the site after such modifications will constitute your: (a) acknowledgment of the modified Policy; and (b) agreement to abide and be bound by the modified Policy.</p>
                 <h4>1. Information We Collect</h4>
@@ -75,12 +75,12 @@ const InfoControl = L.Control.extend({
                 <p>We may obtain Personal Data from you when you:</p>
                 <ul><li>Register on our website or application;</li><li>Submit an inquiry through the Services;</li><li>Communicate with us via email, phone, or other means</li></ul>
                 <p>We do not collect any Personally Identifiable Information about you unless you voluntarily provide it to us. You provide certain Personally Identifiable Information to us when you register your account.</p>
-                <p>We collect your registered tracker positions continuously and use that to display your position on the map for up to 48 hours. By signing up for XCmaps and registering your tracker devices, you acknowledge and agree that your tracker devices location will be displayed and viewable via our services.</p>
+                <p>We collect your registered tracker positions continuously and use that to display your position on the map for up to 48 hours. By signing up for XCMaps and registering your tracker devices, you acknowledge and agree that your tracker devices location will be displayed and viewable via our services.</p>
                 <p>For safety purpose, we keep an archive of the last 30 days for the live tracks. The archive is not publicly accessible.</p>
                 <p>We reserve the right to use any track uploaded on our services. i.e. to derive heat maps of thermal locations.</p>
                 <h4>3. How We Use Information</h4>
                 <p>We use your information to:</p>
-                <ul><li>Provide and improve our products and services;</li><li>Respond to requests, inquiries, and comments;</li><li>Analyze usage trends and preferences;</li><li>Comply with legal obligations;</li><li>Enforce our terms of service;</li><li>Protect the rights, property, or safety of XCmaps, our users, or others.</li></ul>
+                <ul><li>Provide and improve our products and services;</li><li>Respond to requests, inquiries, and comments;</li><li>Analyze usage trends and preferences;</li><li>Comply with legal obligations;</li><li>Enforce our terms of service;</li><li>Protect the rights, property, or safety of XCMaps, our users, or others.</li></ul>
                 <h4>4. How We Share Information</h4>
                 <p>We may share your information:</p>
                 <ul><li>With third parties who provide services on our behalf;</li><li>In response to legal process;</li><li>To investigate suspected fraud or potential threats to the security of our Services;</li><li>In connection with an acquisition, merger, or sale of assets;</li><li>When we have your explicit consent.</li></ul>
@@ -93,12 +93,12 @@ const InfoControl = L.Control.extend({
                 <h4>8. Changes to This Policy</h4>
                 <p>We may update our privacy policy from time to time. When we make significant changes, we will notify you by posting a notice on our website or through other communication channels. We encourage you to review this page periodically for the latest information on our privacy practices.</p>
                 <h4>9. Contact Information</h4>
-                <p>If you have any questions about this Privacy Policy, please contact us at: info@XCmaps.com</p>
+                <p>If you have any questions about this Privacy Policy, please contact us at: info@XCMaps.com</p>
             `,
             terms: `
-                <h3>XCmaps Terms and Conditions</h3>
-                <p>This website, XCmaps.com (the "Website"), provides various data sources for para- and hang-gliders, providing valuable insights for the community.</p>
-                <p>By using the Website, you agree to these terms and conditions (the "Terms") and acknowledge that they constitute a legally binding contract between you and XCmaps. If you do not agree to these Terms, please do not use the Website. We reserve the right to modify or update these Terms at any time without prior notice. Your continued use of the Website after any changes indicates your acceptance of the new terms and conditions. Therefore, we recommend that you review these Terms regularly for any changes.</p>
+                <h3>XCMaps Terms and Conditions</h3>
+                <p>This website, XCMaps.com (the "Website"), provides various data sources for para- and hang-gliders, providing valuable insights for the community.</p>
+                <p>By using the Website, you agree to these terms and conditions (the "Terms") and acknowledge that they constitute a legally binding contract between you and XCMaps. If you do not agree to these Terms, please do not use the Website. We reserve the right to modify or update these Terms at any time without prior notice. Your continued use of the Website after any changes indicates your acceptance of the new terms and conditions. Therefore, we recommend that you review these Terms regularly for any changes.</p>
 
                 <h4>1. Purpose of the Website</h4>
                 <p>The purpose of the Website is to enhance safety and education in free flight sports such as paragliding and hang gliding. The Website provides users with access to various features, including:</p>
@@ -112,23 +112,23 @@ const InfoControl = L.Control.extend({
                 </ul>
 
                 <h4>2. Data Collection and Use</h4>
-                <p>XCmaps does not collect data from its users.</p>
-                <p>XCmaps does not sell, rent, or otherwise share your personal information with any third parties, except as required by law or as necessary to protect the rights, property, or safety of XCmaps, its employees, users, or others. XCmaps may also disclose your data if it is involved in a merger, acquisition, or sale of all or part of its assets.</p>
+                <p>XCMaps does not collect data from its users.</p>
+                <p>XCMaps does not sell, rent, or otherwise share your personal information with any third parties, except as required by law or as necessary to protect the rights, property, or safety of XCMaps, its employees, users, or others. XCMaps may also disclose your data if it is involved in a merger, acquisition, or sale of all or part of its assets.</p>
 
                 <h4>3. Ownership and Intellectual Property Rights</h4>
-                <p>The Website, including but not limited to its design, layout, content, graphics, images, audio, video, and code, is owned by XCmaps and protected by copyright laws and international intellectual property rights. You may not reproduce, modify, distribute, sell, or otherwise use any part of the Website without the prior written consent of XCmaps.</p>
+                <p>The Website, including but not limited to its design, layout, content, graphics, images, audio, video, and code, is owned by XCMaps and protected by copyright laws and international intellectual property rights. You may not reproduce, modify, distribute, sell, or otherwise use any part of the Website without the prior written consent of XCMaps.</p>
 
                 <h4>4. Disclaimer of Warranties and Liability</h4>
-                <p>The Website is provided "as is" and "as available". XCmaps disclaims all warranties, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, title, non-infringement, and security. XCmaps does not guarantee that the Website will be error-free, uninterrupted, or accessible at all times. XCmaps is not responsible for any losses, damages, or expenses arising from your use of the Website, including but not limited to direct, indirect, special, incidental, consequential, or punitive damages. XCmaps also disclaims any liability for any actions taken by you or others based on the information provided by the Website, which may be inaccurate, incomplete, or outdated.</p>
+                <p>The Website is provided "as is" and "as available". XCMaps disclaims all warranties, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, title, non-infringement, and security. XCMaps does not guarantee that the Website will be error-free, uninterrupted, or accessible at all times. XCMaps is not responsible for any losses, damages, or expenses arising from your use of the Website, including but not limited to direct, indirect, special, incidental, consequential, or punitive damages. XCMaps also disclaims any liability for any actions taken by you or others based on the information provided by the Website, which may be inaccurate, incomplete, or outdated.</p>
 
                 <h4>5. Indemnification</h4>
-                <p>You agree to indemnify and hold harmless XCmaps, its officers, directors, employees, agents, licensors, and suppliers from any claims, actions, demands, liabilities, costs, damages, and expenses (including reasonable attorneys' fees) arising from your use of the Website or your violation of these Terms.</p>
+                <p>You agree to indemnify and hold harmless XCMaps, its officers, directors, employees, agents, licensors, and suppliers from any claims, actions, demands, liabilities, costs, damages, and expenses (including reasonable attorneys' fees) arising from your use of the Website or your violation of these Terms.</p>
 
                 <h4>6. Applicable Law and Dispute Resolution</h4>
                 <p>These Terms shall be governed by and construed in accordance with the laws of France, without giving effect to any principles of conflicts of law. Any disputes arising out of or in connection with these Terms or your use of the Website shall be subject to the exclusive jurisdiction of the courts of England and Wales.</p>
 
                 <h4>7. Entire Agreement</h4>
-                <p>These Terms constitute the entire agreement between you and XCmaps regarding your use of the Website and supersede any prior agreements, understandings, or representations, whether written or oral. If any provision of these Terms is found to be unenforceable or invalid, that provision shall be limited or eliminated to the minimum extent necessary so that these Terms shall otherwise remain in full force and effect and enforceable.</p>
+                <p>These Terms constitute the entire agreement between you and XCMaps regarding your use of the Website and supersede any prior agreements, understandings, or representations, whether written or oral. If any provision of these Terms is found to be unenforceable or invalid, that provision shall be limited or eliminated to the minimum extent necessary so that these Terms shall otherwise remain in full force and effect and enforceable.</p>
                 <p>By using the Website, you acknowledge that you have read, understood, and agreed to these Terms. If you do not agree to these Terms, please do not use the Website.</p>
             `
         };
@@ -142,8 +142,8 @@ const InfoControl = L.Control.extend({
             // Left side: Logo and Breadcrumbs
             const headerLeft = L.DomUtil.create('div', 'info-popup-header-left', headerDiv);
             const logoImg = L.DomUtil.create('img', 'info-popup-logo', headerLeft);
-            logoImg.src = 'assets/images/XCmapsLogo.png';
-            logoImg.alt = 'XCmaps Logo';
+            logoImg.src = 'assets/images/XCMapsLogo.png';
+            logoImg.alt = 'XCMaps Logo';
             breadcrumbDiv = L.DomUtil.create('div', 'info-popup-breadcrumbs', headerLeft);
 
             // Right side: Social Icons and Close Button
@@ -159,7 +159,7 @@ const InfoControl = L.Control.extend({
 
             // GitHub Icon (Assuming no specific link for now)
             const ghLink = L.DomUtil.create('a', 'social-icon', headerRight);
-            ghLink.href = 'https://github.com/XCmaps/XCmaps'; 
+            ghLink.href = 'https://github.com/XCMaps/XCMaps'; 
             ghLink.target = '_blank'; 
             const ghImg = L.DomUtil.create('img', '', ghLink);
             ghImg.src = 'assets/images/github.svg';
@@ -263,7 +263,7 @@ const InfoControl = L.Control.extend({
 
              const feedbackFormHtml = `
                 <div id="infoFeedbackFormHtml" class="feedback-modal">
-                    <h5>Feedback for XCmaps</h5>
+                    <h5>Feedback for XCMaps</h5>
                      <form id="infoFeedbackForm">
                         <div class="form-group mb-2">
                             <label for="infoFeedbackText">Feedback / Correction / Comment:</label>
@@ -322,7 +322,7 @@ const InfoControl = L.Control.extend({
              event.preventDefault();
              if (!currentFeedbackForm) return;
              const formData = new FormData();
-             formData.append("subject", "General XCmaps Info Feedback");
+             formData.append("subject", "General XCMaps Info Feedback");
              formData.append("feedbackText", currentFeedbackForm.querySelector("#infoFeedbackText").value);
              formData.append("userName", currentFeedbackForm.querySelector("#infoUserName").value);
              formData.append("userEmail", currentFeedbackForm.querySelector("#infoUserEmail").value);
