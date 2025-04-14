@@ -1,9 +1,10 @@
 // spotsHelper.js - Common functionality for loading and displaying spots on a map
 
+import moment from 'moment'; // Import moment
+
 // Module-scoped variable to track Dropzone instance
 let feedbackDropzone = null;
 let currentFeedbackForm = null;
-
 // Swiper related functions
 function changeSwiper() {
     if (typeof swiperc !== "undefined") {
@@ -102,29 +103,6 @@ function getStrokeColor(speed) {
 function getTextColor(backgroundColor) {
     return backgroundColor === "black" ? "white" : "black";
 }
-function formatLastUpdate(timestampSeconds) {
-    const now = new Date();
-    const updateDate = new Date(timestampSeconds * 1000);
-
-    // Reset time part for comparison to compare dates only
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const updateDay = new Date(updateDate.getFullYear(), updateDate.getMonth(), updateDate.getDate());
-
-    const diffTime = today.getTime() - updateDay.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // Difference in full days
-
-    if (diffDays === 0) {
-        // Today: return time HH:MM
-        return updateDate.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-    } else if (diffDays === 1) {
-        // Yesterday
-        return "1 day ago";
-    } else {
-        // 2 or more days ago
-        return `${diffDays} days ago`;
-    }
-}
-
 
 // Helper: Process raw historical data into 10‑minute averages.
 function processHistoricalData(data) {
@@ -158,6 +136,12 @@ function processHistoricalData(data) {
     // For the table we want descending order (most recent first).
     result.sort((a, b) => b._id - a._id);
     return result;
+}
+
+function formatLastUpdate(timestampSeconds) {
+  // Use moment.js to format the time relative to now
+  // Ensure moment is loaded or imported where this function is used.
+  return moment(timestampSeconds * 1000).fromNow();
 }
 
 // Main function to fetch and display/update wind stations.
@@ -202,6 +186,7 @@ function fetchWindStations() {
         let removedCount = 0;
         let addedCount = 0;
         // --- Update existing markers or remove old ones ---
+        // --- Update existing markers or remove old ones ---
         const currentTimeSeconds = Math.floor(Date.now() / 1000);
         const outdatedThresholdSeconds = 3660; // 1 hour and 1 minute
 
@@ -225,7 +210,7 @@ function fetchWindStations() {
                 }
                 const peakArrow = newStationData.peak ? "▲" : "▼";
                 const compassDirection = getCompassDirection(windDirection);
-                const lastUpdate = formatLastUpdate(newStationData.last["_id"]); // Use new formatting function
+                const lastUpdate = new Date(newStationData.last["_id"] * 1000).toLocaleTimeString("de-DE", {hour: "2-digit", minute: "2-digit", });
 
                 const newArrowSvg = `
                   <svg width="30" height="30" viewBox="0 0 800 900" xmlns="http://www.w3.org/2000/svg">
@@ -304,6 +289,7 @@ function fetchWindStations() {
                 fillColor = getFillColor(windAvg);
                 strokeColor = getStrokeColor(windMax);
             }
+
             const peakArrow = station.peak ? "▲" : "▼";
             const isHolfuy = station._id.includes("holfuy");
             let holfuyStationId = '';
@@ -353,8 +339,8 @@ function fetchWindStations() {
                 let historyTable = `<div class="table-responsive"><table class="wind-data-table table">
                   <thead>
                     <tr>
-                      <th>Wind (km/h)</th>
-                      <th>Gusts (km/h)</th>
+                      <th>Wind (km/H)</th>
+                      <th>Gusts (km/H)</th>
                       <th>Direction</th>
                       <th>Temp C°</th>
                       <th>Time</th>
@@ -470,8 +456,8 @@ function fetchWindStations() {
                       let historyTable = `<div class="table-responsive"><table class="wind-data-table table">
                         <thead>
                           <tr>
-                            <th>Wind (m/s)</th>
-                            <th>Gusts (m/s)</th>
+                            <th>Wind (km/H)</th>
+                            <th>Gusts (km/H)</th>
                             <th>Direction</th>
                             <th>Temp C°</th>
                             <th>Time</th>
