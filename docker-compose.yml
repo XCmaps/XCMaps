@@ -71,7 +71,7 @@ services:
       - KC_HOSTNAME_URL=http://localhost:3000/auth # Explicit public URL
       # - KC_HOSTNAME_ADMIN_URL=http://localhost:3000/auth # Explicit public admin URL (Removed, should derive from KC_HOSTNAME_URL)
     volumes:
-      - ./keycloak-themes:/opt/keycloak/themes # Re-enable custom themes
+      - ./src/public/keycloak-themes:/opt/keycloak/themes # Re-enable custom themes
     command: ["start"] # Use standard start command
     networks:
       - app-network
