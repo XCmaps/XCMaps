@@ -139,13 +139,33 @@ function fetchAirspacesXC() {
 
         // Redundant zoom check removed from here
 
-
+        // Deduplicate features using a Map with unique identifiers
+        const uniqueFeatures = new Map();
         const features = data.features || [];
+        
+        // First pass: collect unique features by ID
+        features.forEach(feature => {
+          if (feature.properties && feature.properties.id) {
+            // Use ID as the primary unique identifier
+            uniqueFeatures.set(feature.properties.id, feature);
+          } else if (feature.properties && feature.properties.name) {
+            // Fallback: create a composite key using name and coordinates hash
+            const coords = feature.geometry && feature.geometry.coordinates ?
+              JSON.stringify(feature.geometry.coordinates[0].slice(0, 3)) : ''; // Use first 3 points as a fingerprint
+            const key = `${feature.properties.name}_${feature.properties.airspaceClass || ''}_${coords}`;
+            uniqueFeatures.set(key, feature);
+          }
+        });
+        
+        console.log(`[AirspaceXC] Deduplicated ${features.length} features to ${uniqueFeatures.size} unique features`);
+        
+        // Use the deduplicated features
+        const deduplicatedFeatures = Array.from(uniqueFeatures.values());
         const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         const selectedDateStartLocal = moment.tz(selectedDateStr, "YYYY-MM-DD", userTimezone).startOf('day');
         const selectedDateStartUTC = selectedDateStartLocal.utc().toDate();
 
-        features.forEach(feature => {
+        deduplicatedFeatures.forEach(feature => {
           if (feature.geometry && feature.geometry.type === "Polygon") {
 
             // --- Filtering Logic ---
@@ -282,8 +302,24 @@ function fetchAirspacesXC() {
           }
         };
 
-        // Add the popupopen listener to the MAP
-        window.map.on("popupopen", airspacePopupOpenListener); // Target MAP now
+        // Add the popupopen listener to the MAP, but first ensure no duplicate listeners exist
+        // This is a more robust approach to prevent multiple listeners
+        if (typeof window.map._events.popupopen === 'object') {
+          // Check if there are any existing popupopen listeners that match our function
+          const existingListeners = window.map._events.popupopen.filter(
+            handler => handler.fn === airspacePopupOpenListener
+          );
+          
+          if (existingListeners.length > 0) {
+            console.log(`[AirspaceXC] Found ${existingListeners.length} existing identical popupopen listeners, removing them.`);
+            existingListeners.forEach(() => {
+              window.map.off("popupopen", airspacePopupOpenListener);
+            });
+          }
+        }
+        
+        // Now attach the listener
+        window.map.on("popupopen", airspacePopupOpenListener);
         console.log("[AirspaceXC] popupopen listener attached to MAP."); // INFO
       })
       .catch(error => console.error("Error fetching airspaces:", error));
@@ -344,10 +380,9 @@ function initializeAirspaceXCMapListeners(mapInstance) {
         });
         console.log("[AirspaceXC] zoomend listener attached to map.");
 
-        // Also attach the popup listener here, ensuring it uses the correct map instance
-        // Remove the old listener attachment from fetchAirspacesXC if it's still there
-        mapInstance.on("popupopen", airspacePopupOpenListener);
-        console.log("[AirspaceXC] popupopen listener attached to MAP via initializer.");
+        // Don't attach the popup listener here to avoid duplication
+        // The listener is already attached in fetchAirspacesXC
+        console.log("[AirspaceXC] popupopen listener will be attached by fetchAirspacesXC.");
 
     } else {
         console.error("[AirspaceXC] Invalid map instance provided to initializeAirspaceXCMapListeners.");
