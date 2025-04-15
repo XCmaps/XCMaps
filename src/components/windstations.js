@@ -224,22 +224,30 @@ function fetchWindStations() {
                 const compassDirection = getCompassDirection(windDirection);
                 const lastUpdate = new Date(newStationData.last["_id"] * 1000).toLocaleTimeString("de-DE", {hour: "2-digit", minute: "2-digit", });
 
-                const newArrowSvg = `
-                  <svg width="30" height="30" viewBox="0 0 800 900" xmlns="http://www.w3.org/2000/svg">
+                // Create separate SVGs for arrow and text
+                const arrowOnlySvg = `
+                  <svg width="30" height="30" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
                     <g transform="rotate(${windDirection + 90}, 400, 400)" stroke="${strokeColor}" stroke-width="60">
                       <path d="M203,391 L75,144 L738,391 L75,637 L203,391 Z" fill="${fillColor}"/>
                     </g>
-                    <rect x="-60" y="620" width="780" height="280" rx="30" fill="white" />
-                    <text x="330" y="850" font-size="220" text-anchor="middle" fill="black" font-weight="bold">
+                  </svg>`;
+                
+                const textOnlySvg = `
+                  <svg width="30" height="15" viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="0" y="0" width="800" height="280" rx="30" fill="white" />
+                    <text x="400" y="200" font-size="220" text-anchor="middle" fill="black" font-weight="bold">
                       ${peakArrow}${Math.round(windAvg)} / ${Math.round(windMax)}
                     </text>
                   </svg>`;
 
                 const newArrowIcon = L.divIcon({
                     className: "wind-arrow",
-                    html: newArrowSvg,
-                    iconSize: [30, 30],
-                    iconAnchor: [12, 15],
+                    html: `<div style="display: flex; flex-direction: column; align-items: center;">
+                            <div>${arrowOnlySvg}</div>
+                            <div style="margin-top: -5px;">${textOnlySvg}</div>
+                          </div>`,
+                    iconSize: [30, 45],
+                    iconAnchor: [15, 15],
                 });
 
                 marker.setIcon(newArrowIcon);
@@ -309,23 +317,30 @@ function fetchWindStations() {
               holfuyStationId = station._id.split("-")[1];
             }
 
-            // Create the SVG arrow icon.
-            const arrowSvg = `
-              <svg width="30" height="30" viewBox="0 0 800 900" xmlns="http://www.w3.org/2000/svg">
+            // Create separate SVGs for arrow and text
+            const arrowOnlySvg = `
+              <svg width="30" height="30" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
                 <g transform="rotate(${windDirection + 90}, 400, 400)" stroke="${strokeColor}" stroke-width="60">
                   <path d="M203,391 L75,144 L738,391 L75,637 L203,391 Z" fill="${fillColor}"/>
                 </g>
-                <rect x="-60" y="620" width="920" height="280" rx="30" fill="white" />
-                <text x="330" y="850" font-size="220" text-anchor="middle" fill="black" font-weight="bold">
+              </svg>`;
+            
+            const textOnlySvg = `
+              <svg width="30" height="15" viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
+                <rect x="0" y="0" width="800" height="280" rx="30" fill="white" />
+                <text x="400" y="200" font-size="220" text-anchor="middle" fill="black" font-weight="bold">
                   ${peakArrow}${Math.round(windAvg)} / ${Math.round(windMax)}
                 </text>
               </svg>`;
 
             const arrowIcon = L.divIcon({
               className: "wind-arrow",
-              html: arrowSvg,
-              iconSize: [30, 30],
-              iconAnchor: [12, 15],
+              html: `<div style="display: flex; flex-direction: column; align-items: center;">
+                      <div>${arrowOnlySvg}</div>
+                      <div style="margin-top: -5px;">${textOnlySvg}</div>
+                    </div>`,
+              iconSize: [30, 45],
+              iconAnchor: [15, 15],
             });
 
             // Create the marker.
