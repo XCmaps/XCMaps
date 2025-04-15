@@ -46,7 +46,7 @@ const InfoControl = L.Control.extend({
                   <li><strong>Obstacles:</strong> OSM based obstacles from Xcontest</li>
                   <li><strong>Locate and Track:</strong> Locate and Track your position using the Locate Control</li>
                   <li><strong>XCMaps User Account:</strong> By using your account, your can save your preferred map layers in the profile-badge—so every time you log in, you'll return to your personalized view.</li>
-                  <li><strong>Current Release:</strong> v1.0.1 Change Log</li>
+                  <li><strong>Current Release:</strong> v1.0.1 <a href="#" data-section="changelog">Change Log</a></li>
                 </ul>
 
                 <h3>Credits</h3>
@@ -131,6 +131,32 @@ const InfoControl = L.Control.extend({
                 <h4>7. Entire Agreement</h4>
                 <p>These Terms constitute the entire agreement between you and XCMaps regarding your use of the Website and supersede any prior agreements, understandings, or representations, whether written or oral. If any provision of these Terms is found to be unenforceable or invalid, that provision shall be limited or eliminated to the minimum extent necessary so that these Terms shall otherwise remain in full force and effect and enforceable.</p>
                 <p>By using the Website, you acknowledge that you have read, understood, and agreed to these Terms. If you do not agree to these Terms, please do not use the Website.</p>
+            `,
+            changelog: `
+                <h3>Change Log</h3>
+                <p><strong>2015-APR-15 version 1.0.1</strong></p>
+                <ul>
+                  <li>added kk7 skyways layers</li>
+                  <li>windstation arrows: show in grey if no update was received within the last 1:01 hours</li>
+                  <li>windstation arrows: text shows below arrows to avoid overlapping</li>
+                  <li>windstation popup: fixed display of wrong measuring unit in the table for wind and gusts (replaced m/s bei km/H)</li>
+                  <li>windstation popup: added the source next to the station name</li>
+                  <li>windstation popup: Last Update shows now "X day(s) ago" if now update was received at the current day</li>
+                  <li>Airspaces: implemented a deduplication logic to avoid possible showing of dublicate airspaces</li>
+                  <li>User Account / improved Save Settings UX: instead of saving the settings on logout, you get now a green "Save Setting" button in the profile-badge if the configuration was changed. Grey button if the configuartion is the same as the stored one.</li>
+                  <li>added a change log in Info > Features list</li>
+                </ul>
+                <p><strong>2015-APR-11 version 1.0.0 "Déco"</strong></p>
+                <ul>
+                  <li>Weather Stations: Wind, Gusts, Direction, Temp and Camera if available. Marker refresh every 1 minute.</li>
+                  <li>Rain Viewer: Radar and Satellite, past 60 min + 20 min forecast</li>
+                  <li>Thermals: kk7 thermal map</li>
+                  <li>Spots: Para- and Hangliding take-off and Landing Zones (© paraglidingspots.com)</li>
+                  <li>Airspaces: Xcontest Airspaces & Activations in local time zone, filter for today and the next 6 days and lowest floor level</li>
+                  <li>Obstacles: OSM based obstacles from Xcontest</li>
+                  <li>Locate and Track: Locate and Track your position using the Locate Control</li>
+                  <li>XCmaps User Account: By using your account, your preferred map layers will be saved when you log out—so every time you log in, you'll return to your personalized view.</li>
+                </ul>
             `
         };
 
@@ -251,6 +277,7 @@ const InfoControl = L.Control.extend({
                 const currentPageSpan = L.DomUtil.create('span', 'breadcrumb-current', breadcrumbDiv);
                 if (sectionName === 'privacy') currentPageSpan.innerText = 'Privacy Policy';
                 else if (sectionName === 'terms') currentPageSpan.innerText = 'Terms and Conditions';
+                else if (sectionName === 'changelog') currentPageSpan.innerText = 'Change Log';
             }
             contentAreaDiv.scrollTop = 0;
         }
