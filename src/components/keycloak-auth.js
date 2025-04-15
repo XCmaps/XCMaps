@@ -120,47 +120,55 @@ function getCurrentMapState(control) {
     return { selectedBaseLayer: selectedBaseLayerLabel, selectedOverlays: selectedOverlayLabels };
 }
 
+// Helper function to compare two map states (simple comparison)
+function compareMapStates(state1, state2) {
+    if (!state1 || !state2) return false; // Cannot compare if one is missing
+
+    // Normalize potentially null/undefined arrays
+    const overlays1 = state1.selectedOverlays || [];
+    const overlays2 = state2.selectedOverlays || [];
+
+    // Check base layer
+    if (state1.selectedBaseLayer !== state2.selectedBaseLayer) {
+        return false;
+    }
+
+    // Check overlay layers (order doesn't matter)
+    if (overlays1.length !== overlays2.length) {
+        return false;
+    }
+    const set1 = new Set(overlays1);
+    for (const overlay of overlays2) {
+        if (!set1.has(overlay)) {
+            return false;
+        }
+    }
+
+    return true; // States are identical
+}
+
+// Helper function to update the Save Settings button appearance and state
+function updateSaveButtonAppearance(button, hasChanges) {
+    if (!button) return;
+    if (hasChanges) {
+        button.style.backgroundColor = '#4CAF50'; // Green
+        button.style.color = 'white';
+        button.style.cursor = 'pointer';
+        button.disabled = false;
+        button.dataset.hasChanges = 'true'; // Mark that there are changes
+    } else {
+        button.style.backgroundColor = '#d3d3d3'; // Light grey
+        button.style.color = 'black'; // Default text color
+        button.style.cursor = 'default';
+        button.disabled = true; // Make it non-clickable visually and functionally
+        button.dataset.hasChanges = 'false'; // Mark no changes
+    }
+}
+
 
 // Logout function - saves preferences before redirecting to Keycloak logout
 const logout = async () => { // Make async
   console.log('Logout clicked - attempting to save preferences...');
-
-  // --- Save Preferences before logout ---
-  if (isAuthenticated && keycloak.hasRealmRole('user')) {
-    console.log("User is authenticated and has 'user' role. Saving preferences.");
-    try {
-      const currentMapState = getCurrentMapState(window.treeLayersControl); // Get base and overlays state
-      // Always prepare and send the current state
-      const preferences = {
-          selectedBaseLayer: currentMapState.selectedBaseLayer, // Will be null if none selected
-          selectedOverlays: currentMapState.selectedOverlays   // Will be [] if none selected
-      };
-      console.log("Sending preferences to save:", preferences);
-
-      const response = await fetch('/api/user/preferences', {
-          method: 'PUT',
-          headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${keycloak.token}`
-          },
-          body: JSON.stringify(preferences)
-      });
-
-      if (!response.ok) {
-          console.error(`Failed to save preferences: ${response.status} ${response.statusText}`);
-          // Optionally inform user, but proceed with logout
-      } else {
-          console.log("Preferences saved successfully (including empty state if applicable).");
-      }
-    } catch (error) {
-      console.error('Error saving user preferences:', error);
-      // Proceed with logout even if saving fails
-    }
-  } else {
-      console.log("User not logged in or does not have 'user' role. Skipping preference saving.");
-  }
-  // --- End Save Preferences ---
-
 
   console.log('Proceeding with Keycloak logout...');
   try {
@@ -293,7 +301,7 @@ const createUserControl = () => {
 };
 
 // Show profile badge with logout option
-const showProfileBadge = (container) => {
+const showProfileBadge = async (container) => { // Make async
   // Remove existing profile badge if any
   const existingBadge = document.getElementById('profile-badge');
   if (existingBadge) {
@@ -312,7 +320,9 @@ const showProfileBadge = (container) => {
       <div class="profile-name">${userProfile ? userProfile.username : 'User'}</div>
       ${userProfile && userProfile.email ? `<div class="profile-email">${userProfile.email}</div>` : ''}
     </div>
-    <div class="profile-actions">
+    <div id="profile-badge-message" style="color: green; margin-bottom: 5px; display: none; text-align: left;"></div> <!-- Message Area -->
+    <div class="profile-actions" style="display: flex; justify-content: space-between; align-items: center; padding-top: 5px;">
+      <button id="save-settings-button" class="save-settings-button" style="padding: 5px 10px; border: none; border-radius: 3px;">Save Settings</button> <!-- Initial style set by JS -->
       <button id="logout-button" class="logout-button">Logout</button>
     </div>
   `;
@@ -328,7 +338,90 @@ const showProfileBadge = (container) => {
       logout();
     });
   }
-  
+
+  // Get references
+  const saveSettingsButton = document.getElementById('save-settings-button');
+  const messageArea = document.getElementById('profile-badge-message'); // Get message area
+
+  // --- Check current vs saved preferences ---
+  let savedPreferences = null;
+  let hasChanges = false;
+  if (isAuthenticated && keycloak.hasRealmRole('user')) {
+      try {
+          const response = await fetch('/api/user/preferences', {
+              method: 'GET',
+              headers: { 'Authorization': `Bearer ${keycloak.token}` }
+          });
+          if (response.ok) {
+              savedPreferences = await response.json();
+          } else if (response.status !== 404) { // Ignore 404 (no prefs yet)
+              console.error(`Failed to load preferences: ${response.status}`);
+          }
+      } catch (error) {
+          console.error('Error fetching preferences:', error);
+      }
+  }
+
+  const currentMapState = getCurrentMapState(window.treeLayersControl);
+  // If no saved preferences, consider it a change if there's a current state
+  if (!savedPreferences && (currentMapState.selectedBaseLayer || currentMapState.selectedOverlays.length > 0)) {
+      hasChanges = true;
+  } else if (savedPreferences) {
+      hasChanges = !compareMapStates(currentMapState, savedPreferences);
+  }
+  // --- End Check ---
+
+  // Update button appearance based on comparison
+  updateSaveButtonAppearance(saveSettingsButton, hasChanges);
+
+
+  // Add click event listener to save settings button
+  if (saveSettingsButton) {
+    L.DomEvent.on(saveSettingsButton, 'click', async function(e) { // Make async
+      L.DomEvent.stopPropagation(e);
+
+      // Only save if the button indicates changes
+      if (saveSettingsButton.dataset.hasChanges === 'true') {
+          console.log('Save Settings button clicked - attempting to save...');
+          const currentMapStateToSave = getCurrentMapState(window.treeLayersControl);
+
+          try {
+              const response = await fetch('/api/user/preferences', {
+                  method: 'PUT',
+                  headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${keycloak.token}`
+                  },
+                  body: JSON.stringify(currentMapStateToSave)
+              });
+
+              if (response.ok) {
+                  messageArea.textContent = 'Settings saved successfully';
+                  messageArea.style.color = 'green';
+                  messageArea.style.display = 'block';
+                  savedPreferences = currentMapStateToSave; // Update local "saved" state
+                  updateSaveButtonAppearance(saveSettingsButton, false); // Revert button to grey/disabled
+                  setTimeout(() => { messageArea.style.display = 'none'; messageArea.textContent = ''; }, 3000); // Hide after 3s
+              } else {
+                  messageArea.textContent = 'Failed to save settings.';
+                  messageArea.style.color = 'red'; // Use red for errors
+                  messageArea.style.display = 'block';
+                  console.error(`Failed to save preferences: ${response.status} ${response.statusText}`);
+                  setTimeout(() => { messageArea.style.display = 'none'; messageArea.textContent = ''; }, 3000); // Hide after 3s
+              }
+          } catch (error) {
+              messageArea.textContent = 'Error saving settings.';
+              messageArea.style.color = 'red';
+              messageArea.style.display = 'block';
+              console.error('Error saving user preferences via button:', error);
+              setTimeout(() => { messageArea.style.display = 'none'; messageArea.textContent = ''; }, 3000); // Hide after 3s
+          }
+      } else {
+          console.log('Save Settings button clicked, but no changes detected.');
+      }
+    });
+  }
+
   // Close profile badge when clicking outside
   const closeProfileBadge = (e) => {
     const badge = document.getElementById('profile-badge');
@@ -463,5 +556,6 @@ export {
   isUserAuthenticated,
   getUserProfile,
   createUserControl,
-  loadUserPreferences
+  loadUserPreferences,
+  // Potentially export compareMapStates if needed elsewhere, but likely not
 };

@@ -39,13 +39,14 @@ const InfoControl = L.Control.extend({
                 <h3>Features</h3>
                 <ul>
                   <li><strong>Weather Stations:</strong> Wind, Gusts, Direction, Temp and Camera if available. Marker refresh every 1 minute.</li>
-                  <li><strong>Rain Viewer:</strong> Radar and Satellite, past 60 min + 20 min forecast</li>
-                  <li><strong>Thermals:</strong> kk7 thermal map</li>
+                  <li><strong>Rain Viewer:</strong> Radar and Satellite, past 2 hours + 20 min forecast</li>
+                  <li><strong>Thermals:</strong> kk7 thermal and skyways map</li>
                   <li><strong>Spots:</strong> Para- and Hangliding take-off and Landing Zones (© <a href="https://paraglidingspots.com" target="_blank">paraglidingspots.com</a>)</li>
                   <li><strong>Airspaces:</strong> Xcontest Airspaces & Activations in local time zone, filter for today and the next 6 days and lowest floor level</li>
                   <li><strong>Obstacles:</strong> OSM based obstacles from Xcontest</li>
                   <li><strong>Locate and Track:</strong> Locate and Track your position using the Locate Control</li>
-                  <li><strong>XCMaps User Account:</strong> By using your account, your preferred map layers will be saved when you log out—so every time you log in, you'll return to your personalized view.</li>
+                  <li><strong>XCMaps User Account:</strong> By using your account, your can save your preferred map layers in the profile-badge—so every time you log in, you'll return to your personalized view.</li>
+                  <li><strong>Current Release:</strong> v1.0.1 Change Log</li>
                 </ul>
 
                 <h3>Credits</h3>
