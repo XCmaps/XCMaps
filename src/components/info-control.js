@@ -169,7 +169,7 @@ const InfoControl = L.Control.extend({
             // Left side: Logo and Breadcrumbs
             const headerLeft = L.DomUtil.create('div', 'info-popup-header-left', headerDiv);
             const logoImg = L.DomUtil.create('img', 'info-popup-logo', headerLeft);
-            logoImg.src = 'assets/images/XCMapsLogo.png';
+            logoImg.src = '/assets/images/XCmapsLogo.png';
             logoImg.alt = 'XCMaps Logo';
             breadcrumbDiv = L.DomUtil.create('div', 'info-popup-breadcrumbs', headerLeft);
 

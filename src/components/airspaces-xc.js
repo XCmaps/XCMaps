@@ -143,17 +143,16 @@ function fetchAirspacesXC() {
         const uniqueFeatures = new Map();
         const features = data.features || [];
         
-        // First pass: collect unique features by ID
+        // First pass: collect unique features by name as primary key
         features.forEach(feature => {
-          if (feature.properties && feature.properties.id) {
-            // Use ID as the primary unique identifier
+          if (feature.properties && feature.properties.name) {
+            // Use name as the primary unique identifier
+            // This will ensure airspaces with the same name are deduplicated
+            // even if they have different IDs
+            uniqueFeatures.set(feature.properties.name, feature);
+          } else if (feature.properties && feature.properties.id) {
+            // Fallback: use ID if name is not available
             uniqueFeatures.set(feature.properties.id, feature);
-          } else if (feature.properties && feature.properties.name) {
-            // Fallback: create a composite key using name and coordinates hash
-            const coords = feature.geometry && feature.geometry.coordinates ?
-              JSON.stringify(feature.geometry.coordinates[0].slice(0, 3)) : ''; // Use first 3 points as a fingerprint
-            const key = `${feature.properties.name}_${feature.properties.airspaceClass || ''}_${coords}`;
-            uniqueFeatures.set(key, feature);
           }
         });
         
