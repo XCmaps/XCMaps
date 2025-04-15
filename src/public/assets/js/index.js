@@ -6,7 +6,9 @@ import './leaflet.responsive.popup.css';
 
 import '../css/styles.css';
 import '../css/user-control.css';
+import '../css/live.css';
 import InfoControl from '../../../components/info-control.js';
+import LiveControl from '../../../components/live.js';
 import moment from 'moment';
 import 'moment-timezone';
  
@@ -473,6 +475,13 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
 
   // Add the logo control to the map
   L.control.logo({ position: 'topleft' }).addTo(window.map);
+
+  // Add live control if enabled in config
+  if (window.appConfig && window.appConfig.live === true) {
+    var llc = L.control.live({
+        position: 'bottomright'
+    }).addTo(window.map);
+  }
 
   // Add locate control
   var lc = L.control
