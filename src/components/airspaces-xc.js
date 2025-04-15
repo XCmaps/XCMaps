@@ -148,8 +148,8 @@ function fetchAirspacesXC() {
         features.forEach(feature => {
           if (feature.geometry && feature.geometry.type === "Polygon") {
 
-            // --- Filtering Logic (Unchanged) ---
-            if (feature.properties.name && feature.properties.name.startsWith("V00")) return;
+            // --- Filtering Logic ---
+            if (feature.properties.name && (feature.properties.name.startsWith("V00") || feature.properties.name.startsWith("EBBR"))) return;
             const lowerLimitMeters = getLimitMeters(feature.properties.airlower_j);
             if (lowerLimitMeters === null || lowerLimitMeters > currentLowerLimit) return;
             let isExpired = false;
