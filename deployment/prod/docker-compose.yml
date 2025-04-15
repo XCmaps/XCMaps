@@ -1,0 +1,125 @@
+version: '3.8'
+
+services:
+  db:
+    env_file: ".env"
+    image: postgis/postgis:15-3.3
+    restart: always
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-postgis.sh:/docker-entrypoint-initdb.d/init-postgis.sh
+    networks:
+      - app-network
+
+  app:
+    env_file: ".env"
+    build: .
+    restart: always
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - NODE_ENV=production
+    volumes:
+      - ./src:/usr/src/app/src
+      - ./server.js:/usr/src/app/server.js
+      - ./build:/usr/src/app/build
+    networks:
+      - app-network
+
+  keycloak_db:
+    image: postgres:15-alpine
+    env_file: ".env"
+    restart: always
+    environment:
+      - POSTGRES_USER=${KEYCLOAK_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${KEYCLOAK_POSTGRES_PASSWORD}
+      - POSTGRES_DB=keycloak
+    volumes:
+      - keycloak_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.0
+    env_file: ".env"
+    restart: always
+    depends_on:
+      - keycloak_db
+    environment:
+      - KC_DB=postgres
+      - KC_DB_URL_HOST=keycloak_db
+      - KC_DB_URL_DATABASE=keycloak
+      - KC_DB_USERNAME=${KC_DB_USERNAME}
+      - KC_DB_PASSWORD=${KC_DB_PASSWORD}
+      - KC_ADMIN=${KEYCLOAK_ADMIN} # Use KC_ADMIN for Keycloak >= 17
+      - KC_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD} # Use KC_ADMIN_PASSWORD for Keycloak >= 17
+      - KC_HTTP_RELATIVE_PATH=/auth
+      # Tell Keycloak it's behind an edge proxy
+      - KC_PROXY=edge
+      # Use v2 hostname provider based on request headers
+      # - KC_HOSTNAME_PROVIDER=request # Don't use request provider when setting hostname explicitly
+      # Provide base hostname
+      # More comprehensive settings to handle redirect URIs
+      - KC_HOSTNAME=xcmaps.com
+      - KC_HOSTNAME_URL=https://xcmaps.com/auth
+      - KC_HOSTNAME_ADMIN_URL=https://xcmaps.com/auth
+      - KC_HOSTNAME_STRICT=false
+      # Add wildcard redirect URIs for admin console
+      - KC_SPI_CLIENT_REGISTRATION_ALLOWED_REDIRECT_URIS=*
+      # - KC_HOSTNAME_STRICT=false # Not needed when KC_HOSTNAME is set
+      - KC_HTTP_ENABLED=false # Explicitly disable HTTP listener
+      # - KC_HTTP_PORT=8080    # Not needed when HTTP is disabled
+      - KC_HTTPS_PORT=443 # Explicitly set the public HTTPS port
+      # Force HTTPS for all URLs
+      - KC_SPI_HOSTNAME_DEFAULT_FRONTEND_URL=https://xcmaps.com/auth
+      # Explicitly set the scheme to https
+      - KC_HOSTNAME_STRICT_HTTPS=true
+      # Disable backchannel (internal) HTTPS validation
+      - KC_SPI_TRUSTSTORE_FILE_HOSTNAME_VERIFICATION_POLICY=ANY
+      # - KC_LOG_LEVEL=DEBUG # Disable debug logging for now
+      # Add explicit CORS configuration
+      - KC_SPI_CORS_ENABLED=true
+      - KC_SPI_CORS_ORIGINS=https://xcmaps.com
+      - KC_SPI_CORS_METHODS=GET,POST,PUT,DELETE,OPTIONS
+      - KC_SPI_CORS_HEADERS=Authorization,Content-Type,Accept,Origin,X-Requested-With
+      - KC_SPI_CORS_EXPOSED_HEADERS=WWW-Authenticate
+      - KC_SPI_CORS_ALLOW_CREDENTIALS=true
+    # volumes: # No volumes needed while theme is disabled
+    volumes:
+      - ./src/public/keycloak-themes:/opt/keycloak/themes # Re-enable custom themes
+    command: ["start"] # Use standard start command
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:1.25.3-alpine
+    restart: always
+    ports:
+      - "3000:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - app
+      - keycloak
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  keycloak_data:
+
+networks:
+  app-network:
+    driver: bridge

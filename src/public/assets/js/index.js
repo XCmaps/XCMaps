@@ -242,6 +242,15 @@ function initMap() {
     // Removed headers option as it's handled by the proxy
   });
 
+
+  // Use the local proxy for kk7 skyways to avoid CORS issues
+  var kk7skyways = L.tileLayer('/api/kk7skyways/{z}/{x}/{y}.png', {
+    attribution: '<a href="https://thermal.kk7.ch">thermal.kk7.ch</a>',
+    maxNativeZoom: 12,
+    tms: true // Keep TMS if the original source uses it
+    // Removed headers option as it's handled by the proxy
+  });
+
 // Create a simplified contour overlay specifically for use with satellite
 var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x}/{y}.pbf?key=c49iG8J3xvAkgCSZ8M8v', {
   attribution: 'MapTiler',
@@ -390,6 +399,7 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
           { label: 'Thermals',
             children: [
               { label: 'kk7 Thermals', layer: kk7thermals  },
+              { label: 'kk7 Skyways', layer: kk7skyways  },
             ]
           },
           { html: '<hr class="leaflet-control-layers-separator">' }, // Separator
