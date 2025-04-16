@@ -26,12 +26,12 @@ const InfoControl = L.Control.extend({
         const popupSections = {
             home: `
                 <h3>About XCMaps</h3>
-                <p>XCMaps is a non-commercial, fre and open-source project that brings together various data sources for para- and hang-gliders, providing valuable insights for the community.</p>
+                <p>XCMaps is a non-commercial, free and open-source project that brings together various data sources for para- and hang-gliders, providing valuable insights for the community.</p>
 
                 <h3>Contact</h3>
                 <p>You can reach out to us via the Feedback form below or by <a href="mailto:info@XCMaps.com" target="_blank">email</a>.</p>
                 <p>If you’d like to report an issue, such as a bug or a feature request, please visit our <a href="https://github.com/XCMaps/XCMaps" target="_blank">GitHub</a> project page.</p>
-                <p>To stay up-to date on latest updates, please follow us on <a href="https://facebook.com/xcmaps" target="_blank">Facebook</a> or <a href="https://github.com/XCMaps/XCMaps" target="_blank">GitHub</a>.</p>
+                <p>To stay up-to date on latest updates, please follow us on <a href="https://www.paraglidingforum.com/viewtopic.php?p=687646#687646" target="_blank">Paraglidingforum</a>, <a href="https://facebook.com/xcmaps" target="_blank">Facebook</a> or <a href="https://github.com/XCMaps/XCMaps" target="_blank">GitHub</a>.</p>
 
                 <p>If you enjoy our content, consider buying us a landing beer! Your support helps keep this service running, as we cover real costs for servers, storage, AI models, and data sources.<br>It’s simple: the more funding we receive, the faster we can roll out new features!</p>
                 <p><a href="https://buymeacoffee.com/XCMaps" target="_blank" class="donation-button"> 🍺 Buy us a Landing Beer</a></p>
