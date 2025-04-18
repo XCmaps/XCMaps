@@ -134,6 +134,10 @@ const InfoControl = L.Control.extend({
             `,
             changelog: `
                 <h3>Change Log</h3>
+                <p><strong>2015-APR-18 version 1.0.2</strong></p>
+                <ul>
+                  <li>fix airspace deduplication logic to skip airspaces with same name but different geometry</li>
+                </ul>
                 <p><strong>2015-APR-15 version 1.0.1</strong></p>
                 <ul>
                   <li>added kk7 skyways layers</li>
@@ -141,7 +145,7 @@ const InfoControl = L.Control.extend({
                   <li>windstation arrows: text shows below arrows to avoid overlapping</li>
                   <li>windstation popup: fixed display of wrong measuring unit in the table for wind and gusts (replaced m/s bei km/H)</li>
                   <li>windstation popup: added the source next to the station name</li>
-                  <li>windstation popup: Last Update shows now "X day(s) ago" if now update was received at the current day</li>
+                  <li>windstation popup: Last Update shows now "X day(s) ago" if no update was received at the current day</li>
                   <li>Airspaces: implemented a deduplication logic to avoid possible showing of dublicate airspaces</li>
                   <li>User Account / improved Save Settings UX: instead of saving the settings on logout, you get now a green "Save Setting" button in the profile-badge if the configuration was changed. Grey button if the configuartion is the same as the stored one.</li>
                   <li>added a change log in Info > Features list</li>
