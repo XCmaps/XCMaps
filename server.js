@@ -16,11 +16,13 @@ import createAirspacesXCRouter from "./src/api/airspacesXCfetch.js";
 import createAirspacesXCdbRouter from "./src/api/airspaces-xcontest.js";
 import createObstaclesRouter from './src/api/obstacles.js';
 import createMoselfalkenImageRouter from './src/api/moselfalken-cams.js';
-import kk7ThermalsProxy from './src/api/kk7thermals.js'; 
-import kk7SkywayaysProxy from './src/api/kk7skyways.js'; 
+import kk7ThermalsProxy from './src/api/kk7thermals.js';
+import kk7SkywayaysProxy from './src/api/kk7skyways.js';
 import cron from 'node-cron';
 import { fetchAndStoreAirspaces, fetchAndStoreObstacles } from './src/modules/update-xc-airspaces.js';
-import createUserPreferencesRouter from './src/api/user-preferences.js'; // Import the new router
+import createUserPreferencesRouter from './src/api/user-preferences.js'; // Import the user preferences router
+import OgnAprsClient from './src/modules/ogn-aprs-client.js'; // Import OGN APRS client
+import createOgnLiveRouter from './src/api/ogn-live.js'; // Import OGN Live API router
 
 
 const { Pool } = pkg;
@@ -95,6 +97,9 @@ const pool = new Pool({
     database: process.env.DB_NAME,
 });
 
+// Initialize OGN APRS client
+const ognClient = new OgnAprsClient(pool);
+
 // Serve static files from "public" folder
 app.use(express.static(path.join(process.cwd(), "build")));
 
@@ -115,13 +120,39 @@ app.use("/api/obstacles", createObstaclesRouter(pool));
 app.get("/api/kk7thermals/:z/:x/:y.png", kk7ThermalsProxy);
 app.get("/api/kk7skyways/:z/:x/:y.png", kk7SkywayaysProxy);
 app.use("/api/user", createUserPreferencesRouter()); // Use the user preferences router (auth middleware is inside the router)
+app.use("/api/ogn", createOgnLiveRouter(pool, ognClient)); // Use the OGN Live API router
+
 // --- Configuration Endpoint ---
 app.get("/api/config", (req, res) => {
     res.json(currentConfig);
 });
 // --- End Configuration Endpoint ---
 
-// Start server
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+// --- Start Server after Initializations ---
+async function startServer() {
+    try {
+        console.log('Initializing OGN APRS Client (DB, data refresh, timers, connection)...');
+        await ognClient.initializeAndStart(); // Use the new combined initialization method
+        console.log('OGN APRS Client started successfully.');
+
+        // --- Manual Trigger ---
+        console.log('MANUALLY TRIGGERING PILOT DB REFRESH...');
+        try {
+            await ognClient.refreshPilotDatabase();
+            await ognClient.refreshFlarmnetDatabase();
+            console.log('MANUAL PILOT DB REFRESH COMPLETE.');
+        } catch (refreshError) {
+            console.error('MANUAL PILOT DB REFRESH FAILED:', refreshError);
+        }
+        // --- End Manual Trigger ---
+
+        app.listen(PORT, () => {
+            console.log(`Server running on http://localhost:${PORT}`);
+        });
+    } catch (err) {
+        console.error('Failed to initialize OGN or start server:', err);
+        process.exit(1); // Exit if critical initialization fails
+    }
+}
+
+startServer();

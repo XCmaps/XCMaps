@@ -478,8 +478,20 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
 
   // Add live control if enabled in config
   if (window.appConfig && window.appConfig.live === true) {
+    // Create aircraft layer group
+    window.aircraftLayer = L.layerGroup();
+    window.aircraftTrackLayer = L.layerGroup();
+    
+    // Store reference to layers in the layer group
+    window.aircraftLayer._live = true;
+    
+    // Add live control
     var llc = L.control.live({
-        position: 'bottomright'
+        position: 'bottomright',
+        refreshInterval: 30000, // 30 seconds
+        trackColor: '#FF5500',
+        trackWeight: 3,
+        trackOpacity: 0.8
     }).addTo(window.map);
   }
 
