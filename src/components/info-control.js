@@ -46,7 +46,7 @@ const InfoControl = L.Control.extend({
                   <li><strong>Obstacles:</strong> OSM based obstacles from Xcontest</li>
                   <li><strong>Locate and Track:</strong> Locate and Track your position using the Locate Control</li>
                   <li><strong>XCMaps User Account:</strong> By using your account, your can save your preferred map layers in the profile-badge—so every time you log in, you'll return to your personalized view.</li>
-                  <li><strong>Current Release:</strong> v1.0.1 <a href="#" data-section="changelog">Change Log</a></li>
+                  <li><strong>Current Release:</strong> v1.0.2 <a href="#" data-section="changelog">Change Log</a></li>
                 </ul>
 
                 <h3>Credits</h3>
