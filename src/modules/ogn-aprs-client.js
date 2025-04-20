@@ -245,13 +245,25 @@ class OgnAprsClient extends EventEmitter {
         }
         
         // Destructure carefully, pilotName might be undefined if fields.length is 7
-        const [deviceType, deviceId, aircraftModel, registration, cn, trackedStr, identifiedStr] = fields;
-        const pilotName = fields.length >= 8 ? fields[7] : null; // Assign null if 8th field is missing
-        
-        if (i < 5) { // Log first few processed lines
-            console.log(`OGN DDB: Processing line ${i+1}: ID=${deviceId}, Name=${pilotName || '[None]'}`);
+        let [deviceType, deviceId, aircraftModel, registration, cn, trackedStr, identifiedStr] = fields;
+        let pilotName = fields.length >= 8 ? fields[7] : null; // Assign null if 8th field is missing
+
+        // Clean potential apostrophes from deviceId and registration
+        if (deviceId && deviceId.startsWith("'") && deviceId.endsWith("'")) {
+          deviceId = deviceId.substring(1, deviceId.length - 1);
         }
-        
+        if (registration && registration.startsWith("'") && registration.endsWith("'")) {
+          registration = registration.substring(1, registration.length - 1);
+        }
+        // Also clean pilotName just in case
+        if (pilotName && pilotName.startsWith("'") && pilotName.endsWith("'")) {
+           pilotName = pilotName.substring(1, pilotName.length - 1);
+        }
+
+        if (i < 5) { // Log first few processed lines
+            console.log(`OGN DDB: Processing line ${i+1}: Cleaned ID=${deviceId}, Cleaned Reg=${registration}, Name=${pilotName || '[None]'}`);
+        }
+
         // Basic validation (deviceId is field 2, index 1)
         if (!deviceId || deviceId.length === 0) continue;
 
@@ -272,7 +284,8 @@ class OgnAprsClient extends EventEmitter {
             pilot_name = EXCLUDED.pilot_name,
             last_updated = NOW();
         `;
-        await client.query(query, [deviceId, deviceType, aircraftModel, registration, cn, tracked, identified, pilotName || null]); // Use null if pilotName is empty
+        // Use cleaned values in the query
+        await client.query(query, [deviceId, deviceType, aircraftModel, registration, cn, tracked, identified, pilotName || null]);
         processedCount++;
       }
       
@@ -509,13 +522,17 @@ class OgnAprsClient extends EventEmitter {
       client = await this.dbPool.connect();
       
       // First check the OGN DDB table
+      // First check the OGN DDB table for registration
       let result = await client.query(
-        'SELECT pilot_name FROM ogn_ddb_pilots WHERE device_id = $1 AND pilot_name IS NOT NULL AND pilot_name != \'\'',
+        'SELECT registration FROM ogn_ddb_pilots WHERE device_id = $1', // Select registration
         [deviceId]
       );
-      if (result.rows.length > 0 && result.rows[0].pilot_name) {
-        return result.rows[0].pilot_name;
+      if (result.rows.length > 0) { // Check if OGN record exists
+        // Prioritize OGN registration, return it even if null/empty
+        // console.log(`Pilot lookup (OGN): ID=${deviceId}, Registration=${result.rows[0].registration}`);
+        return result.rows[0].registration; // Return registration from OGN DDB
       }
+      // If no OGN record found, continue to other sources...
       
       // Then check the Flarmnet table (assuming deviceId might be a Flarm ID)
       // Flarm IDs are typically 6 hex characters, uppercase
@@ -549,7 +566,7 @@ class OgnAprsClient extends EventEmitter {
       }
       
       // If not found in any table, return the original deviceId as fallback
-      console.log(`Pilot name not found for deviceId ${deviceId}, returning ID as name.`);
+      // console.log(`Pilot name not found for deviceId ${deviceId}, returning ID as name.`);
       return deviceId;
     } catch (err) {
       console.error(`Error looking up pilot name in DB for deviceId ${deviceId}:`, err);
@@ -831,7 +848,7 @@ class OgnAprsClient extends EventEmitter {
       
       // Create result object
       return {
-        id: callsign,
+        id: callsign.toUpperCase(), // Normalize ID to uppercase
         name: name,
         timestamp: new Date(),
         lat: positionData.lat,
