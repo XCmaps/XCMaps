@@ -337,6 +337,9 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   window.airspaceXC = L.layerGroup([], {
     attribution: '&copy; <a href="https://xcontest.org">XContest</a>',
   });
+  window.airspaceTriggerNotam = L.layerGroup([], { // New layer group for Trigger NOTAMs
+    attribution: '&copy; <a href="https://xcontest.org">XContest</a>', // Or specific attribution if needed
+  });
 
   window.placesLayerPG = L.layerGroup( [], {
     attribution: '&copy; <a href="https://paraglidingspots.com">paraglidingspots.com</a>',
@@ -442,6 +445,7 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
                       },
                   // { label: 'Airspaces', layer: window.airspaceEFG }, // Removed EFG airspaces layer from tree
                   { label: 'Airspaces', layer: window.airspaceXC },
+                  { label: 'Trigger NOTAM', layer: window.airspaceTriggerNotam }, // Link to the new layer group
                   { label: 'Obstacles', layer: window.obstacleLayer },
                   { label: 'OpenAIP Map', layer: window.oaipMap},
               ]

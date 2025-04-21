@@ -46,7 +46,7 @@ const InfoControl = L.Control.extend({
                   <li><strong>Obstacles:</strong> OSM based obstacles from Xcontest</li>
                   <li><strong>Locate and Track:</strong> Locate and Track your position using the Locate Control</li>
                   <li><strong>XCMaps User Account:</strong> By using your account, your can save your preferred map layers in the profile-badge—so every time you log in, you'll return to your personalized view.</li>
-                  <li><strong>Current Release:</strong> v1.0.2 <a href="#" data-section="changelog">Change Log</a></li>
+                  <li><strong>Current Release:</strong> v1.0.3 <a href="#" data-section="changelog">Change Log</a></li>
                 </ul>
 
                 <h3>Credits</h3>
@@ -134,11 +134,21 @@ const InfoControl = L.Control.extend({
             `,
             changelog: `
                 <h3>Change Log</h3>
-                <p><strong>2015-APR-18 version 1.0.2</strong></p>
+                <p><strong>2025-APR-21 version 1.0.3</strong></p>
+                <ul>
+                  <li>replaced the default basemap terrain laver from Jawg.io as we were running out of credits in the free tier. </br>
+                      New default terrain layer is now the free Esri_WorldTopoMap. </li>
+                <li>removed Trigger NOTAMs from default Xcontest airspace layer. </li>
+                <li>added a new layer for Trigger NOTAMs </li>
+                <p>Trigger NOTAMs are airspaces of airspace Class "(R)" </br> 
+                   where airspace description contains: </br>
+                   "E) TRIGGER NOTAM" </br> and contains "AIP AMDT" or "AIP SUP" or "AIC"</p>
+                </ul>
+                <p><strong>2025-APR-18 version 1.0.2</strong></p>
                 <ul>
                   <li>fix airspace deduplication logic to skip airspaces with same name but different geometry</li>
                 </ul>
-                <p><strong>2015-APR-15 version 1.0.1</strong></p>
+                <p><strong>2025-APR-15 version 1.0.1</strong></p>
                 <ul>
                   <li>added kk7 skyways layers</li>
                   <li>windstation arrows: show in grey if no update was received within the last 1:01 hours</li>
@@ -150,7 +160,7 @@ const InfoControl = L.Control.extend({
                   <li>User Account / improved Save Settings UX: instead of saving the settings on logout, you get now a green "Save Setting" button in the profile-badge if the configuration was changed. Grey button if the configuartion is the same as the stored one.</li>
                   <li>added a change log in Info > Features list</li>
                 </ul>
-                <p><strong>2015-APR-11 version 1.0.0 "Déco"</strong></p>
+                <p><strong>2025-APR-11 version 1.0.0 "Déco"</strong></p>
                 <ul>
                   <li>Weather Stations: Wind, Gusts, Direction, Temp and Camera if available. Marker refresh every 1 minute.</li>
                   <li>Rain Viewer: Radar and Satellite, past 60 min + 20 min forecast</li>

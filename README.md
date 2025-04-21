@@ -16,6 +16,7 @@ XCmaps is an interactive web-based map designed specifically for paragliding and
   - Filter airspaces by altitude limits
   - Date-based filtering for temporary airspaces
   - Detailed information on click (class, limits, activation times)
+  - Separate toggle for "Trigger NOTAM" airspaces (hidden by default)
 
 - **Wind Stations**
   - Real-time wind data with directional indicators
@@ -106,7 +107,8 @@ The layer control panel on the right side of the map allows you to:
 2. **Toggle Overlays**:
    - Wind Stations - Shows wind data points
    - Spots - Takeoff and landing locations
-   - Airspaces - Restricted and controlled airspace
+   - Airspaces - General restricted and controlled airspace
+   - Trigger NOTAM - Specific temporary restricted airspaces (hidden by default)
    - Obstacles - Known flight hazards
 
 ### Airspace Filtering

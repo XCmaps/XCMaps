@@ -109,6 +109,9 @@ function fetchAirspacesXC() {
         if (window.airspaceXC) { // Ensure layer group exists before clearing
             window.airspaceXC.clearLayers(); // Clear existing layers
         }
+        if (window.airspaceTriggerNotam) { // Clear Trigger NOTAM layer too
+            window.airspaceTriggerNotam.clearLayers();
+        }
         allLoadedAirspaces = []; // Reset data
         // No need to manage popup listener here, it's handled elsewhere or irrelevant if no data is loaded
         return; // Exit *before* constructing URL or fetching
@@ -129,6 +132,9 @@ function fetchAirspacesXC() {
     .then(response => response.json())
     .then(data => {
         window.airspaceXC.clearLayers();
+        if (window.airspaceTriggerNotam) { // Clear Trigger NOTAM layer too
+            window.airspaceTriggerNotam.clearLayers();
+        }
         allLoadedAirspaces = []; // Reset global array
 
         // Remove any existing popupopen listeners from the MAP
@@ -213,28 +219,52 @@ function fetchAirspacesXC() {
             }
             // --- End Filtering Logic ---
 
-            const coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
-            const polygon = L.polygon(coordinates, {
-              color: feature.properties.strokeColor || "blue",
-              weight: feature.properties.strokeWeight || 2,
-              fillColor: feature.properties.fillColor || "blue",
-              fillOpacity: feature.properties.fillOpacity || 0.3
-            });
+            // --- New Trigger NOTAM Filter ---
+            const isTriggerNotam = feature.properties.airspaceClass === "R" &&
+                                   feature.properties.descriptions &&
+                                   Array.isArray(feature.properties.descriptions) &&
+                                   feature.properties.descriptions.some(desc => {
+                                       const text = desc.airdescription || '';
+                                       // Check for "E) TRIGGER NOTAM" and one of the AIP/AIC keywords
+                                       return text.includes("E) TRIGGER NOTAM") &&
+                                              (text.includes("AIP AMDT") || text.includes("AIP SUP") || text.includes("AIC"));
+                                  });
 
-            // *** Bind a SIMPLE initial popup content ***
-            polygon.bindPopup(`<b>${feature.properties.name}</b><br><i>Loading details...</i>`, {
-                 className: 'airspace-popup' // Keep class
-            });
+           // --- End New Trigger NOTAM Filter ---
 
-            // Store polygon, data, and geometry globally
-            allLoadedAirspaces.push({
-              polygon, // Keep reference to layer
-              data: feature.properties,
-              geometry: feature.geometry
-            });
-            window.airspaceXC.addLayer(polygon);
-          }
-        });
+           const coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
+           const polygon = L.polygon(coordinates, {
+             color: feature.properties.strokeColor || "blue",
+             weight: feature.properties.strokeWeight || 2,
+             fillColor: feature.properties.fillColor || "blue",
+             fillOpacity: feature.properties.fillOpacity || 0.3
+           });
+
+           // *** Bind a SIMPLE initial popup content ***
+           polygon.bindPopup(`<b>${feature.properties.name}</b><br><i>Loading details...</i>`, {
+                className: 'airspace-popup' // Keep class
+           });
+
+           // Store polygon, data, and geometry globally
+           // Note: We store ALL loaded airspaces here for popup logic, regardless of which layer they are added to.
+           allLoadedAirspaces.push({
+             polygon, // Keep reference to layer
+             data: feature.properties,
+             geometry: feature.geometry
+           });
+
+           // Add to the correct layer group
+           if (isTriggerNotam) {
+               if (window.airspaceTriggerNotam) { // Check if the layer group exists
+                   window.airspaceTriggerNotam.addLayer(polygon);
+               } else {
+                   console.warn("[AirspaceXC] window.airspaceTriggerNotam layer group not found. Trigger NOTAM not added.");
+               }
+           } else {
+               window.airspaceXC.addLayer(polygon); // Add non-trigger airspaces to the main layer
+           }
+         }
+       });
 
         // Define the popupopen listener function
         airspacePopupOpenListener = function(e) {
