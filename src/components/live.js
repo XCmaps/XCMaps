@@ -218,23 +218,21 @@ const LiveControl = L.Control.extend({
         // Get aircraft heading
         const heading = aircraft.last_course || 0;
         
-        // Create SVG icon with rotation based on heading
-        const svgIcon = `
-            <svg width="30" height="30" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                <g transform="rotate(${heading}, 50, 50)">
-                    ${isHangGlider ?
-                        `<path d="M20,70 L50,20 L80,70 L50,60 Z" fill="#FF5500" stroke="#000" stroke-width="2"/>` :
-                        `<path d="M30,70 L50,30 L70,70 C70,70 60,60 50,60 C40,60 30,70 30,70 Z" fill="#00AAFF" stroke="#000" stroke-width="2"/>`
-                    }
-                </g>
-                <circle cx="50" cy="50" r="3" fill="#FFF" stroke="#000" stroke-width="1"/>
-            </svg>`;
+        // Determine icon URL based on aircraft type
+        const iconUrl = isHangGlider ? '/assets/images/hang-glider.svg' : '/assets/images/canopy.svg';
+
+        // Create HTML for the icon using an img tag with rotation
+        const iconHtml = `
+            <img src="${iconUrl}"
+                 style="width: 40px; height: 40px; transform: rotate(${heading}deg); transform-origin: center center; display: block;"
+                 alt="${isHangGlider ? 'Hang Glider' : 'Paraglider'}"/>
+        `;
         
-        // Create div icon with SVG
+        // Create div icon with the img tag
         return L.divIcon({
-            html: svgIcon,
+            html: iconHtml,
             className: 'aircraft-icon',
-            iconSize: [30, 30],
+            iconSize: [40, 34],
             iconAnchor: [15, 15]
         });
     },
