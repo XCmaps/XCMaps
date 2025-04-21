@@ -6,6 +6,11 @@ import pkg from "pg";
 import 'dotenv/config';
 import fetch from 'node-fetch';
 import fs from 'fs'; // Added for file system operations
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+// For GDAL checking
+const execAsync = promisify(exec);
 
 // Import routes
 import createPlacesRouter from "./src/api/places.js";
@@ -23,6 +28,7 @@ import { fetchAndStoreAirspaces, fetchAndStoreObstacles } from './src/modules/up
 import createUserPreferencesRouter from './src/api/user-preferences.js'; // Import the user preferences router
 import OgnAprsClient from './src/modules/ogn-aprs-client.js'; // Import OGN APRS client
 import createOgnLiveRouter from './src/api/ogn-live.js'; // Import OGN Live API router
+import SrtmElevation from './src/modules/srtm-elevation.js'; // Import SRTM elevation module
 
 
 const { Pool } = pkg;
@@ -131,6 +137,30 @@ app.get("/api/config", (req, res) => {
 // --- Start Server after Initializations ---
 async function startServer() {
     try {
+        // Check if PostGIS is installed in the database
+        try {
+            console.log('Checking for PostGIS extension...');
+            const result = await pool.query(`
+                SELECT 1 FROM pg_extension WHERE extname = 'postgis'
+            `);
+            if (result.rowCount > 0) {
+                console.log('PostGIS extension is installed in the database');
+            } else {
+                console.warn('PostGIS extension is not installed in the database.');
+                console.warn('Some spatial features may not work optimally.');
+            }
+        } catch (postgisError) {
+            console.warn('Error checking for PostGIS extension:', postgisError.message);
+        }
+        
+        // Initialize SRTM elevation module (only create table, don't import data)
+        console.log('Initializing SRTM Elevation module...');
+        const srtmElevation = new SrtmElevation(pool);
+        await srtmElevation.initDatabase();
+        console.log('SRTM database table initialized. Use one of the following scripts to import data:');
+        console.log('- scripts/import-srtm.js (Pure JavaScript implementation)');
+        console.log('- scripts/import-srtm-raster2pgsql.js (PostGIS implementation, recommended for large datasets)');
+        
         console.log('Initializing OGN APRS Client (DB, data refresh, timers, connection)...');
         await ognClient.initializeAndStart(); // Use the new combined initialization method
         console.log('OGN APRS Client started successfully.');

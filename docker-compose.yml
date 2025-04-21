@@ -34,6 +34,7 @@ services:
       - ./src:/usr/src/app/src
       - ./server.js:/usr/src/app/server.js
       - ./build:/usr/src/app/build
+      - ./SRTM:/usr/src/app/SRTM
     networks:
       - app-network
 

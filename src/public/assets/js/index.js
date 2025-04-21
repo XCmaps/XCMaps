@@ -58,12 +58,17 @@ function initMap() {
   mapInitialized = true; // Set flag early
   console.log("Initializing map for the first time...");
 
+  // Define Esri Topo Map (Moved here)
+  var esriTopo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Esri'
+  });
+
   // Create the map object and make it globally accessible
   window.map = L.map('map', {
       center: [50, 6],
       zoom: 9,
       zoomControl: false,
-      layers: [],
+      layers: [esriTopo], // Add esriTopo as the default layer
       timeDimension: true
   });
 
@@ -72,11 +77,6 @@ function initMap() {
   }).addTo(window.map);
 
   // Base Layers
-  // Define and make awgTerrain globally accessible
-  window.awgTerrain = L.tileLayer('https://tile.jawg.io/jawg-terrain/{z}/{x}/{y}{r}.png?access-token=qBDXRu1KSlZGhx4ROlceBD9hcxmrumL34oj29tUkzDVkafqx08tFWPeRNb0KSoKa', {
-      attribution: 'Jawg.io'
-  }); // Don't add to map by default
-
   var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap'
   });
@@ -375,7 +375,7 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
     label: 'Base Maps',
     collapsed: true, // Add this line to collapse by default
     children: [
-        { label: 'Terrain', layer: awgTerrain },
+        { label: 'Topo Map', layer: esriTopo }, // Replaced Terrain with Esri Topo
         { label: 'XContest', layer: L.layerGroup([xcontest, mapTilerTerrain])},
         { label: 'OpenStreetMap', layer: osm },
         { label: 'Satellite',  layer: sat },

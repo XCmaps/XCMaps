@@ -1,7 +1,7 @@
 # Use Node.js LTS as the base image
 FROM node:20-alpine
 
-# Install dependencies required for canvas
+# Install dependencies required for canvas, GDAL, and PostGIS
 RUN apk add --no-cache \
     python3 \
     make \
@@ -10,7 +10,12 @@ RUN apk add --no-cache \
     cairo-dev \
     pango-dev \
     libjpeg-turbo-dev \
-    giflib-dev
+    giflib-dev \
+    gdal \
+    gdal-dev \
+    gdal-tools \
+    postgresql-client \
+    postgis
 
 # Create app directory
 WORKDIR /usr/src/app
@@ -28,6 +33,7 @@ RUN npm ci
 COPY server.js ./
 COPY src ./src
 COPY build ./build
+COPY scripts ./scripts
 
 # Expose the port the app runs on (as defined in server.js)
 EXPOSE 3000

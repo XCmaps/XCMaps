@@ -7,6 +7,8 @@ import net from 'net';
 import { EventEmitter } from 'events';
 import pkg from 'pg';
 import fetch from 'node-fetch';
+import SrtmElevation from './srtm-elevation.js';
+import MapboxElevation from './mapbox-elevation.js';
 const { Pool } = pkg;
 
 // Constants
@@ -36,6 +38,10 @@ class OgnAprsClient extends EventEmitter {
     this.puretrackRefreshTimer = null; // Timer for PureTrack refresh
     this.lastCleanup = Date.now();
     this.aircraftCache = new Map(); // Cache for current aircraft positions (keep this one)
+    
+    // Initialize elevation modules
+    this.srtmElevation = new SrtmElevation(dbPool);
+    this.mapboxElevation = new MapboxElevation(dbPool);
     
     // Database initialization and initial data load will be handled separately
   }
@@ -151,8 +157,13 @@ class OgnAprsClient extends EventEmitter {
       console.log('Initializing OGN APRS Client...');
       // 1. Initialize database schema
       await this.initDatabase();
+      
+      // 1.5 Initialize SRTM elevation database (import is now done via Python script)
+      console.log('Initializing SRTM elevation database...');
+      await this.srtmElevation.initDatabase();
+      console.log('SRTM elevation database initialized. Use scripts/import_srtm.py to import data.');
  
-      // 2. Perform initial data refresh
+      // 2. Perform initial pilot data refresh
       console.log('Performing initial pilot data refresh...');
       await Promise.all([
         this.refreshPilotDatabase(),
@@ -734,8 +745,8 @@ class OgnAprsClient extends EventEmitter {
         return;
       }
 
-      // Parse APRS packet
-      const parsedData = this.parseAprsPacket(line);
+      // Parse APRS packet (now async)
+      const parsedData = await this.parseAprsPacket(line);
       
       if (!parsedData) {
         return; // Skip invalid packets
@@ -766,7 +777,12 @@ class OgnAprsClient extends EventEmitter {
    * @param {string} packet - APRS packet string
    * @returns {Object|null} - Parsed data or null if invalid
    */
-  parseAprsPacket(packet) {
+  /**
+   * Parse APRS packet
+   * @param {string} packet - APRS packet string
+   * @returns {Promise<Object|null>} - Parsed data or null if invalid
+   */
+  async parseAprsPacket(packet) {
     try {
       // Basic APRS packet format: CALLSIGN>TOCALL,PATH:PAYLOAD
       const parts = packet.split(':');
@@ -837,7 +853,7 @@ class OgnAprsClient extends EventEmitter {
       // Look up pilot name from device ID or FLARM ID
       let pilotName = null;
       if (deviceId) {
-        pilotName = this.lookupPilotName(deviceId);
+        pilotName = await this.lookupPilotName(deviceId);
       }
       if (!pilotName && flarmId) {
         pilotName = this.flarmnetCache.get(flarmId);
@@ -845,6 +861,9 @@ class OgnAprsClient extends EventEmitter {
       
       // Use pilot name if available, otherwise use the callsign
       const name = pilotName || callsign;
+      
+      // Calculate AGL using SRTM elevation data
+      const altAgl = await this.calculateAGL(positionData.lat, positionData.lon, positionData.altMsl || 0);
       
       // Create result object
       return {
@@ -854,7 +873,7 @@ class OgnAprsClient extends EventEmitter {
         lat: positionData.lat,
         lon: positionData.lon,
         altMsl: positionData.altMsl || 0,
-        altAgl: this.calculateAGL(positionData.lat, positionData.lon, positionData.altMsl) || 0,
+        altAgl: altAgl || 0,
         course: positionData.course || 0,
         speedKmh: positionData.speed || 0,
         vs: positionData.climbRate || 0,
@@ -1048,14 +1067,43 @@ class OgnAprsClient extends EventEmitter {
    * @param {number} altMsl - Altitude above mean sea level in meters
    * @returns {number} - Height above ground level in meters
    */
-  calculateAGL(lat, lon, altMsl) {
-    // In a real implementation, this would query a terrain database
-    // For now, we'll just return a rough estimate or the MSL value
-    // A proper implementation would use a DEM (Digital Elevation Model)
-    
-    // For simplicity, we'll just return the MSL altitude
-    // In a real implementation, you would subtract ground elevation
-    return altMsl;
+  /**
+   * Calculate height above ground level
+   * @param {number} lat - Latitude
+   * @param {number} lon - Longitude
+   * @param {number} altMsl - Altitude above mean sea level in meters
+   * @returns {Promise<number>} - Height above ground level in meters
+   */
+  async calculateAGL(lat, lon, altMsl) {
+    try {
+      // Get elevation from Mapbox
+      let elevation = await this.mapboxElevation.getElevation(lat, lon);
+      
+      // SRTM fallback code kept but disabled as per request
+      // if (elevation === null) {
+      //   elevation = await this.srtmElevation.getElevation(lat, lon);
+      // }
+      
+      // If we have elevation data, calculate AGL by subtracting ground elevation from MSL altitude
+      if (elevation !== null) {
+        // Add a small tolerance (5 meters) to account for minor inaccuracies in elevation or MSL data
+        const tolerance = 5;
+        const agl = Math.max(0, Math.round(altMsl - elevation + tolerance));
+        
+        // Only log warning for significant discrepancies (for monitoring purposes)
+        if (agl === 0 && altMsl > elevation + 20) {
+          console.warn(`Zero AGL despite MSL significantly higher than elevation: altMsl=${altMsl}, elevation=${elevation}, diff=${altMsl - elevation}, lat=${lat}, lon=${lon}`);
+        }
+        
+        return agl;
+      } else {
+        // If no elevation data is available, return MSL as fallback
+        return Math.round(altMsl);
+      }
+    } catch (err) {
+      console.error(`Error calculating AGL for ${lat},${lon}:`, err);
+      return Math.round(altMsl); // Return MSL as fallback (as integer)
+    }
   }
 
   /**
@@ -1068,10 +1116,13 @@ class OgnAprsClient extends EventEmitter {
       // Look up pilot name from DB
       const pilotName = await this.lookupPilotName(data.deviceId); // Added await and call
       
+      // Calculate AGL using SRTM elevation data
+      const altAgl = await this.calculateAGL(data.lat, data.lon, data.altMsl);
+      
       client = await this.dbPool.connect();
       await client.query('BEGIN');
       
-      // Update or insert aircraft record, now including pilot_name
+      // Update or insert aircraft record, now including pilot_name and calculated AGL
       await client.query(`
         INSERT INTO aircraft (
           id, name, type, last_seen, last_lat, last_lon,
@@ -1101,7 +1152,7 @@ class OgnAprsClient extends EventEmitter {
         data.lat,           // $5
         data.lon,           // $6
         data.altMsl,        // $7
-        data.altAgl,        // $8
+        altAgl,             // $8 - Use calculated AGL instead of data.altAgl
         data.course,        // $9
         data.speedKmh,      // $10
         data.vs,            // $11
@@ -1111,10 +1162,10 @@ class OgnAprsClient extends EventEmitter {
         pilotName           // $15 - Added pilotName
       ]);
       
-      // Insert track point (no changes needed here)
+      // Insert track point with calculated AGL
       await client.query(`
         INSERT INTO aircraft_tracks (
-          aircraft_id, timestamp, lat, lon, 
+          aircraft_id, timestamp, lat, lon,
           alt_msl, alt_agl, course, speed_kmh, vs, turn_rate
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
@@ -1125,7 +1176,7 @@ class OgnAprsClient extends EventEmitter {
         data.lat,
         data.lon,
         data.altMsl,
-        data.altAgl,
+        altAgl,           // Use calculated AGL instead of data.altAgl
         data.course,
         data.speedKmh,
         data.vs,

@@ -190,6 +190,8 @@ export default (env, argv) => {
             from: 'src/public/assets/images',
             to: 'assets/images'
           }
+          // SRTM folder is excluded from webpack build to avoid TIFF processing errors
+          // The folder will be accessed directly from the server
         ]
       }),
     ],
