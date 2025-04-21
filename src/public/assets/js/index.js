@@ -650,11 +650,11 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
       console.log('Fetching airspaces after map move...');
       window.fetchAirspacesNotam();
     }
-    // Airspaces XContest
-    if (window.map.hasLayer(window.airspaceXC) && typeof window.fetchAirspacesXC === 'function') {
+    // Airspaces XContest & Trigger NOTAMs (fetch if either layer is active)
+    if ((window.map.hasLayer(window.airspaceXC) || window.map.hasLayer(window.airspaceTriggerNotam)) && typeof window.fetchAirspacesXC === 'function') {
       // Only fetch if no popup is currently open
       if (!window.map._popup) {
-        console.log('Fetching XC airspaces after map move (no popup open)...');
+        console.log('Fetching XC/Trigger airspaces after map move (no popup open)...');
         window.fetchAirspacesXC();
       } else {
         console.log('Skipping XC airspace fetch on moveend because popup is open.');
@@ -696,7 +696,8 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
       window.fetchAirspacesGliding();
     } else if (layer === window.airspaceNotam && typeof window.fetchAirspacesNotam === 'function') {
       window.fetchAirspacesNotam();
-    } else if (layer === window.airspaceXC && typeof window.fetchAirspacesXC === 'function') {
+    } else if ((layer === window.airspaceXC || layer === window.airspaceTriggerNotam) && typeof window.fetchAirspacesXC === 'function') {
+      // Fetch if either XC or Trigger NOTAM layer is added
       window.fetchAirspacesXC();
     } else if (layer === window.obstacleLayer && typeof window.fetchObstacles === 'function') {
       window.fetchObstacles();

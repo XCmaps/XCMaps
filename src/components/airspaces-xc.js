@@ -370,7 +370,8 @@ document.addEventListener('change', function(e) {
             currentLowerLimit = newLimit;
             clearTimeout(airspaceDebounceTimer);
             airspaceDebounceTimer = setTimeout(() => {
-                if (window.map.hasLayer(window.airspaceXC)) {
+                // Fetch if either the main XC layer OR the Trigger NOTAM layer is active
+                if (window.map.hasLayer(window.airspaceXC) || window.map.hasLayer(window.airspaceTriggerNotam)) {
                     fetchAirspacesXC();
                 }
             }, 300);
@@ -383,7 +384,8 @@ document.addEventListener('change', function(e) {
         selectedDateStr = newDate;
         clearTimeout(airspaceDebounceTimer);
         airspaceDebounceTimer = setTimeout(() => {
-          if (window.map.hasLayer(window.airspaceXC)) {
+          // Fetch if either the main XC layer OR the Trigger NOTAM layer is active
+          if (window.map.hasLayer(window.airspaceXC) || window.map.hasLayer(window.airspaceTriggerNotam)) {
             fetchAirspacesXC();
           }
         }, 300);
