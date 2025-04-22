@@ -42,9 +42,18 @@ function createOgnLiveRouter(pool, ognClient) {
       
       // Get aircraft in bounds
       const aircraft = await ognClient.getAircraftInBounds(bounds);
+
+      // Filter out duplicates, keeping only the latest entry per device_id
+      const latestAircraft = {};
+      for (const ac of aircraft) {
+        if (!latestAircraft[ac.device_id] || new Date(ac.last_seen) > new Date(latestAircraft[ac.device_id].last_seen)) {
+          latestAircraft[ac.device_id] = ac;
+        }
+      }
+      const filteredAircraft = Object.values(latestAircraft);
       
-      // Return aircraft data
-      res.json(aircraft);
+      // Return filtered aircraft data
+      res.json(filteredAircraft);
     } catch (err) {
       console.error('Error getting aircraft data:', err);
       res.status(500).json({ error: 'Internal server error' });

@@ -67,7 +67,7 @@ class OgnAprsClient extends EventEmitter {
           last_alt_agl INTEGER,
           last_course SMALLINT,
           last_speed_kmh SMALLINT,
-          last_vs SMALLINT,
+          last_vs REAL,
           last_turn_rate SMALLINT,
           raw_packet TEXT,
           device_id VARCHAR(50),
@@ -87,7 +87,7 @@ class OgnAprsClient extends EventEmitter {
           alt_agl INTEGER,
           course SMALLINT,
           speed_kmh SMALLINT,
-          vs SMALLINT,
+          vs REAL,
           turn_rate SMALLINT
         )
       `);
@@ -956,11 +956,12 @@ class OgnAprsClient extends EventEmitter {
         altMsl = Math.round(parseInt(altMatch[1], 10) * 0.3048);
       }
       
-      // Try to extract climb rate if available
-      const climbMatch = remainingData.match(/\+(\d+)fpm/);
+      // Try to extract climb rate if available (e.g., +118fpm or -373fpm)
+      // Convert feet per minute to m/s (1 fpm = 0.00508 m/s) and round to one decimal place
+      const climbMatch = remainingData.match(/([+-]\d+)fpm/);
       if (climbMatch && climbMatch[1]) {
-        // Convert feet per minute to m/s
-        climbRate = Math.round(parseInt(climbMatch[1], 10) * 0.00508);
+        const fpm = parseInt(climbMatch[1], 10);
+        climbRate = Math.round(fpm * 0.00508 * 10) / 10; // Calculate m/s and round to 1 decimal
       }
       
       return { lat, lon, course, speed, altMsl, climbRate };

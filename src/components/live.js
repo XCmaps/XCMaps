@@ -242,24 +242,36 @@ const LiveControl = L.Control.extend({
     },
 
     _createPopupContent: function(aircraft) {
-        // Format last seen time
+        // Calculate time ago
         const lastSeen = new Date(aircraft.last_seen);
-        const formattedTime = lastSeen.toLocaleTimeString();
+        const now = new Date();
+        const diffSeconds = Math.round((now - lastSeen) / 1000);
+        let formattedTimeAgo;
+
+        if (diffSeconds < 60) {
+            // Less than a minute ago: (-SS sec)
+            const seconds = String(diffSeconds).padStart(2, '0');
+            formattedTimeAgo = `(-${seconds} sec)`;
+        } else if (diffSeconds < 3600) {
+            // Less than an hour ago: (-MM:SS min)
+            const minutes = String(Math.floor(diffSeconds / 60)).padStart(2, '0');
+            const seconds = String(diffSeconds % 60).padStart(2, '0');
+            formattedTimeAgo = `(-${minutes}:${seconds} min)`;
+        } else {
+            // More than an hour ago: (-HH:MM h)
+            const hours = String(Math.floor(diffSeconds / 3600)).padStart(2, '0');
+            const minutes = String(Math.floor((diffSeconds % 3600) / 60)).padStart(2, '0');
+            formattedTimeAgo = `(-${hours}:${minutes} h)`;
+        }
         
-        // Determine aircraft type
+        // Determine aircraft type (though not used in the popup string anymore)
         const aircraftType = aircraft.type === 6 ? 'Hang Glider' : 'Paraglider';
         
         // Create popup content
         return `
-            <div class="aircraft-popup">
-                <h3>${aircraft.pilot_name}</h3>
-                <p><strong>Type:</strong> ${aircraftType}</p>
-                <p><strong>Altitude:</strong> ${aircraft.last_alt_msl}m MSL (${aircraft.last_alt_agl}m AGL)</p>
-                <p><strong>Speed:</strong> ${aircraft.last_speed_kmh} km/h</p>
-                <p><strong>Heading:</strong> ${aircraft.last_course}°</p>
-                <p><strong>Vertical Speed:</strong> ${aircraft.last_vs} m/s</p>
-                <p><strong>Last Seen:</strong> ${formattedTime}</p>
-                <button class="track-button" onclick="document.dispatchEvent(new CustomEvent('show-aircraft-track', {detail: '${aircraft.id}'}))">Show Track</button>
+   <div class="aircraft-popup">
+                <p><strong style="color:#007bff;">${aircraft.pilot_name}</strong> ${formattedTimeAgo}</p>
+                <p><strong>${aircraft.last_alt_msl}m </strong>(${aircraft.last_alt_agl} AGL) <strong>${aircraft.last_vs}m/s</strong></p>
             </div>
         `;
     },
