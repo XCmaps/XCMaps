@@ -38,11 +38,11 @@ const InfoControl = L.Control.extend({
 
                 <h3>Features</h3>
                 <ul>
-                  <li><strong>Weather Stations:</strong> Wind, Gusts, Direction, Temp and Camera if available. Marker refresh every 1 minute.</li>
+                  <li><strong><a href="#" data-section="weather-stations">Weather Stations:</a></strong> Wind, Gusts, Direction, Temp and Camera if available. Marker refresh every 1 minute.</li>
                   <li><strong>Rain Viewer:</strong> Radar and Satellite, past 2 hours + 20 min forecast</li>
                   <li><strong>Thermals:</strong> kk7 thermal and skyways map</li>
                   <li><strong>Spots:</strong> Para- and Hangliding take-off and Landing Zones (© <a href="https://paraglidingspots.com" target="_blank">paraglidingspots.com</a>)</li>
-                  <li><strong>Airspaces:</strong> Xcontest Airspaces & Activations in local time zone, filter for today and the next 6 days and lowest floor level</li>
+                  <li><strong><a href="#" data-section="airspaces">Airspaces:</a></strong> Xcontest Airspaces & Activations in local time zone, filter for today and the next 6 days and lowest floor level. Click the link for details on airspace types.</li>
                   <li><strong>Obstacles:</strong> OSM based obstacles from Xcontest</li>
                   <li><strong>Locate and Track:</strong> Locate and Track your position using the Locate Control</li>
                   <li><strong>XCMaps User Account:</strong> By using your account, your can save your preferred map layers in the profile-badge—so every time you log in, you'll return to your personalized view.</li>
@@ -171,7 +171,121 @@ const InfoControl = L.Control.extend({
                   <li>Locate and Track: Locate and Track your position using the Locate Control</li>
                   <li>XCmaps User Account: By using your account, your preferred map layers will be saved when you log out—so every time you log in, you'll return to your personalized view.</li>
                 </ul>
-            `
+            `,
+            airspaces: `
+                <h3>Airspaces</h3>
+                <p>The Airspaces layer displays various types of airspaces relevant to free flight activities. Understanding these airspaces is crucial for safe and legal flying.</p>
+                <p>Data is sourced primarily from XContest and OpenAIP, showing current activations based on your local time zone. You can filter the displayed airspaces based on the activation date (today and the next 6 days) and the minimum floor level relevant to your flight altitude.</p>
+
+                <h4>Airspace Types (TYPE=)</h4>
+                <p>Each airspace displayed on the map is categorized by a TYPE= code. These codes help free gliders understand the nature and restrictions of each airspace. Below is a breakdown of the permitted values and what they mean:</p>
+                <table class="table table-sm table-striped">
+                  <thead>
+                    <tr>
+                      <th>Abbreviation</th>
+                      <th>Airspace Type</th>
+                      <th>Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>C</td><td>CTA/CTR</td><td>Control Area (CTA) or Control Zone (CTR) — Controlled airspace usually around airports. Permission is required before entry.</td></tr>
+                    <tr><td>A</td><td>Airways</td><td>Established routes for commercial and general aviation. Often found at higher altitudes, but may be relevant depending on flight altitude.</td></tr>
+                    <tr><td>R</td><td>Restricted</td><td>Flight is restricted in this area. May be temporarily or permanently closed to unauthorized aircraft. Check for NOTAMs.</td></tr>
+                    <tr><td>P</td><td>Prohibited</td><td>Absolutely no flying permitted. These areas are closed to all air traffic for safety or security reasons.</td></tr>
+                    <tr><td>D</td><td>Danger</td><td>Areas where activities such as military training or weapons testing may pose a danger to aircraft. Entry is not always prohibited but is strongly discouraged without permission.</td></tr>
+                    <tr><td>O</td><td>Other</td><td>Used for zones that do not fit into the standard classifications but still represent defined airspaces.</td></tr>
+                    <tr><td>Z</td><td>Training Zone</td><td>Areas designated for flight training. High activity from student pilots or military trainees may occur.</td></tr>
+                    <tr><td>I</td><td>Traffic Info</td><td>Regions where only traffic information is provided, not air traffic control services. Caution is advised.</td></tr>
+                    <tr><td>G</td><td>GSEC (Glider Sector)</td><td>Airspace specifically reserved or suitable for gliding. Typically more favorable and less restricted for paragliders.</td></tr>
+                    <tr><td>M</td><td>MATZ (Military Zone)</td><td>Military Air Traffic Zones. Civilian entry might be restricted or require coordination.</td></tr>
+                    <tr><td>T</td><td>TMZ (Transponder Mandatory Zone)</td><td>Aircraft entering must be equipped with a Mode S or Mode C transponder. Generally not accessible to paragliders without proper equipment.</td></tr>
+                    <tr><td>B</td><td>Boundary</td><td>National or Flight Information Service (FIS) boundaries. Important for understanding jurisdiction changes but usually not restrictive.</td></tr>
+                    <tr><td>(Blank) or X</td><td>Unknown/Unset</td><td>No specific type assigned. Airspace may be undefined or data is missing. Treat with caution.</td></tr>
+                  </tbody>
+                </table>
+
+                <h4>Trigger NOTAM Layer</h4>
+                <p>A separate layer is available specifically for "Trigger NOTAMs". These are special types of Restricted (R) airspaces that are activated via NOTAM (Notice to Airmen).</p>
+                <p>Trigger NOTAMs are identified based on specific criteria within the airspace description, typically mentioning "TRIGGER NOTAM" along with references like "AIP AMDT", "AIP SUP", or "AIC".</p>
+                <p>It is crucial to check current NOTAMs for the activation status of these areas before flying near them, as they often relate to temporary military activities or other hazards.</p>
+                <p><strong>Disclaimer:</strong> Airspace data is provided for informational purposes only. Always consult official sources (like the official AIP, NOTAMs) and exercise caution. Flight planning and execution remain the pilot's responsibility.</p>
+            `,
+           'weather-stations': `
+               <h3>Weather Stations</h3>
+               <p>The Weather Stations layer displays real-time wind data from various sources, indicated by arrow markers on the map. These markers refresh automatically every minute to provide the latest conditions.</p>
+               <p>Each marker visually represents:</p>
+               <ul>
+                   <li><strong>Wind Direction:</strong> The arrow points in the direction the wind is blowing towards.</li>
+                   <li><strong>Average Wind Speed:</strong> Shown numerically inside the arrow (fill color indicates strength).</li>
+                   <li><strong>Peak Wind Speed (Gusts):</strong> Also shown numerically inside the arrow (outline color indicates strength).</li>
+                   <li><strong>Peak / Valley:</strong> A small triangle (▲/▼) next to the average speed indicates if the weather station is located at a peak (▲) or valley (▼).</li>
+               </ul>
+               <p>Clicking on a station marker opens a detailed popup. This popup provides:</p>
+               <ul>
+                   <li>Current wind speed, gusts, direction, and last update time.</li>
+                   <li>A table showing historical wind data (average, gusts, direction, temperature) in 10-minute intervals for the past few hours.</li>
+                   <li>A chart visualizing the wind speed and gust trends over time.</li>
+                   <li>If available, a "Camera" tab displaying the latest image from the station's webcam.</li>
+
+               </ul>
+
+               <h4>Color Coding (km/h)</h4>
+               <p>The colors of the arrow and in the popup table provide a quick visual guide to the wind conditions. The fill color represents the average wind speed, and the outline color represents the peak wind speed (gusts).</p>
+               <table class="table table-sm table-striped table-bordered">
+                 <thead class="thead-light">
+                   <tr>
+                     <th style="width: 60px; text-align: center;">Color</th>
+                     <th style="text-align: center;">Average Wind</th>
+                     <th style="text-align: center;">Peak Wind</th>
+                     <th>Description</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   <tr>
+                     <td style="background-color: Aquamarine; border: 1px solid Aquamarine;"></td>
+                     <td style="text-align: center;">0 - 6</td>
+                     <td style="text-align: center;">0 - 14</td>
+                     <td>Light wind</td>
+                   </tr>
+                   <tr>
+                     <td style="background-color: LimeGreen; border: 1px solid LimeGreen;"></td>
+                     <td style="text-align: center;">7 - 14</td>
+                     <td style="text-align: center;">15 - 24</td>
+                     <td>Moderate wind</td>
+                   </tr>
+                   <tr>
+                     <td style="background-color: yellow; border: 1px solid yellow;"></td>
+                     <td style="text-align: center;">15 - 24</td>
+                     <td style="text-align: center;">25 - 32</td>
+                     <td>Strong wind</td>
+                   </tr>
+                   <tr>
+                     <td style="background-color: orange; border: 1px solid orange;"></td>
+                     <td style="text-align: center;">25 - 30</td>
+                     <td style="text-align: center;">33 - 38</td>
+                     <td>Very strong wind</td>
+                   </tr>
+                   <tr>
+                     <td style="background-color: red; border: 1px solid red;"></td>
+                     <td style="text-align: center;">31 - 36</td>
+                     <td style="text-align: center;">39 - 44</td>
+                     <td>Gale force wind</td>
+                   </tr>
+                   <tr>
+                     <td style="background-color: black; border: 1px solid black;"></td>
+                     <td style="text-align: center;">> 36</td>
+                     <td style="text-align: center;">> 44</td>
+                     <td>Storm force wind</td>
+                   </tr>
+                   <tr>
+                     <td style="background-color: grey; border: 1px solid grey;"></td>
+                     <td colspan="2" style="text-align: center;">Any speed</td>
+                     <td>No update for over 1:01 hour</td>
+                   </tr>
+                 </tbody>
+               </table>
+               <p><strong>Note:</strong> For readability, the text color for the speed values inside the arrow automatically switches to white when the background color is black.</p>
+           `
         };
 
         // --- Function to build the common content structure ---
@@ -292,6 +406,8 @@ const InfoControl = L.Control.extend({
                 if (sectionName === 'privacy') currentPageSpan.innerText = 'Privacy Policy';
                 else if (sectionName === 'terms') currentPageSpan.innerText = 'Terms and Conditions';
                 else if (sectionName === 'changelog') currentPageSpan.innerText = 'Change Log';
+                else if (sectionName === 'airspaces') currentPageSpan.innerText = 'Airspaces';
+                else if (sectionName === 'weather-stations') currentPageSpan.innerText = 'Weather Stations';
             }
             contentAreaDiv.scrollTop = 0;
         }

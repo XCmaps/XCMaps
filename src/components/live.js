@@ -232,7 +232,7 @@ const LiveControl = L.Control.extend({
         return L.divIcon({
             html: iconHtml,
             className: 'aircraft-icon',
-            iconSize: [40, 34],
+            iconSize: [40, 40],
             iconAnchor: [15, 15]
         });
     },
