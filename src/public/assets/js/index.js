@@ -379,7 +379,7 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
     collapsed: true, // Add this line to collapse by default
     children: [
         { label: 'Topo Map', layer: esriTopo }, // Replaced Terrain with Esri Topo
-        { label: 'XContest', layer: L.layerGroup([xcontest, mapTilerTerrain])},
+        // { label: 'XContest', layer: L.layerGroup([xcontest, mapTilerTerrain])},
         { label: 'OpenStreetMap', layer: osm },
         { label: 'Satellite',  layer: sat },
     ]
