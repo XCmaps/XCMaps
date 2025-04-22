@@ -23,7 +23,7 @@ import { initSpotLZ } from '../../../components/spots-lz.js'; // Assuming simila
 import '../../../components/obstacles.js';
 import '../../../components/rainviewer.js';
 import { initializeAirspaceXCMapListeners } from './../../../components/airspaces-xc.js';
-import { initKeycloak, createUserControl, loadUserPreferences, isUserAuthenticated } from '../../../components/keycloak-auth.js'; // Import necessary functions
+import { keycloak, initKeycloak, createUserControl, loadUserPreferences, isUserAuthenticated } from '../../../components/keycloak-auth.js'; // Import necessary functions AND keycloak instance
 
 // --- Global App Configuration ---
 window.appConfig = {
@@ -479,25 +479,6 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
 
   // Add the logo control to the map
   L.control.logo({ position: 'topleft' }).addTo(window.map);
-
-  // Add live control if enabled in config
-  if (window.appConfig && window.appConfig.live === true) {
-    // Create aircraft layer group
-    window.aircraftLayer = L.layerGroup();
-    window.aircraftTrackLayer = L.layerGroup();
-    
-    // Store reference to layers in the layer group
-    window.aircraftLayer._live = true;
-    
-    // Add live control
-    var llc = L.control.live({
-        position: 'bottomright',
-        refreshInterval: 30000, // 30 seconds
-        trackColor: '#FF5500',
-        trackWeight: 3,
-        trackOpacity: 0.8
-    }).addTo(window.map);
-  }
 
   // Add locate control
   var lc = L.control
@@ -975,6 +956,41 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   return window.map;
 } // End of initMap function
 
+// Function to add the Live Control if conditions are met
+function addLiveControlIfNeeded() {
+  console.log("Checking if Live Control should be added...");
+  console.log("Config live:", window.appConfig?.live);
+  // Use the imported keycloak instance directly
+  console.log("Keycloak authenticated:", keycloak?.authenticated);
+  console.log("User has 'live' role:", keycloak?.hasRealmRole('live'));
+
+  if ((window.appConfig?.live === true) || (keycloak?.authenticated && keycloak?.hasRealmRole('live'))) {
+    console.log("Adding Live Control to map.");
+    // Create aircraft layer group
+    window.aircraftLayer = L.layerGroup();
+    window.aircraftTrackLayer = L.layerGroup();
+
+    // Store reference to layers in the layer group
+    window.aircraftLayer._live = true;
+
+    // Add live control
+    var llc = L.control.live({
+        position: 'bottomright',
+        refreshInterval: 30000, // 30 seconds
+        trackColor: '#FF5500',
+        trackWeight: 3,
+        trackOpacity: 0.8
+    }).addTo(window.map);
+
+    // Activate the control by default if added
+    console.log("Activating Live Control by default.");
+    llc._activateLive();
+
+  } else {
+    console.log("Conditions not met, Live Control will not be added.");
+  }
+}
+
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', async () => { // Use arrow function for consistency
   console.log('DOM content loaded, fetching config...');
@@ -1073,6 +1089,7 @@ document.addEventListener('DOMContentLoaded', async () => { // Use arrow functio
   } finally {
       // Code that should run regardless of success or failure
       console.log("Initial setup sequence complete (Keycloak attempted).");
+      addLiveControlIfNeeded(); // Add the live control check AFTER Keycloak attempt
       // Initialize geolocation after map and potentially Keycloak init attempt
       if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(position => {

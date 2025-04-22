@@ -550,6 +550,7 @@ function applyMapPreferences(preferences, control) {
 
 // Export functions
 export {
+  keycloak, // Export keycloak instance
   initKeycloak,
   login,
   logout,
