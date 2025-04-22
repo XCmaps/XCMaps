@@ -13,7 +13,11 @@ const LiveControl = L.Control.extend({
         refreshInterval: 30000, // 30 seconds
         trackColor: '#FF5500',
         trackWeight: 3,
-        trackOpacity: 0.8
+        trackOpacity: 0.8,
+        canopySvgUrl: '/assets/images/canopy.svg',
+        hangGliderSvgUrl: '/assets/images/hang-glider.svg',
+        canopyPlaceholderFill: 'fill:#0000ff;',
+        hangGliderPlaceholderFill: 'fill:#ff0000;'
     },
 
     initialize: function(options) {
@@ -25,35 +29,60 @@ const LiveControl = L.Control.extend({
         this.trackLayer = L.layerGroup();
         this.refreshTimer = null;
         this.selectedAircraft = null;
+        this.canopySvgContent = null; // To store fetched SVG
+        this.hangGliderSvgContent = null; // To store fetched SVG
+        this._svgsLoading = false; // Flag to prevent multiple fetches
     },
 
     onAdd: function(map) {
-        // Create control container
+        // ... (container, link, img creation as before lines 31-53) ...
         const container = L.DomUtil.create('div', 'leaflet-control-live leaflet-bar leaflet-control');
         const link = L.DomUtil.create('a', 'leaflet-control-button', container);
         link.href = '#';
         link.title = this.options.title;
-        
-        // Create icon
+
         const img = L.DomUtil.create('img', 'live-control-icon', link);
         img.src = this.options.inactiveIcon;
         img.alt = 'Live';
         img.style.width = '24px';
         img.style.height = '24px';
 
-        // Prevent click propagation
         L.DomEvent.disableClickPropagation(container);
-        
-        // Add click handler
         L.DomEvent.on(link, 'click', this._toggleLive, this);
-        
+
         this._map = map;
         this._container = container;
         this._link = link;
         this._icon = img;
-        
+
+        // Fetch SVGs when control is added
+        this._fetchSvgs();
+
         return container;
     },
+
+    // --- NEW: Function to fetch SVG content ---
+    _fetchSvgs: function() {
+        if (this._svgsLoading || (this.canopySvgContent && this.hangGliderSvgContent)) {
+            return; // Already loaded or loading
+        }
+        this._svgsLoading = true;
+        const fetchCanopy = fetch(this.options.canopySvgUrl)
+            .then(response => response.ok ? response.text() : Promise.reject('Failed to load canopy SVG'))
+            .then(text => { this.canopySvgContent = text; })
+            .catch(error => console.error('Error fetching canopy SVG:', error));
+
+        const fetchHangGlider = fetch(this.options.hangGliderSvgUrl)
+            .then(response => response.ok ? response.text() : Promise.reject('Failed to load hang-glider SVG'))
+            .then(text => { this.hangGliderSvgContent = text; })
+            .catch(error => console.error('Error fetching hang-glider SVG:', error));
+
+        Promise.all([fetchCanopy, fetchHangGlider]).finally(() => {
+            this._svgsLoading = false;
+            // Optionally trigger a redraw if needed, though updates happen on data fetch
+        });
+    },
+    // --- END NEW ---
 
     onRemove: function(map) {
         // Clean up when control is removed
@@ -210,38 +239,82 @@ const LiveControl = L.Control.extend({
         return marker;
     },
 
+    // --- MODIFIED: _createAircraftIcon ---
     _createAircraftIcon: function(aircraft) {
-        // Determine icon based on aircraft type
-        const isHangGlider = aircraft.type === 6;
-        const isParaglider = aircraft.type === 7;
-        
-        // Get aircraft heading
-        const heading = aircraft.last_course || 0;
-        
-        // Determine icon URL based on aircraft type
-        const iconUrl = isHangGlider ? '/assets/images/hang-glider.svg' : '/assets/images/canopy.svg';
+        // Ensure SVGs are fetched if needed (e.g., if initial fetch failed)
+        if (!this.canopySvgContent || !this.hangGliderSvgContent) {
+            this._fetchSvgs();
+            // Return a placeholder or default icon while loading
+            // For simplicity, we'll proceed, but it might show errors if SVGs aren't ready
+            if (!this.canopySvgContent || !this.hangGliderSvgContent) {
+                 console.warn("SVGs not loaded yet for icon creation.");
+                 // Return a simple default icon or null
+                 return L.divIcon({ className: 'aircraft-icon-loading', iconSize: [60, 60], iconAnchor: [15, 15] });
+            }
+        }
 
-        // Create HTML for the icon using an img tag with rotation
+        const isHangGlider = aircraft.type === 6;
+        const heading = aircraft.last_course || 0;
+        const vs = aircraft.last_vs;
+
+        const baseSvg = isHangGlider ? this.hangGliderSvgContent : this.canopySvgContent;
+        const placeholderFill = isHangGlider ? this.options.hangGliderPlaceholderFill : this.options.canopyPlaceholderFill;
+        const newColor = this._getVSColor(vs); // Get color based on vertical speed
+
+        // Replace placeholder fill with the dynamic color
+        // Use a regex for safer replacement (case-insensitive, global)
+        const colorFill = `fill:${newColor};`;
+        const regex = new RegExp(placeholderFill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'); // Escape regex characters in placeholder
+        let modifiedSvg = baseSvg.replace(regex, colorFill);
+
+        // Add width and height attributes to the SVG tag itself
+        // This regex finds the opening <svg tag and adds the attributes.
+        // It assumes the <svg tag doesn't already have width/height, or replaces them if they exist (less robust).
+        // A more robust regex might be needed if SVG structures vary greatly.
+        modifiedSvg = modifiedSvg.replace(/<svg/i, `<svg width="60px" height="60px"`);
+
+
+        // Apply rotation to the wrapper div
         const iconHtml = `
-            <img src="${iconUrl}"
-                 style="width: 40px; height: 40px; transform: rotate(${heading}deg); transform-origin: center center; display: block;"
-                 alt="${isHangGlider ? 'Hang Glider' : 'Paraglider'}"/>
+            <div style="width: 60px; height: 60px; transform: rotate(${heading}deg); transform-origin: center center; display: block;">
+                ${modifiedSvg}
+            </div>
         `;
-        
-        // Create div icon with the img tag
+
         return L.divIcon({
             html: iconHtml,
-            className: 'aircraft-icon',
-            iconSize: [40, 40],
-            iconAnchor: [15, 15]
+            className: 'aircraft-icon', // Keep or adjust class name as needed
+            iconSize: [60, 60], // Keep container size
+            iconAnchor: [15, 15] // Revert anchor to original value
         });
     },
+    // --- END MODIFIED ---
 
-    _updateMarkerIcon: function(marker, aircraft) {
-        marker.setIcon(this._createAircraftIcon(aircraft));
+    // --- NEW: Helper function for VS color ---
+    _getVSColor: function(vs) {
+        if (vs <= -5.0) return '#8B0000'; // DarkRed
+        if (vs <= -3.5) return '#FF0000'; // Red
+        if (vs <= -2.5) return '#FF4500'; // OrangeRed
+        if (vs <= -1.5) return '#FFA500'; // Orange
+        if (vs <= -0.5) return '#FFD700'; // Gold
+        if (vs === 0)   return '#FFFFFF'; // White
+        if (vs >= 5.0) return '#0D400D'; // Dark Green (adjusting from table for consistency)
+        if (vs >= 3.5) return '#289628'; // ForestGreen (adjusting)
+        if (vs >= 2.5) return '#5CCD5C'; // MediumSeaGreen (adjusting)
+        if (vs >= 1.5) return '#99E699'; // LightGreen (adjusting)
+        if (vs >= 0.5) return '#CFF2CF'; // Honeydew (adjusting)
+        return '#FFFFFF'; // Default to White for vs between -0.5 and 0.5 but not 0
     },
+    // --- END NEW ---
 
-    _createPopupContent: function(aircraft) {
+    // ... (rest of the functions: _updateMarkerIcon, _createPopupContent, _updatePopupContent, _fetchAircraftTrack, _displayAircraftTrack) ...
+    // Note: _updateMarkerIcon now correctly calls the modified _createAircraftIcon
+
+     _updateMarkerIcon: function(marker, aircraft) {
+         marker.setIcon(this._createAircraftIcon(aircraft));
+     },
+
+     _createPopupContent: function(aircraft) {
         // Calculate time ago
         const lastSeen = new Date(aircraft.last_seen);
         const now = new Date();
@@ -332,12 +405,19 @@ L.control.live = function(options) {
 // Add event listener for track button clicks
 document.addEventListener('show-aircraft-track', function(e) {
     const aircraftId = e.detail;
-    // Find the LiveControl instance and call _fetchAircraftTrack
-    // This is a bit of a hack, but it works for simple cases
     if (window.map) {
         window.map.eachLayer(function(layer) {
-            if (layer instanceof L.LayerGroup && layer._live) {
-                layer._live._fetchAircraftTrack(aircraftId);
+            // Assuming the control instance might be stored differently,
+            // or accessed via a known property if added directly to map
+            // This part might need adjustment based on how LiveControl is instantiated and added
+            // A more robust way would be to keep a reference to the control instance.
+            // For now, let's assume a property _liveControl exists if added directly.
+            if (layer instanceof LiveControl) { // Check if the layer itself is the control
+                 layer._fetchAircraftTrack(aircraftId);
+            } else if (layer instanceof L.LayerGroup && layer._live) { // Original check
+                 layer._live._fetchAircraftTrack(aircraftId);
+            } else if (window.map._liveControl) { // Check for a direct property on map
+                 window.map._liveControl._fetchAircraftTrack(aircraftId);
             }
         });
     }
