@@ -241,52 +241,73 @@ const LiveControl = L.Control.extend({
 
     // --- MODIFIED: _createAircraftIcon ---
     _createAircraftIcon: function(aircraft) {
-        // Ensure SVGs are fetched if needed (e.g., if initial fetch failed)
-        if (!this.canopySvgContent || !this.hangGliderSvgContent) {
-            this._fetchSvgs();
-            // Return a placeholder or default icon while loading
-            // For simplicity, we'll proceed, but it might show errors if SVGs aren't ready
-            if (!this.canopySvgContent || !this.hangGliderSvgContent) {
-                 console.warn("SVGs not loaded yet for icon creation.");
-                 // Return a simple default icon or null
-                 return L.divIcon({ className: 'aircraft-icon-loading', iconSize: [60, 60], iconAnchor: [15, 15] });
+        const agl = aircraft.last_alt_agl;
+        const speed = aircraft.last_speed_kmh;
+        const iconSize = [40, 40]; // Requested size for ground states
+        const iconAnchor = [20, 20]; // Center anchor for 40x40
+
+        // Ground States (Resting, Hiking, Driving)
+        if (agl < 5) {
+            let iconUrl;
+            if (speed === 0) {
+                iconUrl = '/assets/images/resting.svg';
+            } else if (speed > 0 && speed <= 16) {
+                iconUrl = '/assets/images/hiking.svg';
+            } else { // speed > 16
+                iconUrl = '/assets/images/driving.svg';
             }
+            return L.icon({
+                iconUrl: iconUrl,
+                iconSize: iconSize,
+                iconAnchor: iconAnchor,
+                className: 'ground-aircraft-icon' // Add a class for potential styling
+            });
         }
 
-        const isHangGlider = aircraft.type === 6;
-        const heading = aircraft.last_course || 0;
-        const vs = aircraft.last_vs;
+        // Flying State (Existing logic)
+        else {
+            // Ensure SVGs for flying state are fetched if needed
+            if (!this.canopySvgContent || !this.hangGliderSvgContent) {
+                this._fetchSvgs();
+                if (!this.canopySvgContent || !this.hangGliderSvgContent) {
+                    console.warn("Flying SVGs not loaded yet for icon creation.");
+                    // Return a simple default icon or null for flying state while loading
+                    return L.divIcon({ className: 'aircraft-icon-loading', iconSize: [60, 60], iconAnchor: [30, 30] }); // Adjusted anchor
+                }
+            }
 
-        const baseSvg = isHangGlider ? this.hangGliderSvgContent : this.canopySvgContent;
-        const placeholderFill = isHangGlider ? this.options.hangGliderPlaceholderFill : this.options.canopyPlaceholderFill;
-        const newColor = this._getVSColor(vs); // Get color based on vertical speed
+            const isHangGlider = aircraft.type === 6;
+            const heading = aircraft.last_course || 0;
+            const vs = aircraft.last_vs;
+            const flyingIconSize = [60, 60]; // Keep original flying size
+            const flyingIconAnchor = [30, 30]; // Center anchor for 60x60
 
-        // Replace placeholder fill with the dynamic color
-        // Use a regex for safer replacement (case-insensitive, global)
-        const colorFill = `fill:${newColor};`;
-        const regex = new RegExp(placeholderFill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'); // Escape regex characters in placeholder
-        let modifiedSvg = baseSvg.replace(regex, colorFill);
+            const baseSvg = isHangGlider ? this.hangGliderSvgContent : this.canopySvgContent;
+            const placeholderFill = isHangGlider ? this.options.hangGliderPlaceholderFill : this.options.canopyPlaceholderFill;
+            const newColor = this._getVSColor(vs); // Get color based on vertical speed
 
-        // Add width and height attributes to the SVG tag itself
-        // This regex finds the opening <svg tag and adds the attributes.
-        // It assumes the <svg tag doesn't already have width/height, or replaces them if they exist (less robust).
-        // A more robust regex might be needed if SVG structures vary greatly.
-        modifiedSvg = modifiedSvg.replace(/<svg/i, `<svg width="60px" height="60px"`);
+            // Replace placeholder fill with the dynamic color
+            const colorFill = `fill:${newColor};`;
+            const regex = new RegExp(placeholderFill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+            let modifiedSvg = baseSvg.replace(regex, colorFill);
 
+            // Ensure SVG has width/height attributes
+            modifiedSvg = modifiedSvg.replace(/<svg/i, `<svg width="${flyingIconSize[0]}px" height="${flyingIconSize[1]}px"`);
 
-        // Apply rotation to the wrapper div
-        const iconHtml = `
-            <div style="width: 60px; height: 60px; transform: rotate(${heading}deg); transform-origin: center center; display: block;">
-                ${modifiedSvg}
-            </div>
-        `;
+            // Apply rotation to the wrapper div
+            const iconHtml = `
+                <div style="width: ${flyingIconSize[0]}px; height: ${flyingIconSize[1]}px; transform: rotate(${heading}deg); transform-origin: center center; display: block;">
+                    ${modifiedSvg}
+                </div>
+            `;
 
-        return L.divIcon({
-            html: iconHtml,
-            className: 'aircraft-icon', // Keep or adjust class name as needed
-            iconSize: [60, 60], // Keep container size
-            iconAnchor: [15, 15] // Revert anchor to original value
-        });
+            return L.divIcon({
+                html: iconHtml,
+                className: 'flying-aircraft-icon', // Specific class for flying
+                iconSize: flyingIconSize,
+                iconAnchor: flyingIconAnchor
+            });
+        }
     },
     // --- END MODIFIED ---
 
