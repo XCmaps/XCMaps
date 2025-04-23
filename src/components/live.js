@@ -16,8 +16,10 @@ const LiveControl = L.Control.extend({
         trackOpacity: 0.8,
         canopySvgUrl: '/assets/images/canopy.svg',
         hangGliderSvgUrl: '/assets/images/hang-glider.svg',
+        drivingSvgUrl: '/assets/images/driving.svg', // Added driving SVG URL
         canopyPlaceholderFill: 'fill:#0000ff;',
         hangGliderPlaceholderFill: 'fill:#ff0000;'
+        // No placeholder needed for driving SVG unless color change is required later
     },
 
     initialize: function(options) {
@@ -29,8 +31,9 @@ const LiveControl = L.Control.extend({
         this.trackLayer = L.layerGroup();
         this.refreshTimer = null;
         this.selectedAircraft = null;
-        this.canopySvgContent = null; // To store fetched SVG
-        this.hangGliderSvgContent = null; // To store fetched SVG
+        this.canopySvgContent = null; // To store fetched canopy SVG
+        this.hangGliderSvgContent = null; // To store fetched hang-glider SVG
+        this.drivingSvgContent = null; // To store fetched driving SVG
         this._svgsLoading = false; // Flag to prevent multiple fetches
     },
 
@@ -61,28 +64,59 @@ const LiveControl = L.Control.extend({
         return container;
     },
 
-    // --- NEW: Function to fetch SVG content ---
+    // --- MODIFIED: Function to fetch SVG content ---
     _fetchSvgs: function() {
-        if (this._svgsLoading || (this.canopySvgContent && this.hangGliderSvgContent)) {
-            return; // Already loaded or loading
+        // Check if already loading or if all SVGs are loaded
+        if (this._svgsLoading || (this.canopySvgContent && this.hangGliderSvgContent && this.drivingSvgContent)) {
+            return;
         }
         this._svgsLoading = true;
-        const fetchCanopy = fetch(this.options.canopySvgUrl)
-            .then(response => response.ok ? response.text() : Promise.reject('Failed to load canopy SVG'))
-            .then(text => { this.canopySvgContent = text; })
-            .catch(error => console.error('Error fetching canopy SVG:', error));
 
-        const fetchHangGlider = fetch(this.options.hangGliderSvgUrl)
-            .then(response => response.ok ? response.text() : Promise.reject('Failed to load hang-glider SVG'))
-            .then(text => { this.hangGliderSvgContent = text; })
-            .catch(error => console.error('Error fetching hang-glider SVG:', error));
+        const fetches = [];
 
-        Promise.all([fetchCanopy, fetchHangGlider]).finally(() => {
+        // Fetch Canopy SVG if not already loaded
+        if (!this.canopySvgContent) {
+            fetches.push(
+                fetch(this.options.canopySvgUrl)
+                    .then(response => response.ok ? response.text() : Promise.reject('Failed to load canopy SVG'))
+                    .then(text => { this.canopySvgContent = text; })
+                    .catch(error => console.error('Error fetching canopy SVG:', error))
+            );
+        }
+
+        // Fetch Hang Glider SVG if not already loaded
+        if (!this.hangGliderSvgContent) {
+            fetches.push(
+                fetch(this.options.hangGliderSvgUrl)
+                    .then(response => response.ok ? response.text() : Promise.reject('Failed to load hang-glider SVG'))
+                    .then(text => { this.hangGliderSvgContent = text; })
+                    .catch(error => console.error('Error fetching hang-glider SVG:', error))
+            );
+        }
+
+        // Fetch Driving SVG if not already loaded
+        if (!this.drivingSvgContent) {
+            fetches.push(
+                fetch(this.options.drivingSvgUrl)
+                    .then(response => response.ok ? response.text() : Promise.reject('Failed to load driving SVG'))
+                    .then(text => { this.drivingSvgContent = text; })
+                    .catch(error => console.error('Error fetching driving SVG:', error))
+            );
+        }
+
+
+        Promise.all(fetches).finally(() => {
             this._svgsLoading = false;
             // Optionally trigger a redraw if needed, though updates happen on data fetch
+            // If live is active, maybe trigger a data fetch to update icons that might have been placeholders
+             if (this.active) {
+                 // Find markers that might need updating (e.g., those using loading icons)
+                 // This might require iterating markers or triggering a full _fetchAircraftData
+                 // For simplicity, let's rely on the next scheduled update or map move.
+             }
         });
     },
-    // --- END NEW ---
+    // --- END MODIFIED ---
 
     onRemove: function(map) {
         // Clean up when control is removed
@@ -243,41 +277,67 @@ const LiveControl = L.Control.extend({
     _createAircraftIcon: function(aircraft) {
         const agl = aircraft.last_alt_agl;
         const speed = aircraft.last_speed_kmh;
-        const iconSize = [40, 40]; // Requested size for ground states
-        const iconAnchor = [20, 20]; // Center anchor for 40x40
+        const heading = aircraft.last_course || 0;
+        const groundIconSize = [30, 30]; // Updated size for ground states
+        const groundIconAnchor = [15, 15]; // Center anchor for 30x30
+
+        // Ensure SVGs are fetched if needed (especially for driving)
+        this._fetchSvgs(); // Call fetchSvgs to ensure all SVGs are requested
 
         // Ground States (Resting, Hiking, Driving)
         if (agl < 5) {
-            let iconUrl;
-            if (speed === 0) {
-                iconUrl = '/assets/images/resting.svg';
-            } else if (speed > 0 && speed <= 16) {
-                iconUrl = '/assets/images/hiking.svg';
-            } else { // speed > 16
-                iconUrl = '/assets/images/driving.svg';
+            if (speed === 0) { // Resting
+                return L.icon({
+                    iconUrl: '/assets/images/resting.svg',
+                    iconSize: groundIconSize,
+                    iconAnchor: groundIconAnchor,
+                    className: 'resting-aircraft-icon ground-aircraft-icon'
+                });
+            } else if (speed > 0 && speed <= 16) { // Hiking
+                return L.icon({
+                    iconUrl: '/assets/images/hiking.svg',
+                    iconSize: groundIconSize,
+                    iconAnchor: groundIconAnchor,
+                    className: 'hiking-aircraft-icon ground-aircraft-icon'
+                });
+            } else { // Driving (speed > 16)
+                if (!this.drivingSvgContent) {
+                    console.warn("Driving SVG not loaded yet.");
+                    // Return a placeholder loading icon for driving state
+                    return L.divIcon({ className: 'aircraft-icon-loading', iconSize: groundIconSize, iconAnchor: groundIconAnchor });
+                }
+
+                // Ensure driving SVG has width/height attributes
+                let drivingSvg = this.drivingSvgContent.replace(/<svg/i, `<svg width="${groundIconSize[0]}px" height="${groundIconSize[1]}px"`);
+
+                // Apply rotation to the wrapper div for driving icon
+                const iconHtml = `
+                    <div style="width: ${groundIconSize[0]}px; height: ${groundIconSize[1]}px; transform: rotate(${heading}deg); transform-origin: center center; display: block;">
+                        ${drivingSvg}
+                    </div>
+                `;
+
+                return L.divIcon({
+                    html: iconHtml,
+                    className: 'driving-aircraft-icon ground-aircraft-icon', // Specific class for driving
+                    iconSize: groundIconSize,
+                    iconAnchor: groundIconAnchor
+                });
             }
-            return L.icon({
-                iconUrl: iconUrl,
-                iconSize: iconSize,
-                iconAnchor: iconAnchor,
-                className: 'ground-aircraft-icon' // Add a class for potential styling
-            });
         }
 
-        // Flying State (Existing logic)
+        // Flying State (Existing logic - size 60x60)
         else {
             // Ensure SVGs for flying state are fetched if needed
             if (!this.canopySvgContent || !this.hangGliderSvgContent) {
-                this._fetchSvgs();
-                if (!this.canopySvgContent || !this.hangGliderSvgContent) {
+                 // Fetch might have been called above, check again
+                 if (!this.canopySvgContent || !this.hangGliderSvgContent) {
                     console.warn("Flying SVGs not loaded yet for icon creation.");
-                    // Return a simple default icon or null for flying state while loading
-                    return L.divIcon({ className: 'aircraft-icon-loading', iconSize: [60, 60], iconAnchor: [30, 30] }); // Adjusted anchor
-                }
+                    return L.divIcon({ className: 'aircraft-icon-loading', iconSize: [60, 60], iconAnchor: [30, 30] });
+                 }
             }
 
             const isHangGlider = aircraft.type === 6;
-            const heading = aircraft.last_course || 0;
             const vs = aircraft.last_vs;
             const flyingIconSize = [60, 60]; // Keep original flying size
             const flyingIconAnchor = [30, 30]; // Center anchor for 60x60
@@ -365,7 +425,7 @@ const LiveControl = L.Control.extend({
         return `
    <div class="aircraft-popup">
                 <p><strong style="color:#007bff;">${aircraft.pilot_name}</strong> ${formattedTimeAgo}</p>
-                <p><strong>${aircraft.last_alt_msl}m </strong>(${aircraft.last_alt_agl} AGL) <strong>${aircraft.last_vs}m/s</strong></p>
+                <p><strong>${aircraft.last_alt_msl} m </strong>[${aircraft.last_alt_agl} AGL] <strong>${aircraft.last_vs}m/s</strong></p>
             </div>
         `;
     },

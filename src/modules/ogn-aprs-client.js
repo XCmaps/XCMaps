@@ -1116,14 +1116,28 @@ class OgnAprsClient extends EventEmitter {
     try {
       // Look up pilot name from DB
       const pilotName = await this.lookupPilotName(data.deviceId); // Added await and call
-      
+
       // Calculate AGL using SRTM elevation data
       const altAgl = await this.calculateAGL(data.lat, data.lon, data.altMsl);
-      
+
       client = await this.dbPool.connect();
       await client.query('BEGIN');
-      
+
+      // Extract data fields - including the type from ID passed from parseAprsPacket
+      let { // Use let for type as it might be overridden
+        id, name, type, timestamp, lat, lon, alt_msl, /* alt_agl is calculated */
+        course, speed_kmh, vs, turn_rate, raw_packet, device_id, /* pilot_name is looked up */
+        aircraftTypeFromId // Get the type derived from ID
+      } = data; // Destructure from original data object
+
+      // If aircraftTypeFromId is valid (6 or 7), use it to override the type from APRS symbol
+      if (aircraftTypeFromId === 6 || aircraftTypeFromId === 7) {
+          console.log(`OGN Store: Overriding type for ${id} with ID-based type: ${aircraftTypeFromId}`);
+          type = aircraftTypeFromId; // Override the type
+      }
+
       // Update or insert aircraft record, now including pilot_name and calculated AGL
+      // Use the potentially overridden 'type' variable below in the query parameters
       await client.query(`
         INSERT INTO aircraft (
           id, name, type, last_seen, last_lat, last_lon,
@@ -1148,7 +1162,7 @@ class OgnAprsClient extends EventEmitter {
       `, [
         data.id,            // $1
         data.name,          // $2
-        data.aircraftType,  // $3
+        type,               // $3 - Use potentially overridden type
         data.timestamp,     // $4
         data.lat,           // $5
         data.lon,           // $6
