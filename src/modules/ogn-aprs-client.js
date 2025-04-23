@@ -40,6 +40,7 @@ class OgnAprsClient extends EventEmitter {
     this.puretrackRefreshTimer = null; // Timer for PureTrack refresh
     this.lastCleanup = Date.now();
     this.aircraftCache = new Map(); // Cache for current aircraft positions (keep this one)
+    this.flarmnetCache = new Map(); // Cache for Flarmnet data
     
     // Initialize elevation modules
     this.srtmElevation = new SrtmElevation(dbPool);
@@ -515,6 +516,11 @@ class OgnAprsClient extends EventEmitter {
           if (i < 10) console.log(`Flarmnet SKIPPING Record ${i} (ID: ${currentFlarmId || 'null'}) due to invalid ID.`);
           continue;
         }
+
+        // Add registration to the cache if available
+        if (registration) {
+          this.flarmnetCache.set(currentFlarmId, registration);
+        }
         
         // Log successful inserts
         if (processedCount < 10) {
@@ -910,17 +916,20 @@ class OgnAprsClient extends EventEmitter {
         flarmId = callsign.substring(3).toUpperCase();
       }
       
-      // Look up pilot name from device ID or FLARM ID
-      let pilotName = null;
+      // Look up registration from Flarmnet cache if FLARM ID is available
+      let registration = null;
+      // We prioritize deviceId lookup if available (assuming lookupPilotName might return registration or similar identifier)
       if (deviceId) {
-        pilotName = await this.lookupPilotName(deviceId);
+        // Assuming lookupPilotName might return a registration or relevant name based on device ID
+        registration = await this.lookupPilotName(deviceId);
       }
-      if (!pilotName && flarmId) {
-        pilotName = this.flarmnetCache.get(flarmId);
+      // If no registration found via deviceId and we have a flarmId, try the cache
+      if (!registration && flarmId) {
+        registration = this.flarmnetCache.get(flarmId);
       }
       
-      // Use pilot name if available, otherwise use the callsign
-      const name = pilotName || callsign;
+      // Use registration if available, otherwise use the callsign
+      const name = registration || callsign;
       
       // Calculate AGL using SRTM elevation data
       const altAgl = await this.calculateAGL(positionData.lat, positionData.lon, positionData.altMsl || 0);
@@ -941,7 +950,7 @@ class OgnAprsClient extends EventEmitter {
         aircraftType: aircraftInfo.aircraftType,
         addressType: aircraftInfo.addressType,
         deviceId: deviceId,
-        pilotName: pilotName,
+        pilotName: registration, // Use the registration found (or null)
         rawPacket: packet // Store the raw APRS packet for debugging
       };
     } catch (err) {
