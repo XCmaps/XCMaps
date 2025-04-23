@@ -425,7 +425,7 @@ const LiveControl = L.Control.extend({
         return `
    <div class="aircraft-popup">
                 <p><strong style="color:#007bff;">${aircraft.pilot_name}</strong> ${formattedTimeAgo}</p>
-                <p><strong>${aircraft.last_alt_msl} m </strong>[${aircraft.last_alt_agl} AGL] <strong>${aircraft.last_vs}m/s</strong></p>
+                <p><strong>${aircraft.last_alt_msl} m </strong>[${aircraft.last_alt_agl} AGL] <strong style="color: ${aircraft.last_vs > 0 ? 'green' : aircraft.last_vs < 0 ? 'red' : 'black'};">${aircraft.last_vs}m/s</strong></p>
             </div>
         `;
     },
