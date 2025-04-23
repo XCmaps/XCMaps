@@ -12,7 +12,7 @@
 
 /* Aircraft Popup Styles */
 .aircraft-popup {
-    padding: 5px;
+    /* padding: 5px; /* Removed padding */
     max-width: 250px;
 }
 
@@ -94,8 +94,6 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
-    padding-bottom: 8px;
     /*  border-bottom: 1px solid #eee; */
 }
 
@@ -158,11 +156,11 @@
 }
 
 input:checked + .slider {
-  background-color: #2196F3; /* Blue when checked */
+  background-color: rgb(76, 175, 80); /* green when checked */
 }
 
 input:focus + .slider {
-  box-shadow: 0 0 1px #2196F3;
+  box-shadow: 0 0 1px rgb(76, 175, 80);
 }
 
 input:checked + .slider:before {
@@ -178,4 +176,27 @@ input:checked + .slider:before {
 
 .slider.round:before {
   border-radius: 50%;
+}
+/* Override Leaflet default styles for aircraft-popup */
+/* Override Leaflet styles when .aircraft-popup is present inside */
+.leaflet-popup-content-wrapper:has(.aircraft-popup) {
+    border-radius: 4px !important;
+    padding-left: 5px !important; /* Added padding */
+    padding-right: 5px !important; /* Added padding */
+    /* Note: Default Leaflet padding is 1px top/bottom. Keep that? */
+    /* padding-top: 1px; */
+    /* padding-bottom: 1px; */
+}
+
+.leaflet-popup-content:has(.aircraft-popup) {
+    margin: 0 !important;
+}
+
+/* Hide close button and tip for aircraft popups */
+.leaflet-popup:has(.aircraft-popup) .leaflet-popup-close-button {
+    display: none !important;
+}
+
+.leaflet-popup:has(.aircraft-popup) .leaflet-popup-tip-container {
+    display: none !important;
 }

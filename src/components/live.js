@@ -512,7 +512,7 @@ const LiveControl = L.Control.extend({
             // More than an hour ago: (-HH:MM h)
             const hours = String(Math.floor(diffSeconds / 3600)).padStart(2, '0');
             const minutes = String(Math.floor((diffSeconds % 3600) / 60)).padStart(2, '0');
-            formattedTimeAgo = `(-${hours}:${minutes} h)`;
+            formattedTimeAgo = `-${hours}:${minutes} h`;
         }
 
         // Determine aircraft type (though not used in the popup string anymore)
@@ -522,7 +522,7 @@ const LiveControl = L.Control.extend({
         return `
    <div class="aircraft-popup">
                 <p><strong style="color:#007bff;">${aircraft.pilot_name}</strong> ${formattedTimeAgo}</p>
-                <p><strong>${aircraft.last_alt_msl} m </strong>[${aircraft.last_alt_agl} AGL] <strong style="color: ${aircraft.last_vs > 0 ? 'green' : aircraft.last_vs < 0 ? 'red' : 'black'};">${aircraft.last_vs}m/s</strong></p>
+                <p><strong>${aircraft.last_alt_msl} m </strong>[${aircraft.last_alt_agl} AGL]</strong> <strong style="color: ${aircraft.last_vs > 0 ? 'green' : aircraft.last_vs < 0 ? 'red' : 'black'};">${aircraft.last_vs}m/s</strong></p>
             </div>
         `;
     },
