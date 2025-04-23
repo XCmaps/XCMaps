@@ -31,10 +31,19 @@ const LiveControl = L.Control.extend({
         this.trackLayer = L.layerGroup();
         this.refreshTimer = null;
         this.selectedAircraft = null;
-        this.canopySvgContent = null; // To store fetched canopy SVG
-        this.hangGliderSvgContent = null; // To store fetched hang-glider SVG
-        this.drivingSvgContent = null; // To store fetched driving SVG
-        this._svgsLoading = false; // Flag to prevent multiple fetches
+        this.canopySvgContent = null;
+        this.hangGliderSvgContent = null;
+        this.drivingSvgContent = null;
+        this._svgsLoading = false;
+        this._configBadgeOpen = false; // Track if config badge is open
+
+        // --- NEW: Live Settings State ---
+        this._liveSettings = {
+            showResting: true,
+            showHiking: true,
+            showDriving: true
+        };
+        // --- END NEW ---
     },
 
     onAdd: function(map) {
@@ -51,10 +60,11 @@ const LiveControl = L.Control.extend({
         img.style.height = '24px';
 
         L.DomEvent.disableClickPropagation(container);
-        L.DomEvent.on(link, 'click', this._toggleLive, this);
+        // --- MODIFIED: Attach click to container ---
+        L.DomEvent.on(container, 'click', this._handleControlClick, this);
 
         this._map = map;
-        this._container = container;
+        this._container = container; // Keep reference to the main control container
         this._link = link;
         this._icon = img;
 
@@ -121,18 +131,31 @@ const LiveControl = L.Control.extend({
     onRemove: function(map) {
         // Clean up when control is removed
         this._deactivateLive();
-        L.DomEvent.off(this._link, 'click', this._toggleLive, this);
+        // Ensure the original click listener on the link (if it existed) is removed
+        // L.DomEvent.off(this._link, 'click', this._toggleLive, this); // Original listener was on link
+        // Remove the new listener on the container
+        L.DomEvent.off(this._container, 'click', this._handleControlClick, this);
     },
 
-    _toggleLive: function(e) {
+    // --- MODIFIED: Handle clicks on the control ---
+    _handleControlClick: function(e) {
         L.DomEvent.stop(e);
-        
+
         if (this.active) {
-            this._deactivateLive();
+            // If active, show/hide the config badge
+            if (this._configBadgeOpen) {
+                this._closeConfigBadge();
+            } else {
+                this._showConfigBadge();
+            }
         } else {
+            // If inactive, activate live mode
             this._activateLive();
         }
     },
+    // --- END MODIFIED ---
+
+    // --- REMOVED: _toggleLive (replaced by _handleControlClick) ---
 
     _activateLive: function() {
         // Update UI to active state
@@ -157,9 +180,14 @@ const LiveControl = L.Control.extend({
     },
 
     _deactivateLive: function() {
+        // --- NEW: Close config badge if open ---
+        if (this._configBadgeOpen) {
+            this._closeConfigBadge();
+        }
+        // --- END NEW ---
+
         // Update UI to inactive state
         this.active = false;
-        // Update UI to inactive state
         this._icon.src = this.options.inactiveIcon;
 
         // Clear refresh timer
@@ -204,31 +232,49 @@ const LiveControl = L.Control.extend({
             });
     },
 
+    // --- MODIFIED: _updateAircraft to filter based on settings ---
     _updateAircraft: function(aircraftData) {
         if (!this.active) return;
 
-        // Track which aircraft are still active
         const activeAircraftIds = new Set();
+        const now = Date.now(); // For checking staleness if needed
 
-        // Update or add markers for each aircraft
-        aircraftData.forEach(aircraft => {
-            activeAircraftIds.add(aircraft.id);
+        // Filter aircraft based on current settings BEFORE processing markers
+        const filteredAircraft = aircraftData.filter(aircraft => {
+            const agl = aircraft.last_alt_agl;
+            const speed = aircraft.last_speed_kmh;
+
+            if (agl < 5) { // Ground states
+                if (speed === 0 && !this._liveSettings.showResting) return false;
+                if (speed > 0 && speed <= 16 && !this._liveSettings.showHiking) return false;
+                if (speed > 16 && !this._liveSettings.showDriving) return false;
+            }
+            // Add future filters here (e.g., staleness)
+            return true; // Keep flying aircraft and visible ground states
+        });
+
+        // Process filtered aircraft: Update or add markers
+        filteredAircraft.forEach(aircraft => {
+            activeAircraftIds.add(aircraft.id); // Add ID even if marker creation fails
 
             if (this.markers[aircraft.id]) {
                 // Update existing marker
                 this.markers[aircraft.id].setLatLng([aircraft.last_lat, aircraft.last_lon]);
-                this._updateMarkerIcon(this.markers[aircraft.id], aircraft);
+                this._updateMarkerIcon(this.markers[aircraft.id], aircraft); // Icon might change (e.g., flying -> landing)
                 this._updatePopupContent(this.markers[aircraft.id], aircraft);
             } else {
-                // Create new marker
-                this._createAircraftMarker(aircraft);
+                // Attempt to create new marker (might return null if filtered by _createAircraftMarker)
+                const newMarker = this._createAircraftMarker(aircraft);
+                // Note: _createAircraftMarker now handles the initial visibility check
             }
         });
 
-        // Remove markers for aircraft that are no longer active
+        // Remove markers for aircraft that are no longer active OR are now filtered out
         Object.keys(this.markers).forEach(id => {
             if (!activeAircraftIds.has(id)) {
-                this.aircraftLayer.removeLayer(this.markers[id]);
+                if (this.markers[id]) { // Check if marker exists before removing
+                    this.aircraftLayer.removeLayer(this.markers[id]);
+                }
                 delete this.markers[id];
 
                 // Remove track if exists
@@ -239,29 +285,57 @@ const LiveControl = L.Control.extend({
             }
         });
 
-        // Update track for selected aircraft if needed
+        // Update track for selected aircraft if it's still visible
         if (this.selectedAircraft && activeAircraftIds.has(this.selectedAircraft)) {
             this._fetchAircraftTrack(this.selectedAircraft);
+        } else if (this.selectedAircraft && !activeAircraftIds.has(this.selectedAircraft)) {
+             // If selected aircraft is no longer visible, clear selection and track
+             if (this.tracks[this.selectedAircraft]) {
+                 this.trackLayer.removeLayer(this.tracks[this.selectedAircraft]);
+                 delete this.tracks[this.selectedAircraft];
+             }
+             this.selectedAircraft = null;
         }
     },
+    // --- END MODIFIED ---
 
+    // --- MODIFIED: _createAircraftMarker to check visibility settings ---
     _createAircraftMarker: function(aircraft) {
+        // --- NEW: Check visibility settings before creating ground markers ---
+        const agl = aircraft.last_alt_agl;
+        const speed = aircraft.last_speed_kmh;
+        if (agl < 5) { // Ground states
+             if (speed === 0 && !this._liveSettings.showResting) return null; // Don't create marker
+             if (speed > 0 && speed <= 16 && !this._liveSettings.showHiking) return null; // Don't create marker
+             if (speed > 16 && !this._liveSettings.showDriving) return null; // Don't create marker
+        }
+        // --- END NEW ---
+
+
+        // Create icon first (might return loading icon)
+        const icon = this._createAircraftIcon(aircraft);
+        if (!icon) return null; // If icon creation failed (e.g., SVG not loaded yet)
+
         // Create marker
         const marker = L.marker([aircraft.last_lat, aircraft.last_lon], {
-            icon: this._createAircraftIcon(aircraft),
-            title: aircraft.name,
-            alt: aircraft.name,
+            icon: icon,
+            title: aircraft.name || aircraft.id, // Use ID as fallback title
+            alt: aircraft.name || aircraft.id,
             aircraftId: aircraft.id
         });
 
         // Create popup content
         const popupContent = this._createPopupContent(aircraft);
-        
+
         // Bind popup
         marker.bindPopup(popupContent);
 
         // Add click handler to show track
         marker.on('click', (e) => {
+            // If the config badge is open, close it first
+            if (this._configBadgeOpen) {
+                this._closeConfigBadge();
+            }
             this.selectedAircraft = aircraft.id;
             this._fetchAircraftTrack(aircraft.id);
         });
@@ -272,6 +346,7 @@ const LiveControl = L.Control.extend({
 
         return marker;
     },
+    // --- END MODIFIED ---
 
     // --- MODIFIED: _createAircraftIcon ---
     _createAircraftIcon: function(aircraft) {
@@ -417,10 +492,10 @@ const LiveControl = L.Control.extend({
             const minutes = String(Math.floor((diffSeconds % 3600) / 60)).padStart(2, '0');
             formattedTimeAgo = `(-${hours}:${minutes} h)`;
         }
-        
+
         // Determine aircraft type (though not used in the popup string anymore)
         const aircraftType = aircraft.type === 6 ? 'Hang Glider' : 'Paraglider';
-        
+
         // Create popup content
         return `
    <div class="aircraft-popup">
@@ -457,7 +532,7 @@ const LiveControl = L.Control.extend({
         // Create track line
         if (trackData.length > 0) {
             const trackPoints = trackData.map(point => [point.lat, point.lon]);
-            
+
             // Create polyline with gradient color based on altitude
             const track = L.polyline(trackPoints, {
                 color: this.options.trackColor,
@@ -469,39 +544,202 @@ const LiveControl = L.Control.extend({
             // Add to layer and store reference
             this.trackLayer.addLayer(track);
             this.tracks[aircraftId] = track;
- 
+
             // Altitude markers removed as requested
             // this._addAltitudeMarkers(aircraftId, trackData);
         }
-    }
- 
+    },
+
     // _addAltitudeMarkers function removed as it's no longer called
+
+    // --- NEW: Methods for Config Badge and Preferences ---
+    _showConfigBadge: function() {
+        if (this._configBadgeOpen) return; // Already open
+
+        this._configBadgeOpen = true;
+        // --- MODIFIED: Append badge to parent container for correct positioning ---
+        const badge = L.DomUtil.create('div', 'live-config-badge', this._container.parentNode);
+        badge.id = 'live-config-badge';
+
+        // Stop propagation to prevent map clicks when interacting with the badge
+        L.DomEvent.disableClickPropagation(badge);
+        L.DomEvent.on(badge, 'mousedown wheel', L.DomEvent.stopPropagation); // Prevent map drag/zoom
+
+        // Badge Content (Toggles)
+        badge.innerHTML = `
+            <div class="live-config-row live-config-header">
+                <span style="font-size: 14px; font-weight: 700;">Live!</span>
+                <label class="switch">
+                    <input type="checkbox" id="live-toggle-main" checked>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <div class="live-config-row">
+                <span style="font-size: 14px;">Resting pilots</span>
+                <label class="switch">
+                    <input type="checkbox" id="live-toggle-resting" ${this._liveSettings.showResting ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <div class="live-config-row">
+                <span style="font-size: 14px;">Hiking pilots</span>
+                <label class="switch">
+                    <input type="checkbox" id="live-toggle-hiking" ${this._liveSettings.showHiking ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <div class="live-config-row">
+                <span style="font-size: 14px;">Driving pilots</span>
+                <label class="switch">
+                    <input type="checkbox" id="live-toggle-driving" ${this._liveSettings.showDriving ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        `;
+
+        // Add Event Listeners to Toggles
+        const mainToggle = badge.querySelector('#live-toggle-main');
+        const restingToggle = badge.querySelector('#live-toggle-resting');
+        const hikingToggle = badge.querySelector('#live-toggle-hiking');
+        const drivingToggle = badge.querySelector('#live-toggle-driving');
+
+        L.DomEvent.on(mainToggle, 'change', (e) => {
+            if (!e.target.checked) {
+                this._deactivateLive(); // Deactivate if main toggle is turned off
+            }
+        });
+
+        const updateSetting = (key, checked) => {
+            if (this._liveSettings[key] !== checked) {
+                this._liveSettings[key] = checked;
+                this._fetchAircraftData(); // Re-fetch and filter data
+                // Trigger preference save check (needs access to keycloak-auth logic)
+                // This might require emitting a custom event or calling a global function
+                document.dispatchEvent(new CustomEvent('xcmaps-preferences-changed'));
+                console.log(`Live setting changed: ${key} = ${checked}`);
+            }
+        };
+
+        L.DomEvent.on(restingToggle, 'change', (e) => updateSetting('showResting', e.target.checked));
+        L.DomEvent.on(hikingToggle, 'change', (e) => updateSetting('showHiking', e.target.checked));
+        L.DomEvent.on(drivingToggle, 'change', (e) => updateSetting('showDriving', e.target.checked));
+
+
+        // Add listener to close badge when clicking outside
+        // Use a timeout to prevent immediate closing due to the initial click
+        setTimeout(() => {
+            // Store listener reference to remove it later
+            this._closeBadgeClickListener = (event) => {
+                // Check if the click target is outside the badge and the control container
+                if (badge && (!badge.contains(event.target) && !this._container.contains(event.target))) {
+                    this._closeConfigBadge(); // Pass the event if needed, though not strictly necessary here
+                }
+            };
+            L.DomEvent.on(document, 'click', this._closeBadgeClickListener, this);
+        }, 0);
+    },
+
+    _closeConfigBadge: function() { // Removed 'e' as it's not always passed/needed here
+        const badge = document.getElementById('live-config-badge');
+        if (badge) {
+             badge.remove();
+        }
+        this._configBadgeOpen = false;
+        // Remove the document click listener
+        if (this._closeBadgeClickListener) {
+             L.DomEvent.off(document, 'click', this._closeBadgeClickListener, this);
+             this._closeBadgeClickListener = null;
+        }
+    },
+
+    getLiveSettings: function() {
+        // Return a copy to prevent direct modification
+        return { ...this._liveSettings };
+    },
+
+    applyLivePreferences: function(settings) {
+        if (!settings) return;
+
+        let changed = false;
+        // Apply settings, checking type and if value actually changed
+        if (typeof settings.showResting === 'boolean' && this._liveSettings.showResting !== settings.showResting) {
+            this._liveSettings.showResting = settings.showResting;
+            changed = true;
+        }
+        if (typeof settings.showHiking === 'boolean' && this._liveSettings.showHiking !== settings.showHiking) {
+            this._liveSettings.showHiking = settings.showHiking;
+            changed = true;
+        }
+        if (typeof settings.showDriving === 'boolean' && this._liveSettings.showDriving !== settings.showDriving) {
+            this._liveSettings.showDriving = settings.showDriving;
+            changed = true;
+        }
+
+        console.log("Applied live preferences:", this._liveSettings);
+
+        // If settings changed and live mode is active, refresh the data
+        if (changed && this.active) {
+            this._fetchAircraftData();
+        }
+
+        // Update badge if open (simpler to just close it)
+        if (this._configBadgeOpen) {
+             this._closeConfigBadge();
+        }
+    }
+    // --- END NEW ---
+
 });
 
 // Factory function to create the control
 L.control.live = function(options) {
-    return new LiveControl(options);
+    // --- MODIFIED: Store instance globally ---
+    // Ensure window.liveControl is not overwritten if already exists (e.g., HMR)
+    if (!window.liveControl) {
+        window.liveControl = new LiveControl(options);
+    } else {
+        // Optionally update options if needed, or just return existing
+        L.Util.setOptions(window.liveControl, options);
+        console.log("LiveControl already exists, updated options.");
+    }
+    return window.liveControl;
+    // --- END MODIFIED ---
 };
 
-// Add event listener for track button clicks
+// Add event listener for track button clicks (No changes needed here)
 document.addEventListener('show-aircraft-track', function(e) {
     const aircraftId = e.detail;
-    if (window.map) {
+    // Use the global instance
+    if (window.liveControl && window.liveControl.active) {
+         window.liveControl._fetchAircraftTrack(aircraftId);
+    } else if (window.map) { // Fallback search if global instance not found/ready (less ideal)
         window.map.eachLayer(function(layer) {
-            // Assuming the control instance might be stored differently,
-            // or accessed via a known property if added directly to map
-            // This part might need adjustment based on how LiveControl is instantiated and added
-            // A more robust way would be to keep a reference to the control instance.
-            // For now, let's assume a property _liveControl exists if added directly.
-            if (layer instanceof LiveControl) { // Check if the layer itself is the control
+            // Check if the layer is the LiveControl instance itself
+            if (layer instanceof LiveControl && layer.active) {
                  layer._fetchAircraftTrack(aircraftId);
-            } else if (layer instanceof L.LayerGroup && layer._live) { // Original check
-                 layer._live._fetchAircraftTrack(aircraftId);
-            } else if (window.map._liveControl) { // Check for a direct property on map
-                 window.map._liveControl._fetchAircraftTrack(aircraftId);
             }
         });
     }
 });
 
-export default LiveControl;
+// --- NEW: Listen for preference changes to update save button ---
+document.addEventListener('xcmaps-preferences-changed', () => {
+    // This assumes the profile badge might be open. Find the save button and update it.
+    const saveButton = document.getElementById('save-settings-button');
+    const userControlContainer = document.getElementById('user-control'); // Check if user badge is open
+
+    // Only update if the save button is currently visible within the user control
+    if (saveButton && userControlContainer && userControlContainer.contains(saveButton)) {
+        console.log("Live settings changed, visually enabling save button.");
+        // This is a visual cue; the actual check happens on save click in keycloak-auth.js
+        saveButton.style.backgroundColor = '#4CAF50'; // Green
+        saveButton.style.color = 'white';
+        saveButton.style.cursor = 'pointer';
+        saveButton.disabled = false;
+        saveButton.dataset.hasChanges = 'true'; // Mark potential changes
+    }
+});
+// --- END NEW ---
+
+
+export default LiveControl; // Export the class

@@ -1,70 +1,8 @@
-/* Live Control Styles */
-.leaflet-control-live a {
-    background-color: #fff;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* No background color change when active, only icon changes */
-
-/* Aircraft Popup Styles */
-.aircraft-popup {
-    padding: 5px;
-    max-width: 250px;
-}
-
-.aircraft-popup h3 {
-    margin: 0 0 8px 0;
-    font-size: 16px;
-    border-bottom: 1px solid #ccc;
-    padding-bottom: 5px;
-}
-
-.aircraft-popup p {
-    margin: 5px 0;
-    font-size: 13px;
-}
-
-.track-button {
-    margin-top: 8px;
-    padding: 5px 10px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    width: 100%;
-}
-
-.track-button:hover {
-    background-color: #45a049;
-}
-
-/* Aircraft Icon Styles */
-.aircraft-icon {
-    background: none;
-    border: none;
-}
-
-/* Altitude Marker Styles */
-.altitude-marker {
-    border: 1px solid #000;
-    border-radius: 50%;
-    text-align: center;
-    font-size: 10px;
-    font-weight: bold;
-    color: #fff;
-    background-color: rgba(255, 85, 0, 0.7);
-}
 /* --- Live Config Badge Styles (Matching .profile-badge) --- */
 .live-config-badge {
     position: absolute;
     /* Position relative to the PARENT (corner div) */
-    right: 55px; /* Place it left of the live control (adjust as needed) */
+    right: 35px; /* Place it left of the live control (adjust as needed) */
     top: 0;      /* Align top with the live control */
     width: 200px; /* Same width as profile-badge */
     background-color: white; /* Same background */
@@ -96,7 +34,7 @@
     align-items: center;
     margin-bottom: 8px;
     padding-bottom: 8px;
-    /*  border-bottom: 1px solid #eee; */
+    border-bottom: 1px solid #eee;
 }
 
 .live-config-row:last-child {

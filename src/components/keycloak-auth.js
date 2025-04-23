@@ -120,16 +120,20 @@ function getCurrentMapState(control) {
     return { selectedBaseLayer: selectedBaseLayerLabel, selectedOverlays: selectedOverlayLabels };
 }
 
-// Helper function to compare two map states (simple comparison)
-function compareMapStates(state1, state2) {
+// Helper function to compare two preference states (map layers + live settings)
+function comparePreferenceStates(state1, state2) {
     if (!state1 || !state2) return false; // Cannot compare if one is missing
 
-    // Normalize potentially null/undefined arrays
-    const overlays1 = state1.selectedOverlays || [];
-    const overlays2 = state2.selectedOverlays || [];
+    // --- Compare Map State ---
+    const mapState1 = { selectedBaseLayer: state1.selectedBaseLayer, selectedOverlays: state1.selectedOverlays };
+    const mapState2 = { selectedBaseLayer: state2.selectedBaseLayer, selectedOverlays: state2.selectedOverlays };
+
+    // Normalize potentially null/undefined arrays for map overlays
+    const overlays1 = mapState1.selectedOverlays || [];
+    const overlays2 = mapState2.selectedOverlays || [];
 
     // Check base layer
-    if (state1.selectedBaseLayer !== state2.selectedBaseLayer) {
+    if (mapState1.selectedBaseLayer !== mapState2.selectedBaseLayer) {
         return false;
     }
 
@@ -143,6 +147,18 @@ function compareMapStates(state1, state2) {
             return false;
         }
     }
+
+    // --- Compare Live Settings ---
+    const liveSettings1 = state1.liveSettings || {}; // Default to empty object if missing
+    const liveSettings2 = state2.liveSettings || {};
+
+    // Compare each live setting property (add more as needed)
+    if (liveSettings1.showResting !== liveSettings2.showResting ||
+        liveSettings1.showHiking !== liveSettings2.showHiking ||
+        liveSettings1.showDriving !== liveSettings2.showDriving) {
+        return false;
+    }
+    // Add comparisons for other live settings here if introduced later
 
     return true; // States are identical
 }
@@ -362,12 +378,24 @@ const showProfileBadge = async (container) => { // Make async
       }
   }
 
+  // --- Get Current State (Map + Live) ---
   const currentMapState = getCurrentMapState(window.treeLayersControl);
-  // If no saved preferences, consider it a change if there's a current state
-  if (!savedPreferences && (currentMapState.selectedBaseLayer || currentMapState.selectedOverlays.length > 0)) {
+  let currentLiveSettings = {}; // Default empty
+  if (window.liveControl && typeof window.liveControl.getLiveSettings === 'function') {
+      currentLiveSettings = window.liveControl.getLiveSettings();
+  } else {
+      console.warn("LiveControl or getLiveSettings not available for preference check.");
+  }
+  const currentState = { ...currentMapState, liveSettings: currentLiveSettings };
+  // --- End Get Current State ---
+
+
+  // If no saved preferences, consider it a change if there's a current state (map or live)
+  if (!savedPreferences && (currentState.selectedBaseLayer || currentState.selectedOverlays.length > 0 || Object.keys(currentState.liveSettings).length > 0)) {
       hasChanges = true;
   } else if (savedPreferences) {
-      hasChanges = !compareMapStates(currentMapState, savedPreferences);
+      // Compare full preference state (map + live)
+      hasChanges = !comparePreferenceStates(currentState, savedPreferences);
   }
   // --- End Check ---
 
@@ -383,7 +411,14 @@ const showProfileBadge = async (container) => { // Make async
       // Only save if the button indicates changes
       if (saveSettingsButton.dataset.hasChanges === 'true') {
           console.log('Save Settings button clicked - attempting to save...');
+          // --- Get Current State to Save (Map + Live) ---
           const currentMapStateToSave = getCurrentMapState(window.treeLayersControl);
+          let currentLiveSettingsToSave = {}; // Default empty
+          if (window.liveControl && typeof window.liveControl.getLiveSettings === 'function') {
+              currentLiveSettingsToSave = window.liveControl.getLiveSettings();
+          }
+          const preferencesToSave = { ...currentMapStateToSave, liveSettings: currentLiveSettingsToSave };
+          // --- End Get Current State to Save ---
 
           try {
               const response = await fetch('/api/user/preferences', {
@@ -392,14 +427,14 @@ const showProfileBadge = async (container) => { // Make async
                       'Content-Type': 'application/json',
                       'Authorization': `Bearer ${keycloak.token}`
                   },
-                  body: JSON.stringify(currentMapStateToSave)
+                  body: JSON.stringify(preferencesToSave) // Send combined preferences
               });
 
               if (response.ok) {
                   messageArea.textContent = 'Settings saved successfully';
                   messageArea.style.color = 'green';
                   messageArea.style.display = 'block';
-                  savedPreferences = currentMapStateToSave; // Update local "saved" state
+                  savedPreferences = preferencesToSave; // Update local "saved" state with combined prefs
                   updateSaveButtonAppearance(saveSettingsButton, false); // Revert button to grey/disabled
                   setTimeout(() => { messageArea.style.display = 'none'; messageArea.textContent = ''; }, 3000); // Hide after 3s
               } else {
@@ -445,7 +480,7 @@ const showProfileBadge = async (container) => { // Make async
 const loadUserPreferences = async () => {
     if (!isAuthenticated || !keycloak.hasRealmRole('user')) {
         console.log("User not logged in or not 'user' role. Skipping preference loading.");
-        return;
+        return { baseLayerApplied: false, liveSettingsApplied: false }; // Return status object
     }
 
     console.log("User is authenticated 'user'. Loading preferences...");
@@ -460,28 +495,40 @@ const loadUserPreferences = async () => {
         if (!response.ok) {
             if (response.status === 404) {
                  console.log("No preferences found for user.");
-                 return false; // No preferences saved yet
+                 return { baseLayerApplied: false, liveSettingsApplied: false }; // No preferences saved yet
             }
             console.error(`Failed to load preferences: ${response.status} ${response.statusText}`);
-            return false; // Indicate failure
+            return { baseLayerApplied: false, liveSettingsApplied: false }; // Indicate failure
         }
 
         const preferences = await response.json();
         console.log("Received preferences:", preferences);
 
-        // Check if preferences exist and layer control is ready
         let baseLayerApplied = false;
+        let liveSettingsApplied = false;
+
+        // Apply Map Preferences
         if (preferences && window.treeLayersControl) {
-             console.log("Applying preferences to layer control:", preferences);
+             console.log("Applying map preferences to layer control:", preferences);
              baseLayerApplied = applyMapPreferences(preferences, window.treeLayersControl);
         } else {
-             console.log("No preferences found or layer control not ready.");
+             console.log("Map preferences not found or layer control not ready.");
         }
-        return baseLayerApplied; // Return whether the preferred base layer was found and applied
+
+        // Apply Live Settings Preferences
+        if (preferences && preferences.liveSettings && window.liveControl && typeof window.liveControl.applyLivePreferences === 'function') {
+            console.log("Applying live settings preferences:", preferences.liveSettings);
+            window.liveControl.applyLivePreferences(preferences.liveSettings);
+            liveSettingsApplied = true; // Assume success if function exists and is called
+        } else {
+            console.log("Live settings preferences not found or LiveControl not ready.");
+        }
+
+        return { baseLayerApplied, liveSettingsApplied }; // Return status object
 
     } catch (error) {
         console.error('Error loading user preferences:', error);
-        return false; // Indicate failure
+        return { baseLayerApplied: false, liveSettingsApplied: false }; // Indicate failure
     }
 };
 
@@ -558,5 +605,5 @@ export {
   getUserProfile,
   createUserControl,
   loadUserPreferences,
-  // Potentially export compareMapStates if needed elsewhere, but likely not
+  // Potentially export comparePreferenceStates if needed elsewhere, but likely not
 };

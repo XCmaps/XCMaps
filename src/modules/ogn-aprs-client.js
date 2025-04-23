@@ -7,8 +7,10 @@ import net from 'net';
 import { EventEmitter } from 'events';
 import pkg from 'pg';
 import fetch from 'node-fetch';
+import iconv from 'iconv-lite'; // Added import
 import SrtmElevation from './srtm-elevation.js';
 import MapboxElevation from './mapbox-elevation.js';
+import * as FlarmnetParser from './flarmnet-parser.js';
 const { Pool } = pkg;
 
 // Constants
@@ -113,11 +115,10 @@ class OgnAprsClient extends EventEmitter {
         )
       `);
 
-      // Create Flarmnet pilots table
+      // Create Flarmnet pilots table (without pilot_name column)
       await client.query(`
         CREATE TABLE IF NOT EXISTS flarmnet_pilots (
           flarm_id VARCHAR(12) PRIMARY KEY,
-          pilot_name VARCHAR(100),
           registration VARCHAR(20),
           aircraft_type VARCHAR(100),
           -- Assuming max 21 bytes ASCII for home_airfield and 7 for frequency
@@ -165,11 +166,16 @@ class OgnAprsClient extends EventEmitter {
  
       // 2. Perform initial pilot data refresh
       console.log('Performing initial pilot data refresh...');
-      await Promise.all([
-        this.refreshPilotDatabase(),
-        this.refreshFlarmnetDatabase(),
-        this.refreshPureTrackDatabase() // Add PureTrack refresh
-      ]);
+      // Run refresh tasks sequentially to avoid potential lock contention
+      console.log('Running OGN DDB refresh...');
+      await this.refreshPilotDatabase();
+      console.log('OGN DDB refresh complete.');
+      console.log('Running Flarmnet refresh...');
+      await this.refreshFlarmnetDatabase();
+      console.log('Flarmnet refresh complete.');
+      console.log('Running PureTrack refresh...');
+      await this.refreshPureTrackDatabase(); // Add PureTrack refresh
+      console.log('PureTrack refresh complete.');
       console.log('Initial pilot data refresh complete.');
  
       // 3. Start refresh timers
@@ -191,10 +197,11 @@ class OgnAprsClient extends EventEmitter {
  
       console.log('Pilot data refresh timers started.');
  
-      // 4. Connect to APRS server
+      // 4. Connect to APRS server (Re-enabled)
       this.connect();
       console.log('OGN APRS Client initialization complete.');
- 
+      // NOTE: Cleanup timer is started within connect()
+
     } catch (error) {
       console.error('FATAL: Failed to initialize OGN APRS Client:', error);
       // Depending on requirements, you might want to exit or retry here
@@ -236,15 +243,21 @@ class OgnAprsClient extends EventEmitter {
       // Format: DEVICE_TYPE,DEVICE_ID,AIRCRAFT_MODEL,REGISTRATION,CN,TRACKED,IDENTIFIED,PILOT_NAME
       const lines = data.split('\n');
       console.log(`OGN DDB: Found ${lines.length} lines in fetched data.`); // Log line count
-      
       client = await this.dbPool.connect();
-      await client.query('BEGIN');
-      
+      console.log("OGN DDB: DB client connected.");
+
+      const batchSize = 1000; // Process 1000 records per transaction
       let processedCount = 0;
-      // Skip header line
+      let currentBatchCount = 0;
+
+      await client.query('BEGIN'); // Start the first transaction
+      console.log("OGN DDB: DB transaction started (Batch 1).");
+
+      // Skip header line (index 0)
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (line.length === 0) continue;
+
         
         const fields = line.split(',');
         // Allow lines with 7 or 8 fields. Pilot name (8th field) might be missing.
@@ -298,13 +311,30 @@ class OgnAprsClient extends EventEmitter {
         // Use cleaned values in the query
         await client.query(query, [deviceId, deviceType, aircraftModel, registration, cn, tracked, identified, pilotName || null]);
         processedCount++;
+        currentBatchCount++;
+
+        // Commit batch and start new transaction if batch size is reached
+        if (currentBatchCount >= batchSize && i < lines.length - 1) {
+          await client.query('COMMIT');
+          console.log(`OGN DDB: Committed batch ending at line ${i+1} (${processedCount} total processed).`);
+          await client.query('BEGIN');
+          console.log(`OGN DDB: DB transaction started (Next Batch).`);
+          currentBatchCount = 0; // Reset batch counter
+        }
       }
-      
-      await client.query('COMMIT');
-      console.log(`OGN pilot database refreshed: ${processedCount} records processed into DB`);
-      
+
+      // Commit any remaining records in the last batch
+      if (currentBatchCount > 0) {
+        console.log("OGN DDB: Loop finished. Attempting final COMMIT.");
+        await client.query('COMMIT');
+        console.log(`OGN DDB: Final COMMIT successful. Loaded ${processedCount} valid records in total.`);
+      } else {
+         console.log("OGN DDB: Loop finished. No final commit needed.");
+      }
+
     } catch (err) {
-      console.error('Error refreshing OGN pilot database:', err);
+      // Log error with more context
+      console.error('Error refreshing OGN pilot database:', err); // Consider adding line number/record ID if possible
       if (client) {
         await client.query('ROLLBACK'); // Rollback transaction on error
       }
@@ -316,35 +346,27 @@ class OgnAprsClient extends EventEmitter {
   }
   
   /**
-   * Refresh Flarmnet database
+   * Refresh Flarmnet database by fetching hex-encoded text file and parsing
    */
   async refreshFlarmnetDatabase() {
     try {
       console.log('Refreshing Flarmnet database...');
-      
-      // Fetch Flarmnet data
       const response = await fetch(FLARMNET_URL, {
-        headers: {
-          'User-Agent': OGN_USER_AGENT
-        }
+        headers: { 'User-Agent': OGN_USER_AGENT }
       });
-      
       if (!response.ok) {
         throw new Error(`Failed to fetch Flarmnet database: ${response.status} ${response.statusText}`);
       }
-      
-      // The Flarmnet file is a binary file, so we need to get it as an ArrayBuffer
-      const buffer = await response.arrayBuffer();
-      
-      // Parse the Flarmnet binary file
-      this.parseFlarmnetData(buffer);
-      
-      console.log(`Flarmnet database refresh initiated (parsing happens next).`); // Removed reference to cache size
+      // Fetch as text, assuming hex-encoded lines
+      const hexData = await response.text();
+      // Pass the raw hex string data to the parser
+      this.parseFlarmnetData(hexData);
+      console.log(`Flarmnet database refresh initiated (parsing happens next).`);
     } catch (err) {
       console.error('Error refreshing Flarmnet database:', err);
     }
   }
- 
+
   /**
    * Refresh pilot database from PureTrack API
    */
@@ -355,34 +377,41 @@ class OgnAprsClient extends EventEmitter {
       const response = await fetch(PURETRACK_URL, {
         headers: { 'User-Agent': OGN_USER_AGENT }
       });
- 
+
       if (!response.ok) {
         throw new Error(`Failed to fetch PureTrack labels: ${response.status} ${response.statusText}`);
       }
- 
+
       const data = await response.json(); // Expecting JSON data
       console.log(`PureTrack: Fetched ${data.length} records.`);
- 
+
       if (!Array.isArray(data)) {
         throw new Error('PureTrack data is not an array.');
       }
- 
+
       client = await this.dbPool.connect();
-      await client.query('BEGIN');
- 
+      console.log("PureTrack: DB client connected.");
+
+      const batchSize = 1000; // Process 1000 records per transaction
       let processedCount = 0;
-      for (const record of data) {
+      let currentBatchCount = 0;
+
+      await client.query('BEGIN'); // Start the first transaction
+      console.log("PureTrack: DB transaction started (Batch 1).");
+
+      for (let i = 0; i < data.length; i++) {
+        const record = data[i];
         // Validate required fields
         if (!record || typeof record.hex !== 'string' || record.hex.length === 0) {
-          console.warn('PureTrack: Skipping invalid record:', record);
+          console.warn(`PureTrack: Skipping invalid record at index ${i}:`, record);
           continue;
         }
- 
+
         const hexId = record.hex.toUpperCase(); // Standardize hex ID
         const label = record.label || null;
         const puretrackId = record.id || null;
         const puretrackType = record.type || null;
- 
+
         const query = `
           INSERT INTO puretrack_pilots (hex, label, puretrack_id, puretrack_type, last_updated)
           VALUES ($1, $2, $3, $4, NOW())
@@ -394,17 +423,34 @@ class OgnAprsClient extends EventEmitter {
         `;
         await client.query(query, [hexId, label, puretrackId, puretrackType]);
         processedCount++;
- 
-        if (processedCount <= 5) {
-          console.log(`PureTrack: Processing record: HEX=${hexId}, Label=${label}`);
+        currentBatchCount++;
+
+        if (processedCount <= 5) { // Log first few processed records
+          console.log(`PureTrack: Processing record ${i}: HEX=${hexId}, Label=${label}`);
+        }
+
+        // Commit batch and start new transaction if batch size is reached
+        if (currentBatchCount >= batchSize && i < data.length - 1) {
+          await client.query('COMMIT');
+          console.log(`PureTrack: Committed batch ending at record ${i} (${processedCount} total processed).`);
+          await client.query('BEGIN');
+          console.log(`PureTrack: DB transaction started (Next Batch).`);
+          currentBatchCount = 0; // Reset batch counter
         }
       }
- 
-      await client.query('COMMIT');
-      console.log(`PureTrack pilot database refreshed: ${processedCount} records processed into DB.`);
- 
+
+      // Commit any remaining records in the last batch
+      if (currentBatchCount > 0) {
+        console.log("PureTrack: Loop finished. Attempting final COMMIT.");
+        await client.query('COMMIT');
+        console.log(`PureTrack: Final COMMIT successful. Loaded ${processedCount} valid records in total.`);
+      } else {
+         console.log("PureTrack: Loop finished. No final commit needed.");
+      }
+
     } catch (err) {
-      console.error('Error refreshing PureTrack pilot database:', err);
+      // Log error with more context
+      console.error('Error refreshing PureTrack pilot database:', err); // Consider adding index if possible
       if (client) {
         await client.query('ROLLBACK');
       }
@@ -414,114 +460,118 @@ class OgnAprsClient extends EventEmitter {
       }
     }
   }
- 
+
   /**
-   * Parse Flarmnet binary data
-   * @param {ArrayBuffer} buffer - Binary data from Flarmnet
+   * Parse Flarmnet data provided as a single string containing hex-encoded lines,
+   * using logic derived from the provided example script with iconv-lite.
+   * @param {string} hexData - String containing lines of hex-encoded Flarmnet records.
    */
-  async parseFlarmnetData(buffer) {
-    let client; // Declare client outside the try block
-    let currentRecordIndex = -1; // For logging errors
-    let currentFlarmId = 'N/A'; // For logging errors
+  async parseFlarmnetData(hexData) {
+    let client;
+    let currentRecordIndex = -1;
+    let currentFlarmId = 'N/A';
+
     try {
-      // ... (comments and initial setup remain the same) ...
-      const dataView = new DataView(buffer);
-      const headerSize = 8;
-      const recordSize = 78;
-      const dataSize = buffer.byteLength - headerSize;
-      const numRecords = Math.floor(dataSize / recordSize);
+      console.log('Flarmnet: Starting to parse data using the new parser...');
       
-      console.log(`Flarmnet: Contains ${numRecords} records. Processing into DB...`);
+      // Use the FlarmnetParser to decode the data
+      const parsedData = FlarmnetParser.decode(hexData);
+      const records = parsedData.records;
       
+      console.log(`Flarmnet: Successfully parsed ${records.length} records. Processing into DB in batches...`);
+
       client = await this.dbPool.connect();
       console.log("Flarmnet: DB client connected.");
-      await client.query('BEGIN');
-      console.log("Flarmnet: DB transaction started.");
-      
+
+      const batchSize = 1000; // Process 1000 records per transaction
       let processedCount = 0;
-      // Process each record
-      for (let i = 0; i < numRecords; i++) {
-        currentRecordIndex = i; // Update for error logging
-        const recordOffset = headerSize + (i * recordSize);
+      let currentBatchCount = 0;
+
+      await client.query('BEGIN'); // Start the first transaction
+      console.log("Flarmnet: DB transaction started (Batch 1).");
+
+      for (let i = 0; i < records.length; i++) {
+        currentRecordIndex = i;
+        const record = records[i];
         
-        // Helper function (remains the same)
-        const extractString = (offset, length) => {
-          let str = '';
-          for (let j = 0; j < length; j++) {
-            const byte = dataView.getUint8(recordOffset + offset + j);
-            if (byte === 0) break;
-            str += String.fromCharCode(byte);
-          }
-          return str.trim();
-        };
-
-        // Extract FLARM ID (remains the same)
-        let flarmId = '';
-        for (let j = 0; j < 6; j++) {
-          const byte = dataView.getUint8(recordOffset + 0 + j);
-          flarmId += byte.toString(16).padStart(2, '0');
+        // Skip invalid records
+        if (!record) continue;
+        
+        // Extract fields from the record
+        currentFlarmId = record.id;
+        // We don't use pilot name anymore
+        const homeAirfield = record.airfield;
+        const aircraftType = record.plane_type;
+        const registration = record.registration;
+        const frequency = record.frequency;
+        
+        // Log for debugging
+        if (i < 10) {
+          console.log(`Flarmnet DEBUG Record ${i}: ID='${currentFlarmId}', Reg='${registration || '[null]'}', Type='${aircraftType || '[null]'}'`);
         }
-        flarmId = flarmId.toUpperCase();
-        currentFlarmId = flarmId; // Update for error logging
 
-        // Extract other fields (remains the same)
-        const pilotName = extractString(6, 21);
-        const registration = extractString(27, 7);
-        const aircraftType = extractString(34, 21);
-        const homeAirfield = extractString(55, 21);
-        const frequency = extractString(76, 7);
-
-        // Only store entries with a valid FLARM ID and pilot name
-        if (flarmId && flarmId.length === 6 && flarmId !== '000000' && pilotName.length > 0) {
-          // Log before query
-          // console.log(`Flarmnet: Preparing to insert/update record ${i}, FLARM ID: ${flarmId}`);
-          const query = `
-            INSERT INTO flarmnet_pilots (flarm_id, pilot_name, registration, aircraft_type, home_airfield, frequency, last_updated)
-            VALUES ($1, $2, $3, $4, $5, $6, NOW())
-            ON CONFLICT (flarm_id) DO UPDATE SET
-              pilot_name = EXCLUDED.pilot_name,
-              registration = EXCLUDED.registration,
-              aircraft_type = EXCLUDED.aircraft_type,
-              home_airfield = EXCLUDED.home_airfield,
-              frequency = EXCLUDED.frequency,
-              last_updated = NOW();
-          `;
-          await client.query(query, [flarmId, pilotName, registration || null, aircraftType || null, homeAirfield || null, frequency || null]);
-          // Log after query success
-          // console.log(`Flarmnet: Successfully processed record ${i}, FLARM ID: ${flarmId}`);
-          processedCount++;
-
-          // Log first few records (remains the same)
-          if (processedCount <= 5) {
-             console.log(`Flarmnet: Record ${i}: FLARM ID: ${flarmId}, Pilot: ${pilotName}, Reg: ${registration}, Type: ${aircraftType}`);
-          }
-        } else {
-           // Optional: Log skipped records
-           // if (i < 10) console.log(`Flarmnet: Skipping record ${i} (ID: ${flarmId}, Name: ${pilotName})`);
+        // Skip records with invalid FLARM ID
+        if (!currentFlarmId || currentFlarmId === '000000') {
+          if (i < 10) console.log(`Flarmnet SKIPPING Record ${i} (ID: ${currentFlarmId || 'null'}) due to invalid ID.`);
+          continue;
+        }
+        
+        // Log successful inserts
+        if (processedCount < 10) {
+          console.log(`Flarmnet INSERTING Record ${i}: FLARM ID: ${currentFlarmId}, Reg: ${registration || '[None]'}, Type: ${aircraftType || '[None]'}`);
+        }
+        
+        // Insert into database (without pilot_name)
+        const query = `
+          INSERT INTO flarmnet_pilots (flarm_id, registration, aircraft_type, home_airfield, frequency, last_updated)
+          VALUES ($1, $2, $3, $4, $5, NOW())
+          ON CONFLICT (flarm_id) DO UPDATE SET
+            registration = EXCLUDED.registration,
+            aircraft_type = EXCLUDED.aircraft_type,
+            home_airfield = EXCLUDED.home_airfield,
+            frequency = EXCLUDED.frequency,
+            last_updated = NOW();
+        `;
+        
+        await client.query(query, [currentFlarmId, registration, aircraftType, homeAirfield, frequency]);
+        processedCount++;
+        currentBatchCount++;
+        
+        // Commit batch and start new transaction if batch size is reached
+        if (currentBatchCount >= batchSize && i < records.length - 1) {
+          await client.query('COMMIT');
+          console.log(`Flarmnet: Committed batch ending at record ${i} (${processedCount} total processed).`);
+          await client.query('BEGIN');
+          console.log(`Flarmnet: DB transaction started (Next Batch).`);
+          currentBatchCount = 0; // Reset batch counter
         }
       }
-      
-      console.log("Flarmnet: Loop finished. Attempting COMMIT.");
-      await client.query('COMMIT');
-      console.log(`Flarmnet: COMMIT successful. Loaded ${processedCount} valid records into DB.`); // Modified final log
-      
+
+      // Commit any remaining records in the last batch
+      if (currentBatchCount > 0) {
+        console.log("Flarmnet: Loop finished. Attempting final COMMIT.");
+        await client.query('COMMIT');
+        console.log(`Flarmnet: Final COMMIT successful. Loaded ${processedCount} valid records in total.`);
+      } else {
+        console.log("Flarmnet: Loop finished. No final commit needed.");
+      }
     } catch (err) {
-      // Log error with more context
-      console.error(`Error parsing Flarmnet data at record index ${currentRecordIndex} (FLARM ID: ${currentFlarmId}):`, err);
-       if (client) {
+      // Log error with more context, including which record failed
+      console.error(`Error parsing Flarmnet data around record index ${currentRecordIndex} (FLARM ID: ${currentFlarmId}):`, err);
+      if (client) {
         console.error("Flarmnet: Attempting ROLLBACK due to error.");
-        await client.query('ROLLBACK'); // Rollback transaction on error
+        await client.query('ROLLBACK');
         console.error("Flarmnet: ROLLBACK successful.");
       }
     } finally {
-       if (client) {
+      if (client) {
         console.log("Flarmnet: Releasing DB client.");
-        client.release(); // Ensure client is always released
+        client.release();
         console.log("Flarmnet: DB client released.");
       }
     }
   }
-  
+
   /**
    * Look up pilot name from device ID
    * @param {string} deviceId - Device ID
@@ -546,24 +596,43 @@ class OgnAprsClient extends EventEmitter {
       // If no OGN record found, continue to other sources...
       
       // Then check the Flarmnet table (assuming deviceId might be a Flarm ID)
-      // Flarm IDs are typically 6 hex characters, uppercase
+      // Flarm IDs can be of various formats, ensure uppercase for consistency
       const potentialFlarmId = deviceId.toUpperCase();
-      if (potentialFlarmId.length === 6) { // Check if it looks like a Flarm ID
-         result = await client.query(
-          'SELECT pilot_name, registration, aircraft_type FROM flarmnet_pilots WHERE flarm_id = $1',
-          [potentialFlarmId]
+      // Always try to look up in Flarmnet table regardless of format
+      
+      // Try the specific lookup
+      result = await client.query(
+        'SELECT registration, aircraft_type FROM flarmnet_pilots WHERE flarm_id = $1',
+        [potentialFlarmId]
+      );
+      
+      // If no results, try with a wildcard search to see if similar IDs exist
+      if (result.rows.length === 0) {
+        const wildcardResult = await client.query(
+          "SELECT flarm_id FROM flarmnet_pilots WHERE flarm_id LIKE $1 LIMIT 5",
+          [potentialFlarmId.substring(0, 2) + '%']
         );
-        if (result.rows.length > 0) {
-          const { pilot_name, registration, aircraft_type } = result.rows[0];
-          // Reconstruct the combined info string similar to how it was cached before
-          let pilotInfo = pilot_name.trim();
-          const regTrimmed = registration?.trim();
+      }
+      if (result.rows.length > 0) {
+        const { registration, aircraft_type } = result.rows[0];
+        
+        // If registration is available, use it
+        if (registration) {
+          let pilotInfo = registration.trim();
           const typeTrimmed = aircraft_type?.trim();
-          if (regTrimmed || typeTrimmed) {
-             pilotInfo += ` (${regTrimmed || ''} ${typeTrimmed || ''})`.trim().replace(/\s+/g, ' '); // Combine, trim, remove extra spaces
+          if (typeTrimmed) {
+            pilotInfo += ` (${typeTrimmed})`;
           }
           return pilotInfo;
         }
+        
+        // If registration is null but aircraft_type is available, use aircraft_type
+        if (aircraft_type) {
+          return aircraft_type.trim();
+        }
+        
+        // If all fields are null, return the deviceId
+        return deviceId;
       }
       
       // Finally, check the PureTrack table (using deviceId as hex)
@@ -740,11 +809,6 @@ class OgnAprsClient extends EventEmitter {
         return;
       }
       
-      // Early filter for FLARM devices based on callsign
-      if (line.startsWith('FLR')) {
-        return;
-      }
-
       // Parse APRS packet (now async)
       const parsedData = await this.parseAprsPacket(line);
       
@@ -754,8 +818,9 @@ class OgnAprsClient extends EventEmitter {
       
       // Only process hang gliders (type 6) and paragliders (type 7)
       // Note: ICAO aircraft, FLARM devices, and aircraft with "^" or "'" symbols are already filtered out in parseAprsPacket
-      if (parsedData.aircraftType !== 6 && parsedData.aircraftType !== 7) {
-        return;
+      const allowedTypes = [3, 6, 7]; // Helicopter, Hang-Glider, Para-glider
+      if (!allowedTypes.includes(parsedData.aircraftType)) {
+          return;
       }
 
       // Store in database
@@ -829,11 +894,6 @@ class OgnAprsClient extends EventEmitter {
       
       // Filter out aircraft with ICA prefix in callsign (ICAO aircraft)
       if (callsign.startsWith('ICA')) {
-        return null;
-      }
-      
-      // Filter out aircraft with FLR prefix in callsign (FLARM devices, often used in gliders)
-      if (callsign.startsWith('FLR')) {
         return null;
       }
       
@@ -1114,9 +1174,7 @@ class OgnAprsClient extends EventEmitter {
   async storeAircraftData(data) {
     let client; // Declare client outside try block
     try {
-      // Look up pilot name from DB
-      const pilotName = await this.lookupPilotName(data.deviceId); // Added await and call
-
+      // Note: pilotName is now looked up within parseAprsPacket and passed in the 'data' object
       // Calculate AGL using SRTM elevation data
       const altAgl = await this.calculateAGL(data.lat, data.lon, data.altMsl);
 
@@ -1124,20 +1182,13 @@ class OgnAprsClient extends EventEmitter {
       await client.query('BEGIN');
 
       // Extract data fields - including the type from ID passed from parseAprsPacket
-      let { // Use let for type as it might be overridden
-        id, name, type, timestamp, lat, lon, alt_msl, /* alt_agl is calculated */
-        course, speed_kmh, vs, turn_rate, raw_packet, device_id, /* pilot_name is looked up */
-        aircraftTypeFromId // Get the type derived from ID
-      } = data; // Destructure from original data object
-
-      // If aircraftTypeFromId is valid (6 or 7), use it to override the type from APRS symbol
-      if (aircraftTypeFromId === 6 || aircraftTypeFromId === 7) {
-          console.log(`OGN Store: Overriding type for ${id} with ID-based type: ${aircraftTypeFromId}`);
-          type = aircraftTypeFromId; // Override the type
-      }
+      // Destructure data fields from parseAprsPacket result
+      const {
+        id, name, aircraftType, timestamp, lat, lon, altMsl, /* alt_agl is calculated below */
+        course, speedKmh, vs, turnRate, rawPacket, deviceId, pilotName /* pilotName looked up in parseAprsPacket */
+      } = data;
 
       // Update or insert aircraft record, now including pilot_name and calculated AGL
-      // Use the potentially overridden 'type' variable below in the query parameters
       await client.query(`
         INSERT INTO aircraft (
           id, name, type, last_seen, last_lat, last_lon,
@@ -1162,7 +1213,7 @@ class OgnAprsClient extends EventEmitter {
       `, [
         data.id,            // $1
         data.name,          // $2
-        type,               // $3 - Use potentially overridden type
+        aircraftType,       // $3 - Use the correct type from parseAprsPacket
         data.timestamp,     // $4
         data.lat,           // $5
         data.lon,           // $6
@@ -1174,7 +1225,7 @@ class OgnAprsClient extends EventEmitter {
         data.turnRate,      // $12
         data.rawPacket,     // $13
         data.deviceId,      // $14 - Added deviceId
-        pilotName           // $15 - Added pilotName
+        pilotName           // $15 - Use pilotName from destructuring
       ]);
       
       // Insert track point with calculated AGL
@@ -1221,7 +1272,7 @@ class OgnAprsClient extends EventEmitter {
         WHERE last_lat BETWEEN $1 AND $2
         AND last_lon BETWEEN $3 AND $4
         AND last_seen > $5
-        AND (type = 6 OR type = 7)
+        AND type IN (3, 6, 7) -- Allow Helicopter, Hang-Glider, Para-glider
       `, [
         bounds.seLat,
         bounds.nwLat,
