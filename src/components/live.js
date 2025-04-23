@@ -39,6 +39,7 @@ const LiveControl = L.Control.extend({
 
         // --- NEW: Live Settings State ---
         this._liveSettings = {
+            isActive: true, // Default to active
             showResting: true,
             showHiking: true,
             showDriving: true
@@ -158,10 +159,12 @@ const LiveControl = L.Control.extend({
     // --- REMOVED: _toggleLive (replaced by _handleControlClick) ---
 
     _activateLive: function() {
-        // Update UI to active state
+        if (this.active) return; // Already active
+        console.log("Activating Live Mode");
         this.active = true;
-        // Update UI to active state
+        this._liveSettings.isActive = true; // Update internal state
         this._icon.src = this.options.activeIcon;
+        this._container.classList.add('live-active'); // Add class to main container if needed
 
         // Add layers to map
         this.aircraftLayer.addTo(this._map);
@@ -177,18 +180,29 @@ const LiveControl = L.Control.extend({
 
         // Add map move end listener to update aircraft when map is moved
         this._map.on('moveend', this._fetchAircraftData, this);
+
+        // Ensure main toggle reflects state if badge is open
+        if (this._configBadgeOpen && this._configContainer) {
+            const mainToggle = this._configContainer.querySelector('#live-toggle-main');
+            if (mainToggle && !mainToggle.checked) mainToggle.checked = true;
+        }
+         // Trigger preference save check
+         document.dispatchEvent(new CustomEvent('xcmaps-preferences-changed'));
     },
 
     _deactivateLive: function() {
+        if (!this.active) return; // Already inactive
+        console.log("Deactivating Live Mode");
+        this.active = false;
+        this._liveSettings.isActive = false; // Update internal state
+        this._icon.src = this.options.inactiveIcon;
+        this._container.classList.remove('live-active'); // Remove class from main container if needed
+
         // --- NEW: Close config badge if open ---
         if (this._configBadgeOpen) {
             this._closeConfigBadge();
         }
         // --- END NEW ---
-
-        // Update UI to inactive state
-        this.active = false;
-        this._icon.src = this.options.inactiveIcon;
 
         // Clear refresh timer
         if (this.refreshTimer) {
@@ -209,6 +223,14 @@ const LiveControl = L.Control.extend({
         this.markers = {};
         this.tracks = {};
         this.selectedAircraft = null;
+
+        // Ensure main toggle reflects state if badge is open
+        if (this._configBadgeOpen && this._configContainer) {
+            const mainToggle = this._configContainer.querySelector('#live-toggle-main');
+            if (mainToggle && mainToggle.checked) mainToggle.checked = false;
+        }
+         // Trigger preference save check
+         document.dispatchEvent(new CustomEvent('xcmaps-preferences-changed'));
     },
 
     _fetchAircraftData: function() {
@@ -572,7 +594,7 @@ const LiveControl = L.Control.extend({
             <div class="live-config-row live-config-header">
                 <span style="font-size: 14px; font-weight: 700;">Live!</span>
                 <label class="switch">
-                    <input type="checkbox" id="live-toggle-main" checked>
+                    <input type="checkbox" id="live-toggle-main" ${this._liveSettings.isActive ? 'checked' : ''}>
                     <span class="slider round"></span>
                 </label>
             </div>
@@ -606,9 +628,12 @@ const LiveControl = L.Control.extend({
         const drivingToggle = badge.querySelector('#live-toggle-driving');
 
         L.DomEvent.on(mainToggle, 'change', (e) => {
-            if (!e.target.checked) {
-                this._deactivateLive(); // Deactivate if main toggle is turned off
+            if (e.target.checked) {
+                this._activateLive();
+            } else {
+                this._deactivateLive();
             }
+            // Note: activate/deactivate now handle updating _liveSettings.isActive and triggering save check
         });
 
         const updateSetting = (key, checked) => {
@@ -663,8 +688,21 @@ const LiveControl = L.Control.extend({
         if (!settings) return;
 
         let changed = false;
-        // Apply settings, checking type and if value actually changed
+        let activationChanged = false; // Track if main active state changed
+
+        // Apply main active state first
+        if (typeof settings.isActive === 'boolean' && this._liveSettings.isActive !== settings.isActive) {
+            console.log(`[LiveControl.applyLivePreferences] Updating isActive from ${this._liveSettings.isActive} to ${settings.isActive}`);
+            // Only update internal state here, activation/deactivation happens separately
+            // based on this state after preferences are fully loaded.
+            this._liveSettings.isActive = settings.isActive;
+            activationChanged = true; // Mark that activation state needs applying
+            changed = true;
+        }
+
+        // Apply sub-settings, checking type and if value actually changed
         if (typeof settings.showResting === 'boolean' && this._liveSettings.showResting !== settings.showResting) {
+            console.log(`[LiveControl.applyLivePreferences] Updating showResting from ${this._liveSettings.showResting} to ${settings.showResting}`);
             this._liveSettings.showResting = settings.showResting;
             changed = true;
         }
@@ -680,11 +718,23 @@ const LiveControl = L.Control.extend({
 
         console.log("Applied live preferences:", this._liveSettings);
 
-        // If settings changed and live mode is active, refresh the data
-        if (changed && this.active) {
-             console.log("[LiveControl] Settings changed and live active, refreshing data...");
+        // If sub-settings changed and live mode is currently active (based on internal state), refresh the data
+        if (changed && !activationChanged && this._liveSettings.isActive) { // Use internal state for check
+             console.log("[LiveControl] Sub-settings changed and live active, refreshing data...");
             this._fetchAircraftData();
         }
+
+        // --- NEW: Apply activation state AFTER preferences are loaded ---
+        // This ensures activation/deactivation happens based on the loaded preference
+        if (activationChanged) {
+            console.log(`[LiveControl.applyLivePreferences] Applying activation state: ${this._liveSettings.isActive}`);
+            if (this._liveSettings.isActive) {
+                this._activateLive(); // Activate if preference is true
+            } else {
+                this._deactivateLive(); // Deactivate if preference is false
+            }
+        }
+        // --- END NEW ---
 
         // If settings changed AND the config badge is currently open, update the toggles directly
         if (changed && this._configBadgeOpen && this._configContainer) {

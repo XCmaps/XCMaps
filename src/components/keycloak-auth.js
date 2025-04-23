@@ -152,8 +152,9 @@ function comparePreferenceStates(state1, state2) {
     const liveSettings1 = state1.liveSettings || {}; // Default to empty object if missing
     const liveSettings2 = state2.liveSettings || {};
 
-    // Compare each live setting property (add more as needed)
-    if (liveSettings1.showResting !== liveSettings2.showResting ||
+    // Compare each live setting property
+    if (liveSettings1.isActive !== liveSettings2.isActive || // Add isActive check
+        liveSettings1.showResting !== liveSettings2.showResting ||
         liveSettings1.showHiking !== liveSettings2.showHiking ||
         liveSettings1.showDriving !== liveSettings2.showDriving) {
         return false;
