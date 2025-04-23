@@ -87,8 +87,15 @@ export default function createUserPreferencesRouter() {
     // GET /api/user/preferences - Retrieve user preferences
     // GET /api/user/preferences - Retrieve user preferences (Requires STRICT authentication)
     // GET /api/user/preferences - Retrieve user preferences (Requires STRICT authentication AND 'user' role)
-    router.get('/preferences', authenticateToken, requireRole('user'), async (req, res) => {
-        const userId = req.user.id; // Get user ID from authenticated token
+    // Use getUserIdIfPresent to allow fetching even if token slightly expired, requires 'user' role
+    router.get('/preferences', getUserIdIfPresent, requireRole('user'), async (req, res) => {
+        // Check if user ID was successfully extracted
+        if (!req.user || !req.user.id) {
+             console.error("GET /preferences: User ID could not be determined from token.");
+             // Mirror PUT's response for consistency
+             return res.status(401).json({ message: 'User identification failed.' });
+        }
+        const userId = req.user.id; // Get user ID from potentially expired token
         console.log(`GET /preferences request for user ID: ${userId}`);
 
         try {
@@ -161,13 +168,16 @@ export default function createUserPreferencesRouter() {
             console.log(`Updating preferences for user ${userId} with string: ${preferencesString}`);
 
 
+            // Update the user attributes
             await kcAdminClient.users.update(
                 { id: userId, realm: process.env.KEYCLOAK_REALM_NAME },
                 { attributes: { preferences: [preferencesString] } }
             );
 
             console.log(`Preferences updated successfully for user ${userId}`);
-            return res.status(204).send(); // Success, no content to return
+            // Return the saved preferences object directly for immediate feedback
+            // Note: This assumes the 'newPreferences' object accurately reflects the saved state.
+            return res.status(200).json(newPreferences);
 
         } catch (error) {
             console.error(`Error updating preferences for user ${userId}:`, error.message || error);

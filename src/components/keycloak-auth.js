@@ -515,13 +515,23 @@ const loadUserPreferences = async () => {
              console.log("Map preferences not found or layer control not ready.");
         }
 
-        // Apply Live Settings Preferences
-        if (preferences && preferences.liveSettings && window.liveControl && typeof window.liveControl.applyLivePreferences === 'function') {
-            console.log("Applying live settings preferences:", preferences.liveSettings);
-            window.liveControl.applyLivePreferences(preferences.liveSettings);
-            liveSettingsApplied = true; // Assume success if function exists and is called
+        // Apply Live Settings Preferences - Wait for LiveControl if necessary
+        const applyLivePrefs = (prefsToApply) => {
+            if (window.liveControl && typeof window.liveControl.applyLivePreferences === 'function') {
+                console.log("LiveControl ready. Applying live settings preferences:", prefsToApply);
+                console.log(`[keycloak-auth.loadUserPreferences] Calling applyLivePreferences on window.liveControl. showDriving value: ${prefsToApply?.showDriving}`);
+                window.liveControl.applyLivePreferences(prefsToApply);
+                liveSettingsApplied = true;
+            } else {
+                console.log("LiveControl not ready yet, retrying in 200ms...");
+                setTimeout(() => applyLivePrefs(prefsToApply), 200); // Retry after a short delay
+            }
+        };
+
+        if (preferences && preferences.liveSettings) {
+            applyLivePrefs(preferences.liveSettings);
         } else {
-            console.log("Live settings preferences not found or LiveControl not ready.");
+            console.log("No live settings preferences found in loaded data.");
         }
 
         return { baseLayerApplied, liveSettingsApplied }; // Return status object

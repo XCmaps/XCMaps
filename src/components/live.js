@@ -566,6 +566,8 @@ const LiveControl = L.Control.extend({
         L.DomEvent.on(badge, 'mousedown wheel', L.DomEvent.stopPropagation); // Prevent map drag/zoom
 
         // Badge Content (Toggles)
+        // Log the state right before rendering the HTML
+        console.log(`[LiveControl._openConfigBadge] About to render badge. Current this._liveSettings.showDriving: ${this._liveSettings.showDriving}`);
         badge.innerHTML = `
             <div class="live-config-row live-config-header">
                 <span style="font-size: 14px; font-weight: 700;">Live!</span>
@@ -671,6 +673,7 @@ const LiveControl = L.Control.extend({
             changed = true;
         }
         if (typeof settings.showDriving === 'boolean' && this._liveSettings.showDriving !== settings.showDriving) {
+            console.log(`[LiveControl.applyLivePreferences] Updating showDriving from ${this._liveSettings.showDriving} to ${settings.showDriving}`); // Keep this log
             this._liveSettings.showDriving = settings.showDriving;
             changed = true;
         }
@@ -679,12 +682,29 @@ const LiveControl = L.Control.extend({
 
         // If settings changed and live mode is active, refresh the data
         if (changed && this.active) {
+             console.log("[LiveControl] Settings changed and live active, refreshing data...");
             this._fetchAircraftData();
         }
 
-        // Update badge if open (simpler to just close it)
-        if (this._configBadgeOpen) {
-             this._closeConfigBadge();
+        // If settings changed AND the config badge is currently open, update the toggles directly
+        if (changed && this._configBadgeOpen && this._configContainer) {
+             console.log("[LiveControl] Settings changed and badge open, updating toggles directly.");
+             const restingToggle = this._configContainer.querySelector('#live-toggle-resting');
+             const hikingToggle = this._configContainer.querySelector('#live-toggle-hiking');
+             const drivingToggle = this._configContainer.querySelector('#live-toggle-driving');
+
+             if (restingToggle) {
+                 console.log(`[LiveControl] Updating resting toggle checked state to: ${this._liveSettings.showResting}`);
+                 restingToggle.checked = this._liveSettings.showResting;
+             }
+             if (hikingToggle) {
+                 console.log(`[LiveControl] Updating hiking toggle checked state to: ${this._liveSettings.showHiking}`);
+                 hikingToggle.checked = this._liveSettings.showHiking;
+             }
+             if (drivingToggle) {
+                 console.log(`[LiveControl] Updating driving toggle checked state to: ${this._liveSettings.showDriving}`);
+                 drivingToggle.checked = this._liveSettings.showDriving;
+             }
         }
     }
     // --- END NEW ---
