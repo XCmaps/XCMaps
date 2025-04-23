@@ -60,7 +60,7 @@ class OgnAprsClient extends EventEmitter {
       // Create aircraft table if it doesn't exist
       await client.query(`
         CREATE TABLE IF NOT EXISTS aircraft (
-          id VARCHAR(20) PRIMARY KEY,
+          id VARCHAR(50) PRIMARY KEY, -- Increased size to 50
           name VARCHAR(100),
           type SMALLINT,
           last_seen TIMESTAMP WITH TIME ZONE,
