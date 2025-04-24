@@ -18,8 +18,13 @@ const LiveControl = L.Control.extend({
         hangGliderSvgUrl: '/assets/images/hang-glider.svg',
         drivingSvgUrl: '/assets/images/driving.svg', // Added driving SVG URL
         canopyPlaceholderFill: 'fill:#0000ff;',
-        hangGliderPlaceholderFill: 'fill:#ff0000;'
+        hangGliderPlaceholderFill: 'fill:#ff0000;',
         // No placeholder needed for driving SVG unless color change is required later
+        trackHighlightColors: [ // Added color list for tracks/popups
+            '#4169E1', '#DC143C', '#3CB371', '#DAA520', '#00BFFF',
+            '#FF4500', '#9400D3', '#00CED1', '#6A5ACD', '#FF6347',
+            '#B22222', '#FF69B4', '#D2691E', '#BA55D3', '#008080'
+        ]
     },
 
     initialize: function(options) {
@@ -27,10 +32,12 @@ const LiveControl = L.Control.extend({
         this.active = false;
         this.markers = {};
         this.tracks = {};
+        this.activePopupOrder = []; // NEW: Track order of opened popups
+        this.activePopupColors = {}; // NEW: Store assigned color per aircraft
         this.aircraftLayer = L.layerGroup();
         this.trackLayer = L.layerGroup();
         this.refreshTimer = null;
-        this.selectedAircraft = null;
+        // this.selectedAircraft = null; // No longer needed with new logic
         this.canopySvgContent = null;
         this.hangGliderSvgContent = null;
         this.drivingSvgContent = null;
@@ -349,19 +356,51 @@ const LiveControl = L.Control.extend({
             closeOnClick: false // Prevent map click from closing this popup (based on SO suggestion)
         });
 
-        // Add listeners for popup events to manage track display
-        marker.on('popupopen', () => {
-            console.log(`Popup opened for ${aircraft.id}, fetching track...`);
-            this._fetchAircraftTrack(aircraft.id);
+        // Add listeners for popup events to manage track display and color assignment
+        marker.on('popupopen', (e) => {
+            const aircraftId = e.target.options.aircraftId; // Get aircraftId from marker options
+            console.log(`Popup opened for ${aircraftId}`);
+
+            // Assign color
+            if (!this.activePopupOrder.includes(aircraftId)) {
+                this.activePopupOrder.push(aircraftId);
+            }
+            const colorIndex = this.activePopupOrder.indexOf(aircraftId) % this.options.trackHighlightColors.length;
+            const color = this.options.trackHighlightColors[colorIndex];
+            this.activePopupColors[aircraftId] = color;
+            console.log(`Assigned color ${color} to ${aircraftId} at index ${this.activePopupOrder.indexOf(aircraftId)}`);
+
+            // Update popup content immediately with the new color
+            this._updatePopupContent(marker, aircraft); // Pass marker and aircraft data
+
+            // Fetch and display track (will use the assigned color)
+            this._fetchAircraftTrack(aircraftId);
         });
 
-        marker.on('popupclose', () => {
-            console.log(`Popup closed for ${aircraft.id}, removing track...`);
-            if (this.tracks[aircraft.id]) {
-                this.trackLayer.removeLayer(this.tracks[aircraft.id]);
-                delete this.tracks[aircraft.id];
+        marker.on('popupclose', (e) => {
+            const aircraftId = e.target.options.aircraftId; // Get aircraftId from marker options
+            console.log(`Popup closed for ${aircraftId}`);
+
+            // Remove track
+            if (this.tracks[aircraftId]) {
+                this.trackLayer.removeLayer(this.tracks[aircraftId]);
+                delete this.tracks[aircraftId];
+                console.log(`Removed track for ${aircraftId}`);
             }
+
+            // Unassign color and remove from order
+            const index = this.activePopupOrder.indexOf(aircraftId);
+            if (index > -1) {
+                this.activePopupOrder.splice(index, 1);
+            }
+            delete this.activePopupColors[aircraftId];
+            console.log(`Unassigned color and removed ${aircraftId} from active order. New order:`, this.activePopupOrder);
+
+            // Optional: Update popups of remaining active tracks if their color index changed?
+            // This might be complex and potentially jarring. Let's skip for now.
+            // If needed, iterate this.activePopupOrder, recalculate colors, update popups/tracks.
         });
+
 
         // Add marker to layer and store reference
         this.aircraftLayer.addLayer(marker);
@@ -523,11 +562,14 @@ const LiveControl = L.Control.extend({
         // Determine aircraft type (though not used in the popup string anymore)
         const aircraftType = aircraft.type === 6 ? 'Hang Glider' : 'Paraglider';
 
+        // Get assigned color or fallback
+        const assignedColor = this.activePopupColors[aircraft.id] || '#007bff'; // Fallback to blue
+
         // Create popup content
         return `
    <div class="aircraft-popup">
                 <p style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="flex-grow: 1;"><strong style="color:#007bff;">${aircraft.pilot_name}</strong></span>
+                    <span style="flex-grow: 1;"><strong style="color:${assignedColor};">${aircraft.pilot_name}</strong></span>
                     <span style="margin-left: 10px; white-space: nowrap;">${formattedTimeAgo}</span>
                 </p>
                 <p><strong>${aircraft.last_alt_msl} m </strong>[${aircraft.last_alt_agl} AGL]</strong> <strong style="color: ${aircraft.last_vs > 0 ? 'green' : aircraft.last_vs < 0 ? 'red' : 'black'};">${aircraft.last_vs} m/s</strong></p>
@@ -563,9 +605,12 @@ const LiveControl = L.Control.extend({
         if (trackData.length > 0) {
             const trackPoints = trackData.map(point => [point.lat, point.lon]);
 
-            // Create polyline with gradient color based on altitude
+            // Get assigned color or fallback
+            const assignedColor = this.activePopupColors[aircraftId] || this.options.trackColor; // Fallback to default track color
+
+            // Create polyline with the assigned color
             const track = L.polyline(trackPoints, {
-                color: this.options.trackColor,
+                color: assignedColor, // Use the assigned color
                 weight: this.options.trackWeight,
                 opacity: this.options.trackOpacity,
                 lineJoin: 'round'
