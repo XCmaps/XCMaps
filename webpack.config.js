@@ -43,10 +43,11 @@ export default (env, argv) => {
       },
       proxy: [
         {
-          context: ['/api'],
+          context: ['/api', '/socket.io'],
           target: 'http://localhost:3000', // Your backend server address
           secure: false, // Set to false if backend uses self-signed certs
-          changeOrigin: true // Recommended for virtual hosted sites
+          changeOrigin: true, // Recommended for virtual hosted sites
+          ws: true // Enable WebSocket proxying
         }
       ]
     },

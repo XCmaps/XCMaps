@@ -1,7 +1,10 @@
 /**
  * Live Control Component
  * Toggles the live layer for displaying paragliding and hang gliding pilots from OGN
+ * Now using WebSockets for real-time updates
  */
+
+import { io } from "socket.io-client";
 
 // Create a LiveControl class that extends L.Control
 const LiveControl = L.Control.extend({
@@ -32,12 +35,13 @@ const LiveControl = L.Control.extend({
         this.active = false;
         this.markers = {};
         this.tracks = {};
-        this.activePopupOrder = []; // NEW: Track order of opened popups
-        this.activePopupColors = {}; // NEW: Store assigned color per aircraft
+        this.activePopupOrder = []; // Track order of opened popups
+        this.activePopupColors = {}; // Store assigned color per aircraft
         this.aircraftLayer = L.layerGroup();
         this.trackLayer = L.layerGroup();
         this.refreshTimer = null;
-        // this.selectedAircraft = null; // No longer needed with new logic
+        this.socket = null; // WebSocket connection
+        this.lastUpdateTimestamps = {}; // Track last update timestamp for each aircraft
         this.canopySvgContent = null;
         this.hangGliderSvgContent = null;
         this.drivingSvgContent = null;
@@ -177,16 +181,17 @@ const LiveControl = L.Control.extend({
         this.aircraftLayer.addTo(this._map);
         this.trackLayer.addTo(this._map);
 
-        // Fetch aircraft data immediately
-        this._fetchAircraftData();
+        // Clear any existing markers and state
+        this.aircraftLayer.clearLayers();
+        this.markers = {};
+        this.tracks = {};
+        this.lastUpdateTimestamps = {};
 
-        // Set up refresh timer
-        this.refreshTimer = setInterval(() => {
-            this._fetchAircraftData();
-        }, this.options.refreshInterval);
+        // Connect to WebSocket server
+        this._connectWebSocket();
 
-        // Add map move end listener to update aircraft when map is moved
-        this._map.on('moveend', this._fetchAircraftData, this);
+        // Add map move end listener to update bounds when map is moved
+        this._map.on('moveend', this._updateBounds, this);
 
         // Ensure main toggle reflects state if badge is open
         if (this._configBadgeOpen && this._configContainer) {
@@ -205,20 +210,19 @@ const LiveControl = L.Control.extend({
         this._icon.src = this.options.inactiveIcon;
         this._container.classList.remove('live-active'); // Remove class from main container if needed
 
-        // --- NEW: Close config badge if open ---
+        // Close config badge if open
         if (this._configBadgeOpen) {
             this._closeConfigBadge();
         }
-        // --- END NEW ---
 
-        // Clear refresh timer
-        if (this.refreshTimer) {
-            clearInterval(this.refreshTimer);
-            this.refreshTimer = null;
-        }
+        // Disconnect WebSocket
+        this._disconnectWebSocket();
 
         // Remove map move end listener
-        this._map.off('moveend', this._fetchAircraftData, this);
+        this._map.off('moveend', this._updateBounds, this);
+        
+        // Clear state
+        this.lastUpdateTimestamps = {};
 
         // Remove layers from map
         this._map.removeLayer(this.aircraftLayer);
@@ -240,8 +244,179 @@ const LiveControl = L.Control.extend({
          document.dispatchEvent(new CustomEvent('xcmaps-preferences-changed'));
     },
 
-    _fetchAircraftData: function() {
-        if (!this.active) return;
+    /**
+     * Connect to WebSocket server and set up event handlers
+     */
+    _connectWebSocket: function() {
+        if (this.socket) {
+            console.log("WebSocket already connected");
+            return;
+        }
+
+        console.log("Connecting to WebSocket server...");
+        
+        // Flag to track data source
+        this.usingWebSocket = false;
+        this.usingRESTFallback = false;
+        
+        // Connect to the OGN namespace
+        this.socket = io('/ogn');
+
+        // Set up event handlers
+        this.socket.on('connect', () => {
+            console.log("Connected to WebSocket server");
+            
+            // Clear any existing refresh timer (in case we reconnected after fallback)
+            if (this.refreshTimer) {
+                clearInterval(this.refreshTimer);
+                this.refreshTimer = null;
+            }
+            
+            // Set data source flag
+            this.usingWebSocket = true;
+            this.usingRESTFallback = false;
+            
+            // Subscribe to aircraft updates with current map bounds
+            this._updateBounds();
+        });
+
+        this.socket.on('disconnect', () => {
+            console.log("Disconnected from WebSocket server");
+            this.usingWebSocket = false;
+            
+            // If we're still active but not using REST fallback, switch to it
+            if (this.active && !this.usingRESTFallback) {
+                console.log("Switching to REST API fallback after WebSocket disconnect");
+                this._startRESTFallback();
+            }
+        });
+
+        this.socket.on('connect_error', (error) => {
+            console.error("WebSocket connection error:", error);
+            this.usingWebSocket = false;
+            
+            // Fallback to REST API if WebSocket connection fails
+            if (this.active && !this.usingRESTFallback) {
+                console.log("Falling back to REST API due to connection error");
+                this._startRESTFallback();
+            }
+        });
+
+        // Handle initial aircraft data
+        this.socket.on('aircraft-init', (data) => {
+            if (!this.usingWebSocket) return; // Ignore if not using WebSocket
+            
+            console.log("Received initial aircraft data:", data.length);
+            
+            // Clear existing markers before updating with initial data
+            this.aircraftLayer.clearLayers();
+            this.markers = {};
+            
+            this._updateAircraft(data);
+        });
+
+        // Handle aircraft updates
+        this.socket.on('aircraft-update', (data) => {
+            if (!this.usingWebSocket) return; // Ignore if not using WebSocket
+            
+            // Update a single aircraft
+            this._updateSingleAircraft(data);
+        });
+
+        // Handle track data
+        this.socket.on('track-data', (data) => {
+            console.log("Received track data for:", data.aircraftId);
+            this._displayAircraftTrack(data.aircraftId, data.track);
+        });
+    },
+    
+    /**
+     * Start REST API fallback mode
+     */
+    _startRESTFallback: function() {
+        if (this.usingRESTFallback) return; // Already using fallback
+        
+        console.log("Starting REST API fallback mode");
+        this.usingRESTFallback = true;
+        this.usingWebSocket = false;
+        
+        // Clear existing markers before switching data sources
+        this.aircraftLayer.clearLayers();
+        this.markers = {};
+        
+        // Fetch data immediately
+        this._fetchAircraftDataREST();
+        
+        // Set up refresh timer
+        if (!this.refreshTimer) {
+            this.refreshTimer = setInterval(() => {
+                this._fetchAircraftDataREST();
+            }, this.options.refreshInterval);
+        }
+    },
+
+    /**
+     * Disconnect from WebSocket server
+     */
+    _disconnectWebSocket: function() {
+        if (this.socket) {
+            console.log("Disconnecting from WebSocket server");
+            this.socket.disconnect();
+            this.socket = null;
+        }
+
+        // Clear refresh timer if it exists (fallback mode)
+        if (this.refreshTimer) {
+            clearInterval(this.refreshTimer);
+            this.refreshTimer = null;
+        }
+        
+        // Reset data source flags
+        this.usingWebSocket = false;
+        this.usingRESTFallback = false;
+    },
+
+    /**
+     * Update bounds when map is moved and send to server
+     */
+    _updateBounds: function() {
+        if (!this.active || !this.socket) return;
+
+        // Get map bounds
+        const bounds = this._map.getBounds();
+        const nwLat = bounds.getNorthWest().lat;
+        const nwLng = bounds.getNorthWest().lng;
+        const seLat = bounds.getSouthEast().lat;
+        const seLng = bounds.getSouthEast().lng;
+
+        const boundsData = { nwLat, nwLng, seLat, seLng };
+        
+        // Only send bounds to server if using WebSocket
+        if (this.usingWebSocket) {
+            // Send bounds to server
+            this.socket.emit('update-bounds', boundsData);
+            
+            // If this is the first time or we're reconnecting, also subscribe
+            if (this.socket.connected && !this._boundsSubscribed) {
+                this.socket.emit('subscribe', boundsData);
+                this._boundsSubscribed = true;
+            }
+        }
+        
+        // If we're using REST fallback, update that too
+        if (this.usingRESTFallback) {
+            this._fetchAircraftDataREST();
+        }
+    },
+
+    /**
+     * Fallback method to fetch aircraft data using REST API
+     * Used when WebSocket connection fails
+     */
+    _fetchAircraftDataREST: function() {
+        if (!this.active || !this.usingRESTFallback) return;
+
+        console.log("Fetching aircraft data via REST API (fallback)");
 
         // Get map bounds
         const bounds = this._map.getBounds();
@@ -254,7 +429,10 @@ const LiveControl = L.Control.extend({
         fetch(`/api/ogn/aircraft?nwLat=${nwLat}&nwLng=${nwLng}&seLat=${seLat}&seLng=${seLng}`)
             .then(response => response.json())
             .then(data => {
-                this._updateAircraft(data);
+                // Only process if we're still in REST fallback mode
+                if (this.usingRESTFallback) {
+                    this._updateAircraft(data);
+                }
             })
             .catch(error => {
                 console.error('Error fetching aircraft data:', error);
@@ -284,32 +462,39 @@ const LiveControl = L.Control.extend({
 
         // Process filtered aircraft: Update or add markers
         filteredAircraft.forEach(aircraft => {
-            activeAircraftIds.add(aircraft.id); // Add ID even if marker creation fails
+            const normalizedId = this._normalizeAircraftId(aircraft.id);
+            activeAircraftIds.add(normalizedId); // Add normalized ID
 
-            if (this.markers[aircraft.id]) {
+            const aircraftWithNormalizedId = {
+                ...aircraft,
+                id: normalizedId,
+                originalId: aircraft.id
+            };
+
+            if (this.markers[normalizedId]) {
                 // Update existing marker
-                this.markers[aircraft.id].setLatLng([aircraft.last_lat, aircraft.last_lon]);
-                this._updateMarkerIcon(this.markers[aircraft.id], aircraft); // Icon might change (e.g., flying -> landing)
-                this._updatePopupContent(this.markers[aircraft.id], aircraft);
+                this.markers[normalizedId].setLatLng([aircraft.last_lat, aircraft.last_lon]);
+                this._updateMarkerIcon(this.markers[normalizedId], aircraftWithNormalizedId); // Icon might change (e.g., flying -> landing)
+                this._updatePopupContent(this.markers[normalizedId], aircraftWithNormalizedId);
             } else {
                 // Attempt to create new marker (might return null if filtered by _createAircraftMarker)
-                const newMarker = this._createAircraftMarker(aircraft);
+                const newMarker = this._createAircraftMarker(aircraftWithNormalizedId);
                 // Note: _createAircraftMarker now handles the initial visibility check
             }
         });
 
         // Remove markers for aircraft that are no longer active OR are now filtered out
-        Object.keys(this.markers).forEach(id => {
-            if (!activeAircraftIds.has(id)) {
-                if (this.markers[id]) { // Check if marker exists before removing
-                    this.aircraftLayer.removeLayer(this.markers[id]);
+        Object.keys(this.markers).forEach(normalizedId => {
+            if (!activeAircraftIds.has(normalizedId)) {
+                if (this.markers[normalizedId]) { // Check if marker exists before removing
+                    this.aircraftLayer.removeLayer(this.markers[normalizedId]);
                 }
-                delete this.markers[id];
+                delete this.markers[normalizedId];
 
                 // Remove track if exists
-                if (this.tracks[id]) {
-                    this.trackLayer.removeLayer(this.tracks[id]);
-                    delete this.tracks[id];
+                if (this.tracks[normalizedId]) {
+                    this.trackLayer.removeLayer(this.tracks[normalizedId]);
+                    delete this.tracks[normalizedId];
                 }
             }
         });
@@ -358,43 +543,43 @@ const LiveControl = L.Control.extend({
 
         // Add listeners for popup events to manage track display and color assignment
         marker.on('popupopen', (e) => {
-            const aircraftId = e.target.options.aircraftId; // Get aircraftId from marker options
-            console.log(`Popup opened for ${aircraftId}`);
+            const normalizedId = e.target.options.aircraftId; // Get normalized aircraftId from marker options
+            console.log(`Popup opened for ${normalizedId}`);
 
             // Assign color
-            if (!this.activePopupOrder.includes(aircraftId)) {
-                this.activePopupOrder.push(aircraftId);
+            if (!this.activePopupOrder.includes(normalizedId)) {
+                this.activePopupOrder.push(normalizedId);
             }
-            const colorIndex = this.activePopupOrder.indexOf(aircraftId) % this.options.trackHighlightColors.length;
+            const colorIndex = this.activePopupOrder.indexOf(normalizedId) % this.options.trackHighlightColors.length;
             const color = this.options.trackHighlightColors[colorIndex];
-            this.activePopupColors[aircraftId] = color;
-            console.log(`Assigned color ${color} to ${aircraftId} at index ${this.activePopupOrder.indexOf(aircraftId)}`);
+            this.activePopupColors[normalizedId] = color;
+            console.log(`Assigned color ${color} to ${normalizedId} at index ${this.activePopupOrder.indexOf(normalizedId)}`);
 
             // Update popup content immediately with the new color
             this._updatePopupContent(marker, aircraft); // Pass marker and aircraft data
 
             // Fetch and display track (will use the assigned color)
-            this._fetchAircraftTrack(aircraftId);
+            this._fetchAircraftTrack(normalizedId);
         });
 
         marker.on('popupclose', (e) => {
-            const aircraftId = e.target.options.aircraftId; // Get aircraftId from marker options
-            console.log(`Popup closed for ${aircraftId}`);
+            const normalizedId = e.target.options.aircraftId; // Get normalized aircraftId from marker options
+            console.log(`Popup closed for ${normalizedId}`);
 
             // Remove track
-            if (this.tracks[aircraftId]) {
-                this.trackLayer.removeLayer(this.tracks[aircraftId]);
-                delete this.tracks[aircraftId];
-                console.log(`Removed track for ${aircraftId}`);
+            if (this.tracks[normalizedId]) {
+                this.trackLayer.removeLayer(this.tracks[normalizedId]);
+                delete this.tracks[normalizedId];
+                console.log(`Removed track for ${normalizedId}`);
             }
 
             // Unassign color and remove from order
-            const index = this.activePopupOrder.indexOf(aircraftId);
+            const index = this.activePopupOrder.indexOf(normalizedId);
             if (index > -1) {
                 this.activePopupOrder.splice(index, 1);
             }
-            delete this.activePopupColors[aircraftId];
-            console.log(`Unassigned color and removed ${aircraftId} from active order. New order:`, this.activePopupOrder);
+            delete this.activePopupColors[normalizedId];
+            console.log(`Unassigned color and removed ${normalizedId} from active order. New order:`, this.activePopupOrder);
 
             // Optional: Update popups of remaining active tracks if their color index changed?
             // This might be complex and potentially jarring. Let's skip for now.
@@ -402,9 +587,9 @@ const LiveControl = L.Control.extend({
         });
 
 
-        // Add marker to layer and store reference
+        // Add marker to layer and store reference using normalized ID
         this.aircraftLayer.addLayer(marker);
-        this.markers[aircraft.id] = marker;
+        this.markers[aircraft.id] = marker; // Use normalized ID here
 
         return marker;
     },
@@ -562,7 +747,7 @@ const LiveControl = L.Control.extend({
         // Determine aircraft type (though not used in the popup string anymore)
         const aircraftType = aircraft.type === 6 ? 'Hang Glider' : 'Paraglider';
 
-        // Get assigned color or fallback
+        // Get assigned color or fallback using normalized ID
         const assignedColor = this.activePopupColors[aircraft.id] || '#007bff'; // Fallback to blue
 
         // Create popup content
@@ -583,30 +768,143 @@ const LiveControl = L.Control.extend({
         }
     },
 
-    _fetchAircraftTrack: function(aircraftId) {
-        // Fetch track data from API
-        fetch(`/api/ogn/track/${aircraftId}?minutes=60`)
-            .then(response => response.json())
-            .then(trackData => {
-                this._displayAircraftTrack(aircraftId, trackData);
-            })
-            .catch(error => {
-                console.error('Error fetching aircraft track:', error);
-            });
+    /**
+     * Update a single aircraft (used with WebSocket updates)
+     */
+    _updateSingleAircraft: function(aircraft) {
+        if (!this.active) return;
+
+        // Normalize aircraft ID by removing the prefix (FLR, FNT, etc.) and keeping only the unique part
+        const normalizedId = this._normalizeAircraftId(aircraft.id);
+        
+        // Use the normalized ID for all operations
+        const aircraftWithNormalizedId = {
+            ...aircraft,
+            id: normalizedId,
+            originalId: aircraft.id // Keep the original ID for reference
+        };
+        
+        // Check for duplicate updates using timestamp
+        if (aircraft.update_timestamp) {
+            const lastTimestamp = this.lastUpdateTimestamps[normalizedId] || 0;
+            if (aircraft.update_timestamp <= lastTimestamp) {
+                console.debug(`Skipping duplicate update for aircraft ${normalizedId} (timestamp: ${aircraft.update_timestamp}, last: ${lastTimestamp})`);
+                return;
+            }
+            // Update the timestamp
+            this.lastUpdateTimestamps[normalizedId] = aircraft.update_timestamp;
+        }
+
+        // Debug log to see what data we're receiving
+        console.debug("Received aircraft update:", aircraft);
+
+        // Ensure we have valid coordinates
+        const lat = aircraft.lat || aircraft.last_lat;
+        const lon = aircraft.lon || aircraft.last_lon;
+        
+        if (!lat || !lon) {
+            console.warn("Skipping aircraft update due to missing coordinates:", aircraft.id);
+            return;
+        }
+
+        // Add to active aircraft IDs set
+        const activeAircraftIds = new Set(Object.keys(this.markers));
+        activeAircraftIds.add(normalizedId);
+
+        // Filter based on current settings
+        const agl = aircraft.last_alt_agl || aircraft.altAgl || 0;
+        const speed = aircraft.last_speed_kmh || aircraft.speedKmh || 0;
+
+        let shouldDisplay = true;
+        if (agl < 5) { // Ground states
+            if (speed === 0 && !this._liveSettings.showResting) shouldDisplay = false;
+            if (speed > 0 && speed <= 16 && !this._liveSettings.showHiking) shouldDisplay = false;
+            if (speed > 16 && !this._liveSettings.showDriving) shouldDisplay = false;
+        }
+
+        if (shouldDisplay) {
+            // Update or create marker
+            if (this.markers[normalizedId]) {
+                // Update existing marker
+                this.markers[normalizedId].setLatLng([lat, lon]);
+                this._updateMarkerIcon(this.markers[normalizedId], aircraftWithNormalizedId);
+                this._updatePopupContent(this.markers[normalizedId], aircraftWithNormalizedId);
+            } else {
+                // Create new marker
+                // Ensure aircraft has all required properties
+                const processedAircraft = {
+                    ...aircraftWithNormalizedId,
+                    last_lat: lat,
+                    last_lon: lon,
+                    last_alt_agl: agl,
+                    last_speed_kmh: speed,
+                    last_course: aircraft.last_course || aircraft.course || 0,
+                    last_vs: aircraft.last_vs || aircraft.vs || 0,
+                    type: aircraft.type || aircraft.aircraftType || 0,
+                    name: aircraft.name || normalizedId,
+                    pilot_name: aircraft.pilot_name || aircraft.name || normalizedId
+                };
+                
+                this._createAircraftMarker(processedAircraft);
+            }
+        } else if (this.markers[normalizedId]) {
+            // Remove marker if it exists but shouldn't be displayed
+            this.aircraftLayer.removeLayer(this.markers[normalizedId]);
+            delete this.markers[normalizedId];
+
+            // Remove track if exists
+            if (this.tracks[normalizedId]) {
+                this.trackLayer.removeLayer(this.tracks[normalizedId]);
+                delete this.tracks[normalizedId];
+            }
+        }
     },
 
-    _displayAircraftTrack: function(aircraftId, trackData) {
+    /**
+     * Normalize aircraft ID by removing known prefixes
+     * @param {string} id - Original aircraft ID
+     * @returns {string} - Normalized ID
+     */
+    _normalizeAircraftId: function(id) {
+        if (!id) return id;
+        // Remove prefixes like FLR, FNT, OGN, RND, ICA
+        return id.replace(/^(FLR|FNT|OGN|RND|ICA)/i, '');
+    },
+
+    /**
+     * Fetch aircraft track using WebSocket or fallback to REST API
+     */
+    _fetchAircraftTrack: function(normalizedId) {
+        if (this.usingWebSocket && this.socket && this.socket.connected) {
+            // Use WebSocket
+            console.log("Requesting track via WebSocket for:", normalizedId);
+            this.socket.emit('get-track', normalizedId);
+        } else {
+            // Fallback to REST API
+            console.log("Requesting track via REST API for:", normalizedId);
+            fetch(`/api/ogn/track/${normalizedId}?minutes=60`)
+                .then(response => response.json())
+                .then(trackData => {
+                    this._displayAircraftTrack(normalizedId, trackData);
+                })
+                .catch(error => {
+                    console.error('Error fetching aircraft track:', error);
+                });
+        }
+    },
+
+    _displayAircraftTrack: function(normalizedId, trackData) {
         // Remove existing track if any
-        if (this.tracks[aircraftId]) {
-            this.trackLayer.removeLayer(this.tracks[aircraftId]);
+        if (this.tracks[normalizedId]) {
+            this.trackLayer.removeLayer(this.tracks[normalizedId]);
         }
 
         // Create track line
         if (trackData.length > 0) {
             const trackPoints = trackData.map(point => [point.lat, point.lon]);
 
-            // Get assigned color or fallback
-            const assignedColor = this.activePopupColors[aircraftId] || this.options.trackColor; // Fallback to default track color
+            // Get assigned color or fallback using normalized ID
+            const assignedColor = this.activePopupColors[normalizedId] || this.options.trackColor; // Fallback to default track color
 
             // Create polyline with the assigned color
             const track = L.polyline(trackPoints, {
@@ -616,12 +914,12 @@ const LiveControl = L.Control.extend({
                 lineJoin: 'round'
             });
 
-            // Add to layer and store reference
+            // Add to layer and store reference using normalized ID
             this.trackLayer.addLayer(track);
-            this.tracks[aircraftId] = track;
+            this.tracks[normalizedId] = track;
 
             // Altitude markers removed as requested
-            // this._addAltitudeMarkers(aircraftId, trackData);
+            // this._addAltitudeMarkers(normalizedId, trackData);
         }
     },
 

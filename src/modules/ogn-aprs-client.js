@@ -41,6 +41,7 @@ class OgnAprsClient extends EventEmitter {
     this.lastCleanup = Date.now();
     this.aircraftCache = new Map(); // Cache for current aircraft positions (keep this one)
     this.flarmnetCache = new Map(); // Cache for Flarmnet data
+    this.io = null; // Socket.IO instance (will be set externally)
 
     // Initialize elevation modules
     this.srtmElevation = new SrtmElevation(dbPool);
@@ -936,8 +937,46 @@ class OgnAprsClient extends EventEmitter {
         // Update cache
         this.aircraftCache.set(parsedData.id, parsedData);
 
-        // Emit event for real-time updates
+        // Emit event for real-time updates (local event)
         this.emit('aircraft-update', parsedData);
+        
+        // Emit WebSocket event if Socket.IO is available
+        if (this.io) {
+          try {
+            const ognNamespace = this.io.of('/ogn');
+            
+            // Get all clients in the aircraft-updates room
+            const sockets = await ognNamespace.in('aircraft-updates').fetchSockets();
+            
+            // Format the data for WebSocket transmission
+            const wsData = {
+              id: parsedData.id,
+              name: parsedData.name,
+              last_lat: parsedData.lat,
+              last_lon: parsedData.lon,
+              last_alt_msl: parsedData.altMsl,
+              last_alt_agl: parsedData.altAgl,
+              last_course: parsedData.course,
+              last_speed_kmh: parsedData.speedKmh,
+              last_vs: parsedData.vs,
+              last_turn_rate: parsedData.turnRate,
+              type: parsedData.aircraftType,
+              pilot_name: parsedData.pilotName,
+              last_seen: parsedData.timestamp,
+              // Add a unique timestamp to help client identify duplicates
+              update_timestamp: Date.now()
+            };
+            
+            // Send updates only to clients whose bounds contain this aircraft
+            for (const socket of sockets) {
+              if (socket.bounds && this._isAircraftInBounds(parsedData, socket.bounds)) {
+                socket.emit('aircraft-update', wsData);
+              }
+            }
+          } catch (err) {
+            console.error('Error emitting WebSocket event:', err);
+          }
+        }
       }
     } catch (err) { // End of try, start of catch for processAprsData
       console.error('Error processing APRS data:', err, 'Line:', line);
@@ -1383,7 +1422,15 @@ class OgnAprsClient extends EventEmitter {
         new Date(Date.now() - 1800000) // Last 30 minutes
       ]);
 
-      return result.rows;
+      // Ensure all rows have valid coordinates before returning
+      const validRows = result.rows.filter(row =>
+        row.last_lat !== null &&
+        row.last_lon !== null
+      );
+      
+      console.log(`Found ${result.rows.length} aircraft in bounds, ${validRows.length} with valid coordinates`);
+      
+      return validRows;
     } catch (err) {
       console.error('Error getting aircraft in bounds:', err);
       return [];
@@ -1424,6 +1471,48 @@ class OgnAprsClient extends EventEmitter {
       }
     }
   } // End of getAircraftTrack
+  /**
+   * Check if an aircraft is within the specified bounds
+   * @param {Object} aircraft - Aircraft data
+   * @param {Object} bounds - Map bounds {nwLat, nwLng, seLat, seLng}
+   * @returns {boolean} - True if aircraft is within bounds
+   */
+  _isAircraftInBounds(aircraft, bounds) {
+    // Handle different data formats (from database or from APRS parsing)
+    const lat = aircraft.lat || aircraft.last_lat;
+    const lon = aircraft.lon || aircraft.last_lon;
+    
+    if (!lat || !lon || !bounds) {
+      console.debug(`Aircraft ${aircraft.id} has invalid coordinates or bounds:`, { lat, lon, bounds });
+      return false;
+    }
+    
+    const inBounds = (
+      lat >= bounds.seLat &&
+      lat <= bounds.nwLat &&
+      lon >= bounds.nwLng &&
+      lon <= bounds.seLng
+    );
+    
+    // Debug log for bounds checking
+    if (!inBounds) {
+      console.debug(`Aircraft ${aircraft.id} is outside bounds:`, {
+        lat, lon,
+        bounds: `${bounds.seLat},${bounds.nwLat},${bounds.nwLng},${bounds.seLng}`
+      });
+    }
+    
+    return inBounds;
+  }
+  
+  /**
+   * Set the Socket.IO instance for WebSocket communication
+   * @param {Object} io - Socket.IO instance
+   */
+  setSocketIO(io) {
+    this.io = io;
+    console.log('Socket.IO instance set in OGN APRS client');
+  }
 } // End of OgnAprsClient class
 
 export default OgnAprsClient;

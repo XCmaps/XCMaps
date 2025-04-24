@@ -8,6 +8,8 @@ import fetch from 'node-fetch';
 import fs from 'fs'; // Added for file system operations
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { createServer } from "http";
+import { Server } from "socket.io";
 
 // For GDAL checking
 const execAsync = promisify(exec);
@@ -94,7 +96,7 @@ fs.watch(configPath, (eventType, filename) => {
 // --- End Configuration Loading ---
 
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Enable CORS
 app.use(cors());
@@ -142,6 +144,18 @@ app.get("/api/config", (req, res) => {
 });
 // --- End Configuration Endpoint ---
 
+// Create HTTP server and Socket.IO instance
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+    cors: {
+        origin: "*", // Allow all origins in development
+        methods: ["GET", "POST"]
+    }
+});
+
+// Set up Socket.IO namespaces
+const ognNamespace = io.of('/ogn');
+
 // --- Start Server after Initializations ---
 async function startServer() {
     try {
@@ -170,6 +184,8 @@ async function startServer() {
         console.log('- scripts/import-srtm-raster2pgsql.js (PostGIS implementation, recommended for large datasets)');
 
         console.log('Initializing OGN APRS Client (DB, data refresh, timers, connection)...');
+        // Pass Socket.IO instance to OGN APRS client
+        ognClient.setSocketIO(io);
         await ognClient.initializeAndStart(); // Use the new combined initialization method
         console.log('OGN APRS Client started successfully.');
 
@@ -211,7 +227,57 @@ async function startServer() {
         }
         // --- End Manual Trigger ---
 
-        app.listen(PORT, () => {
+        // Socket.IO connection handler for OGN namespace
+        ognNamespace.on('connection', (socket) => {
+            console.log('Client connected to OGN namespace:', socket.id);
+            
+            // Handle client subscribing to aircraft updates within bounds
+            socket.on('subscribe', (bounds) => {
+                console.log(`Client ${socket.id} subscribed to aircraft updates within bounds:`, bounds);
+                // Store bounds in socket object for later use
+                socket.bounds = bounds;
+                socket.join('aircraft-updates');
+                
+                // Send initial aircraft data within bounds
+                if (ognClient && bounds) {
+                    ognClient.getAircraftInBounds(bounds)
+                        .then(aircraft => {
+                            socket.emit('aircraft-init', aircraft);
+                        })
+                        .catch(err => {
+                            console.error('Error fetching initial aircraft data:', err);
+                        });
+                }
+            });
+            
+            // Handle client requesting track data for a specific aircraft
+            socket.on('get-track', (aircraftId) => {
+                console.log(`Client ${socket.id} requested track for aircraft:`, aircraftId);
+                if (ognClient && aircraftId) {
+                    ognClient.getAircraftTrack(aircraftId, 60) // 60 minutes of history
+                        .then(track => {
+                            socket.emit('track-data', { aircraftId, track });
+                        })
+                        .catch(err => {
+                            console.error('Error fetching aircraft track:', err);
+                        });
+                }
+            });
+            
+            // Handle client updating their view bounds
+            socket.on('update-bounds', (bounds) => {
+                console.log(`Client ${socket.id} updated bounds:`, bounds);
+                socket.bounds = bounds;
+            });
+            
+            // Handle disconnection
+            socket.on('disconnect', () => {
+                console.log('Client disconnected from OGN namespace:', socket.id);
+            });
+        });
+        
+        // Start the HTTP server
+        httpServer.listen(PORT, () => {
             console.log(`Server running on http://localhost:${PORT}`);
         });
     } catch (err) {
