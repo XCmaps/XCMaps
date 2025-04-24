@@ -307,21 +307,12 @@ const LiveControl = L.Control.extend({
             }
         });
 
-        // Update track for selected aircraft if it's still visible
-        if (this.selectedAircraft && activeAircraftIds.has(this.selectedAircraft)) {
-            this._fetchAircraftTrack(this.selectedAircraft);
-        } else if (this.selectedAircraft && !activeAircraftIds.has(this.selectedAircraft)) {
-             // If selected aircraft is no longer visible, clear selection and track
-             if (this.tracks[this.selectedAircraft]) {
-                 this.trackLayer.removeLayer(this.tracks[this.selectedAircraft]);
-                 delete this.tracks[this.selectedAircraft];
-             }
-             this.selectedAircraft = null;
-        }
+        // Removed track update logic based on this.selectedAircraft
+        // Track updates are now handled by popupopen/popupclose events
     },
     // --- END MODIFIED ---
 
-    // --- MODIFIED: _createAircraftMarker to check visibility settings ---
+    // --- MODIFIED: _createAircraftMarker to check visibility settings and add popup listeners ---
     _createAircraftMarker: function(aircraft) {
         // --- NEW: Check visibility settings before creating ground markers ---
         const agl = aircraft.last_alt_agl;
@@ -358,12 +349,19 @@ const LiveControl = L.Control.extend({
             closeOnClick: false // Prevent map click from closing this popup (based on SO suggestion)
         });
 
-        // Removed custom click handler to rely on default bindPopup behavior with autoClose/closeOnClick false
-        // TODO: Need to re-add track fetching logic, perhaps on 'popupopen' event?
-        // marker.on('popupopen', () => {
-        //     this.selectedAircraft = aircraft.id;
-        //     this._fetchAircraftTrack(aircraft.id);
-        // });
+        // Add listeners for popup events to manage track display
+        marker.on('popupopen', () => {
+            console.log(`Popup opened for ${aircraft.id}, fetching track...`);
+            this._fetchAircraftTrack(aircraft.id);
+        });
+
+        marker.on('popupclose', () => {
+            console.log(`Popup closed for ${aircraft.id}, removing track...`);
+            if (this.tracks[aircraft.id]) {
+                this.trackLayer.removeLayer(this.tracks[aircraft.id]);
+                delete this.tracks[aircraft.id];
+            }
+        });
 
         // Add marker to layer and store reference
         this.aircraftLayer.addLayer(marker);
