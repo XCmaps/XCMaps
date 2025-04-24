@@ -350,17 +350,20 @@ const LiveControl = L.Control.extend({
         const popupContent = this._createPopupContent(aircraft);
 
         // Bind popup
-        marker.bindPopup(popupContent, { offset: [50,35] }); // Add offset to push popup right
-
-        // Add click handler to show track
-        marker.on('click', (e) => {
-            // If the config badge is open, close it first
-            if (this._configBadgeOpen) {
-                this._closeConfigBadge();
-            }
-            this.selectedAircraft = aircraft.id;
-            this._fetchAircraftTrack(aircraft.id);
+        // Bind popup with autoClose set to false
+        // Bind popup with autoClose set to false, let Leaflet handle closeOnClick
+        marker.bindPopup(popupContent, {
+            offset: [50, 35],
+            autoClose: false, // Prevent other popups from closing
+            closeOnClick: false // Prevent map click from closing this popup (based on SO suggestion)
         });
+
+        // Removed custom click handler to rely on default bindPopup behavior with autoClose/closeOnClick false
+        // TODO: Need to re-add track fetching logic, perhaps on 'popupopen' event?
+        // marker.on('popupopen', () => {
+        //     this.selectedAircraft = aircraft.id;
+        //     this._fetchAircraftTrack(aircraft.id);
+        // });
 
         // Add marker to layer and store reference
         this.aircraftLayer.addLayer(marker);
