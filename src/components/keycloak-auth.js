@@ -149,7 +149,7 @@ function comparePreferenceStates(state1, state2) {
     }
 
     // --- Compare Live Settings ---
-    const liveSettings1 = state1.liveSettings || {}; // Default to empty object if missing
+    const liveSettings1 = state1.liveSettings || {};
     const liveSettings2 = state2.liveSettings || {};
 
     // Compare each live setting property
@@ -159,7 +159,21 @@ function comparePreferenceStates(state1, state2) {
         liveSettings1.showDriving !== liveSettings2.showDriving) {
         return false;
     }
-    // Add comparisons for other live settings here if introduced later
+
+    // --- Compare Pilot Names ---
+    const pilotNames1 = state1.pilotNames || [];
+    const pilotNames2 = state2.pilotNames || [];
+
+    if (pilotNames1.length !== pilotNames2.length) {
+        return false;
+    }
+    // Simple comparison assuming order might matter for now, or if IDs are unique
+    // For a more robust comparison (order-independent), convert to sets or sort first
+    const pilotNames1String = JSON.stringify(pilotNames1.sort((a, b) => a.deviceId.localeCompare(b.deviceId)));
+    const pilotNames2String = JSON.stringify(pilotNames2.sort((a, b) => a.deviceId.localeCompare(b.deviceId)));
+    if (pilotNames1String !== pilotNames2String) {
+        return false;
+    }
 
     return true; // States are identical
 }
@@ -342,27 +356,167 @@ const showProfileBadge = async (container) => { // Make async
       <button id="save-settings-button" class="save-settings-button" style="padding: 5px 10px; border: none; border-radius: 3px;">Save Settings</button> <!-- Initial style set by JS -->
       <button id="logout-button" class="logout-button">Logout</button>
     </div>
+
+    <!-- Live Pilot Name Configuration Section (Added) -->
+    <div id="live-pilot-config-section" style="display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+      <div style="font-weight: bold; margin-bottom: 8px; text-align: left;">Live! pilot name</div>
+      <div id="live-pilot-rows-container">
+        <!-- Rows will be added here by JS -->
+      </div>
+      <button id="add-pilot-row-button" class="add-pilot-button">+</button> <!-- Add Button -->
+      <div class="live-pilot-consent">
+        <input type="checkbox" id="live-pilot-consent-checkbox">
+        <label for="live-pilot-consent-checkbox" style="font-size: 0.9em;">I certify to be the owner of this device</label>
+      </div>
+    </div>
+    <!-- End Live Pilot Name Configuration Section -->
   `;
   
   // Append badge to container
   container.appendChild(badge);
-  
-  // Add click event listener to logout button
-  const logoutButton = document.getElementById('logout-button');
-  if (logoutButton) {
-    L.DomEvent.on(logoutButton, 'click', function(e) {
-      L.DomEvent.stopPropagation(e);
-      logout();
-    });
-  }
 
-  // Get references
+  // Stop clicks inside the badge from propagating to the document listener
+  L.DomEvent.on(badge, 'click', L.DomEvent.stopPropagation);
+  L.DomEvent.on(badge, 'mousedown', L.DomEvent.stopPropagation); // Also stop mousedown
+
+  // --- Live Pilot Config Logic will be handled later ---
+
+  // Logout button listener will be added later, after the button element is confirmed to exist
+
+  // --- Get references (Primary) ---
   const saveSettingsButton = document.getElementById('save-settings-button');
-  const messageArea = document.getElementById('profile-badge-message'); // Get message area
+  const messageArea = document.getElementById('profile-badge-message');
+  const logoutButton = document.getElementById('logout-button'); // Declare logoutButton here
+  let initialPilotNamesState = []; // Store initial state for comparison
+  let savedPreferences = null; // Declare savedPreferences here to be accessible in helpers
 
-  // --- Check current vs saved preferences ---
-  let savedPreferences = null;
-  let hasChanges = false;
+  // --- Helper: Add Pilot Name Row ---
+  const addPilotNameRow = (deviceId = '', pilotName = '') => {
+      const rowDiv = document.createElement('div');
+      rowDiv.className = 'live-pilot-row';
+      rowDiv.style.display = 'flex';
+      rowDiv.style.alignItems = 'center';
+      rowDiv.style.marginBottom = '5px';
+      rowDiv.innerHTML = `
+          <div style="margin-right: 10px; flex-grow: 1;">
+              <label style="display: block; font-size: 0.8em; margin-bottom: 2px;">Device ID</label>
+              <input type="text" name="deviceId" value="${deviceId}" placeholder="e.g., 4AD2A8" style="width: 100%; padding: 3px;">
+          </div>
+          <div style="margin-right: 5px; flex-grow: 1;">
+              <label style="display: block; font-size: 0.8em; margin-bottom: 2px;">Name</label>
+              <input type="text" name="pilotName" value="${pilotName}" placeholder="Display Name" style="width: 100%; padding: 3px;">
+          </div>
+          <button class="remove-pilot-button" style="padding: 3px 8px; margin-left: 5px; background-color: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer;">-</button>
+      `;
+      // Get livePilotRowsContainer reference here as it's needed now
+      const livePilotRowsContainer = document.getElementById('live-pilot-rows-container');
+      if (livePilotRowsContainer) {
+           livePilotRowsContainer.appendChild(rowDiv);
+      } else {
+          console.error("Could not find live-pilot-rows-container to append row.");
+      }
+      // Add blur listener for deviceId input for lookup
+      const deviceIdInput = rowDiv.querySelector('input[name="deviceId"]');
+      if (deviceIdInput) {
+          L.DomEvent.on(deviceIdInput, 'blur', handleDeviceIdBlur);
+      }
+  };
+
+  // --- Helper: Handle Device ID Blur for Lookup ---
+  const handleDeviceIdBlur = async (e) => {
+      const deviceIdInput = e.target;
+      const deviceId = deviceIdInput.value.trim();
+      const row = deviceIdInput.closest('.live-pilot-row');
+      const nameInput = row ? row.querySelector('input[name="pilotName"]') : null;
+
+      if (!deviceId || !nameInput || nameInput.value.trim()) {
+          // Don't lookup if device ID is empty or name is already filled
+          return;
+      }
+
+      console.log(`Looking up name for Device ID: ${deviceId}`);
+      try {
+          // Show some loading indicator? (Optional)
+          deviceIdInput.style.cursor = 'wait';
+          nameInput.style.cursor = 'wait';
+
+          const response = await fetch(`/api/lookup/pilot-name?deviceId=${encodeURIComponent(deviceId)}`); // Use your actual endpoint path
+
+          if (response.ok) {
+              const data = await response.json();
+              if (data && data.name) {
+                  console.log(`Found name: ${data.name}`);
+                  nameInput.value = data.name;
+                  updateSaveButtonState(); // Update save button state as name was changed programmatically
+              } else {
+                  console.log(`No name found for Device ID: ${deviceId}`);
+              }
+          } else {
+              console.warn(`Pilot name lookup failed: ${response.status}`);
+          }
+      } catch (error) {
+          console.error('Error during pilot name lookup:', error);
+      } finally {
+          // Remove loading indicator (Optional)
+          deviceIdInput.style.cursor = '';
+          nameInput.style.cursor = '';
+      }
+  };
+  // --- Helper: Get Current Pilot Names from UI ---
+  const getCurrentPilotNamesFromUI = () => {
+      let currentData = [];
+      // Get livePilotRowsContainer reference here as it's needed now
+      const livePilotRowsContainer = document.getElementById('live-pilot-rows-container');
+      if (livePilotRowsContainer) {
+          const rows = livePilotRowsContainer.querySelectorAll('.live-pilot-row');
+          rows.forEach(row => {
+              const deviceIdInput = row.querySelector('input[name="deviceId"]');
+              const nameInput = row.querySelector('input[name="pilotName"]');
+              // Only include if both fields have some value (even if just whitespace initially)
+              if (deviceIdInput && nameInput && (deviceIdInput.value || nameInput.value)) {
+                  currentData.push({
+                      deviceId: deviceIdInput.value.trim(),
+                      name: nameInput.value.trim()
+                  });
+              }
+          });
+      } else {
+           console.error("Could not find live-pilot-rows-container to get UI data.");
+      }
+      // Sort for consistent comparison
+      return currentData.sort((a, b) => a.deviceId.localeCompare(b.deviceId));
+  };
+  // Removed duplicated block from getCurrentPilotNamesFromUI
+
+  // --- Helper: Update Save Button State ---
+  const updateSaveButtonState = () => {
+      // 1. Check Map/Live Settings changes
+      const currentMapState = getCurrentMapState(window.treeLayersControl);
+      let currentLiveSettings = window.liveControl?.getLiveSettings() || {};
+      const currentNonPilotState = { ...currentMapState, liveSettings: currentLiveSettings };
+      const savedNonPilotState = { selectedBaseLayer: savedPreferences?.selectedBaseLayer, selectedOverlays: savedPreferences?.selectedOverlays, liveSettings: savedPreferences?.liveSettings };
+      let mapOrLiveChanged = !comparePreferenceStates(currentNonPilotState, savedNonPilotState);
+
+      // 2. Check Pilot Name changes (only if section is visible)
+      let pilotNamesChanged = false;
+      const livePilotConfigSection = document.getElementById('live-pilot-config-section'); // Get reference here
+      const isLiveSectionVisible = livePilotConfigSection && livePilotConfigSection.style.display !== 'none';
+      if (isLiveSectionVisible) {
+          const currentPilotNames = getCurrentPilotNamesFromUI();
+          // Compare current UI state to the initial state when the badge was opened
+          pilotNamesChanged = JSON.stringify(currentPilotNames) !== JSON.stringify(initialPilotNamesState);
+      }
+
+      // 3. Determine overall changes
+      const hasOverallChanges = mapOrLiveChanged || pilotNamesChanged;
+
+      // 4. Update button appearance
+      updateSaveButtonAppearance(saveSettingsButton, hasOverallChanges);
+  };
+
+
+  // --- Load Saved Preferences ---
+  // let savedPreferences = null; // Moved declaration up
   if (isAuthenticated && keycloak.hasRealmRole('user')) {
       try {
           const response = await fetch('/api/user/preferences', {
@@ -377,48 +531,160 @@ const showProfileBadge = async (container) => { // Make async
       } catch (error) {
           console.error('Error fetching preferences:', error);
       }
+      // Store the initially loaded pilot names (sorted)
+      initialPilotNamesState = (savedPreferences?.pilotNames || []).sort((a, b) => a.deviceId.localeCompare(b.deviceId));
   }
+  // --- End Load Saved Preferences ---
 
-  // --- Get Current State (Map + Live) ---
-  const currentMapState = getCurrentMapState(window.treeLayersControl);
-  let currentLiveSettings = {}; // Default empty
-  if (window.liveControl && typeof window.liveControl.getLiveSettings === 'function') {
-      currentLiveSettings = window.liveControl.getLiveSettings();
-  } else {
-      console.warn("LiveControl or getLiveSettings not available for preference check.");
-  }
-  const currentState = { ...currentMapState, liveSettings: currentLiveSettings };
+
+  // --- Get Current State (Map + Live) - Initial Check ---
+  // Removed redundant block
   // --- End Get Current State ---
 
 
-  // If no saved preferences, consider it a change if there's a current state (map or live)
-  if (!savedPreferences && (currentState.selectedBaseLayer || currentState.selectedOverlays.length > 0 || Object.keys(currentState.liveSettings).length > 0)) {
-      hasChanges = true;
-  } else if (savedPreferences) {
-      // Compare full preference state (map + live)
-      hasChanges = !comparePreferenceStates(currentState, savedPreferences);
-  }
-  // --- End Check ---
-
-  // Update button appearance based on comparison
-  updateSaveButtonAppearance(saveSettingsButton, hasChanges);
+  // --- Initial Save Button State ---
+  // updateSaveButtonAppearance(saveSettingsButton, hasChanges); // Now called by updateSaveButtonState
+  updateSaveButtonState(); // Set initial button state
+  // --- End Initial Save Button State ---
 
 
-  // Add click event listener to save settings button
+  // --- Live Pilot Config Logic (Initialization and Listeners) ---
+  const livePilotConfigSection = document.getElementById('live-pilot-config-section'); // Get reference
+  if (livePilotConfigSection && keycloak.hasRealmRole('live')) {
+    livePilotConfigSection.style.display = 'block';
+    // Stop propagation for clicks/mousedown within the entire live config section
+    L.DomEvent.on(livePilotConfigSection, 'click', L.DomEvent.stopPropagation);
+    L.DomEvent.on(livePilotConfigSection, 'mousedown', L.DomEvent.stopPropagation);
+
+    const livePilotRowsContainer = document.getElementById('live-pilot-rows-container'); // Get reference
+    const addPilotRowButton = document.getElementById('add-pilot-row-button'); // Get reference
+    const consentCheckbox = document.getElementById('live-pilot-consent-checkbox'); // Get reference
+
+    // Ensure containers/buttons exist before adding listeners
+    if (livePilotRowsContainer && addPilotRowButton && consentCheckbox) {
+       // Populate initial rows from saved preferences
+       livePilotRowsContainer.innerHTML = ''; // Clear any placeholders
+       if (initialPilotNamesState.length > 0) {
+           initialPilotNamesState.forEach(pilot => addPilotNameRow(pilot.deviceId, pilot.name));
+       } else {
+           addPilotNameRow(); // Add one empty row if none saved
+       }
+
+       // Add Row Button Listener
+       L.DomEvent.on(addPilotRowButton, 'click', (e) => {
+           L.DomEvent.stopPropagation(e);
+           addPilotNameRow();
+           updateSaveButtonState(); // Check for changes after adding row
+       });
+
+       // Delegated Listeners for Rows (Remove, Input Change, Device ID Blur) - Corrected Syntax
+       L.DomEvent.on(livePilotRowsContainer, 'click', (e) => {
+           // Check if the click target is the remove button
+           if (e.target.matches('.remove-pilot-button')) {
+               // Explicitly stop propagation for the remove button click
+               L.DomEvent.stopPropagation(e);
+               e.target.closest('.live-pilot-row').remove();
+               updateSaveButtonState(); // Check for changes after removing row
+           }
+           // Clicks on other elements within the container will also be stopped by the section listener added earlier
+       });
+
+       L.DomEvent.on(livePilotRowsContainer, 'input', (e) => {
+           // Check if the input event occurred on an input element
+           if (e.target.matches('input')) {
+               // Trigger change check on any input change within the rows
+               updateSaveButtonState();
+           }
+       });
+
+       // Attach blur listener without capture phase
+       L.DomEvent.on(livePilotRowsContainer, 'blur', (e) => {
+            if (e.target.matches('input[name="deviceId"]')) {
+                handleDeviceIdBlur(e); // Call the existing lookup handler
+            }
+       }); // Removed capture phase 'true'
+
+
+       // Consent Checkbox Listener
+       L.DomEvent.on(consentCheckbox, 'change', (e) => {
+           // Consent checkbox change doesn't directly mark *data* as changed,
+           // but it affects whether saving is *allowed*.
+           // The save button click handler already checks this.
+           console.log("Consent checkbox changed:", e.target.checked);
+       });
+    } else {
+        console.error("Could not find all elements needed for Live Pilot Config setup.");
+    }
+  } // Added missing closing brace for the 'if (livePilotConfigSection && keycloak.hasRealmRole('live'))' block
+  // --- End Live Pilot Config Logic ---
+
+
+  // --- Save Button Click Listener ---
   if (saveSettingsButton) {
     L.DomEvent.on(saveSettingsButton, 'click', async function(e) { // Make async
       L.DomEvent.stopPropagation(e);
 
-      // Only save if the button indicates changes
-      if (saveSettingsButton.dataset.hasChanges === 'true') {
-          console.log('Save Settings button clicked - attempting to save...');
-          // --- Get Current State to Save (Map + Live) ---
-          const currentMapStateToSave = getCurrentMapState(window.treeLayersControl);
-          let currentLiveSettingsToSave = {}; // Default empty
-          if (window.liveControl && typeof window.liveControl.getLiveSettings === 'function') {
-              currentLiveSettingsToSave = window.liveControl.getLiveSettings();
+      // Re-check button state and consent just before saving
+      updateSaveButtonState(); // Ensure state is current
+      const isSaveButtonEnabled = saveSettingsButton.dataset.hasChanges === 'true';
+      const livePilotConfigSection = document.getElementById('live-pilot-config-section');
+      const consentCheckbox = document.getElementById('live-pilot-consent-checkbox');
+      const isLiveSectionVisible = livePilotConfigSection && livePilotConfigSection.style.display !== 'none';
+      const isConsentChecked = !isLiveSectionVisible || consentCheckbox.checked;
+
+      if (isSaveButtonEnabled) {
+          // --- Device ID Validation (Added) ---
+          let invalidDeviceIdFound = false;
+          if (isLiveSectionVisible) {
+              const rows = livePilotConfigSection.querySelectorAll('.live-pilot-row');
+              rows.forEach(row => {
+                  const deviceIdInput = row.querySelector('input[name="deviceId"]');
+                  if (deviceIdInput && deviceIdInput.value.trim() && deviceIdInput.value.trim().length !== 6) {
+                      invalidDeviceIdFound = true;
+                      // Optionally highlight the invalid input
+                      deviceIdInput.style.border = '1px solid red';
+                  } else if (deviceIdInput) {
+                      // Reset border if valid or empty
+                      deviceIdInput.style.border = '';
+                  }
+              });
           }
-          const preferencesToSave = { ...currentMapStateToSave, liveSettings: currentLiveSettingsToSave };
+
+          if (invalidDeviceIdFound) {
+              messageArea.textContent = 'Device ID must be exactly 6 characters long.';
+              messageArea.style.color = 'red';
+              messageArea.style.display = 'block';
+              setTimeout(() => { messageArea.style.display = 'none'; messageArea.textContent = ''; }, 3000);
+              return; // Stop saving
+          }
+          // --- End Device ID Validation ---
+
+
+          // --- Consent Check ---
+          if (isLiveSectionVisible && !isConsentChecked) {
+              messageArea.textContent = 'Please certify ownership to save live pilot names.';
+              messageArea.style.color = 'red';
+              messageArea.style.display = 'block';
+              setTimeout(() => { messageArea.style.display = 'none'; messageArea.textContent = ''; }, 3000);
+              return; // Stop saving
+          }
+
+          console.log('Save Settings button clicked - attempting to save...');
+
+          // --- Get Live Pilot Name Data (Use Helper) ---
+          const pilotNamesData = isLiveSectionVisible ? getCurrentPilotNamesFromUI().filter(p => p.deviceId && p.name) : []; // Ensure both fields are non-empty before saving
+          // --- End Get Live Pilot Name Data ---
+
+
+          // --- Get Current State to Save (Map + Live + Pilot Names) ---
+          // Re-fetch map/live state at the moment of saving
+          const currentMapStateToSave = getCurrentMapState(window.treeLayersControl);
+          let currentLiveSettingsToSave = window.liveControl?.getLiveSettings() || {};
+          const preferencesToSave = {
+              ...currentMapStateToSave,
+              liveSettings: currentLiveSettingsToSave,
+              pilotNames: pilotNamesData // Add pilot names
+          };
           // --- End Get Current State to Save ---
 
           try {
@@ -435,10 +701,11 @@ const showProfileBadge = async (container) => { // Make async
                   messageArea.textContent = 'Settings saved successfully';
                   messageArea.style.color = 'green';
                   messageArea.style.display = 'block';
-                  savedPreferences = preferencesToSave; // Update local "saved" state with combined prefs
-                  updateSaveButtonAppearance(saveSettingsButton, false); // Revert button to grey/disabled
-                  setTimeout(() => { messageArea.style.display = 'none'; messageArea.textContent = ''; }, 3000); // Hide after 3s
-              } else {
+                  savedPreferences = preferencesToSave; // Update local "saved" state
+                  initialPilotNamesState = (savedPreferences.pilotNames || []).sort((a, b) => a.deviceId.localeCompare(b.deviceId)); // Update initial state for future comparisons
+                  updateSaveButtonState(); // Re-evaluate button state (should become disabled)
+                  setTimeout(() => { messageArea.style.display = 'none'; messageArea.textContent = ''; }, 3000);
+               } else {
                   messageArea.textContent = 'Failed to save settings.';
                   messageArea.style.color = 'red'; // Use red for errors
                   messageArea.style.display = 'block';
@@ -453,27 +720,39 @@ const showProfileBadge = async (container) => { // Make async
               setTimeout(() => { messageArea.style.display = 'none'; messageArea.textContent = ''; }, 3000); // Hide after 3s
           }
       } else {
-          console.log('Save Settings button clicked, but no changes detected.');
+          console.log('Save Settings button clicked, but no changes detected or consent missing.');
       }
-    });
-  }
+   });
+ }
+ // --- End Save Button Click Listener ---
 
-  // Close profile badge when clicking outside
-  const closeProfileBadge = (e) => {
-    const badge = document.getElementById('profile-badge');
-    const container = document.getElementById('user-control');
-    
-    if (badge && container && !container.contains(e.target)) {
-      badge.remove();
-      document.removeEventListener('click', closeProfileBadge);
-    }
-  };
-  
-  // Add event listener with a slight delay to prevent immediate closing
-  setTimeout(() => {
-    document.addEventListener('click', closeProfileBadge);
-  }, 100);
-};
+ // --- Logout Button Listener (Ensure it's set up after button exists) ---
+ if (logoutButton) {
+   L.DomEvent.on(logoutButton, 'click', function(e) {
+     L.DomEvent.stopPropagation(e);
+     logout();
+   });
+ }
+ // --- End Logout Button Listener ---
+
+ // --- Close Badge Logic ---
+ const closeProfileBadgeOnClickOutside = (e) => {
+   const badgeElement = document.getElementById('profile-badge'); // Renamed to avoid conflict
+   const userControlContainer = document.getElementById('user-control'); // Renamed to avoid conflict
+
+   if (badgeElement && userControlContainer && !userControlContainer.contains(e.target)) {
+     badgeElement.remove();
+     document.removeEventListener('click', closeProfileBadgeOnClickOutside);
+   }
+ };
+
+ // Add event listener with a slight delay to prevent immediate closing
+ setTimeout(() => {
+   document.addEventListener('click', closeProfileBadgeOnClickOutside);
+ }, 100);
+ // --- End Close Badge Logic ---
+
+}; // End of showProfileBadge function
 
 // Function to load and apply user preferences (called from index.js after init)
 // Function to load and apply user preferences (called from index.js after init)

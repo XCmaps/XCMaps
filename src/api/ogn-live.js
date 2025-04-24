@@ -51,8 +51,40 @@ function createOgnLiveRouter(pool, ognClient) {
         }
       }
       const filteredAircraft = Object.values(latestAircraft);
-      
-      // Return filtered aircraft data
+
+      // --- Prioritize Custom Pilot Names (Added) ---
+      if (filteredAircraft.length > 0) {
+          const deviceIds = filteredAircraft.map(ac => ac.device_id);
+          try {
+              const customNamesResult = await pool.query(
+                  'SELECT device_id, pilot_name FROM xcm_pilots WHERE device_id = ANY($1::text[])',
+                  [deviceIds]
+              );
+
+              // Create a map for quick lookup
+              const customNamesMap = new Map();
+              customNamesResult.rows.forEach(row => {
+                  customNamesMap.set(row.device_id, row.pilot_name);
+              });
+
+              // Update aircraft data with custom names
+              filteredAircraft.forEach(ac => {
+                  if (customNamesMap.has(ac.device_id)) {
+                      const customName = customNamesMap.get(ac.device_id);
+                      console.log(`Overriding name for ${ac.device_id} with custom name: ${customName}`);
+                      ac.pilot_name = customName; // Assuming the property is pilot_name
+                  }
+                  // If not in map, the original name (from ognClient) remains
+              });
+
+          } catch (dbError) {
+              console.error('Error fetching custom pilot names from xcm_pilots:', dbError);
+              // Proceed without custom names if DB query fails
+          }
+      }
+      // --- End Prioritize Custom Pilot Names ---
+
+      // Return potentially modified aircraft data
       res.json(filteredAircraft);
     } catch (err) {
       console.error('Error getting aircraft data:', err);

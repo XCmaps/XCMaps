@@ -1,4 +1,5 @@
 import express from 'express';
+// Removed incorrect pool import: import pool from '../db.js';
 import KcAdminClient from '@keycloak/keycloak-admin-client';
 import jwt from 'jsonwebtoken'; // Import jwt for decoding
 import { authenticateToken, requireRole } from '../middleware/auth.js'; // Import middleware
@@ -80,7 +81,7 @@ function getUserIdIfPresent(req, res, next) {
 }
 
 
-export default function createUserPreferencesRouter() {
+export default function createUserPreferencesRouter(pool) { // Accept pool as argument
     const router = express.Router();
 
     // Middleware order matters! Apply role check *after* user info is attached.
@@ -115,17 +116,59 @@ export default function createUserPreferencesRouter() {
             if (preferencesAttr) {
                 try {
                     const preferences = JSON.parse(preferencesAttr);
-                    console.log(`Parsed preferences for user ${userId}:`, preferences);
-                    return res.json(preferences);
+                    console.log(`Parsed Keycloak preferences for user ${userId}:`, preferences);
+
+                    // --- Fetch Pilot Names from DB (Added) ---
+                    let pilotNames = [];
+                    try {
+                        const dbResult = await pool.query(
+                            'SELECT device_id, pilot_name FROM xcm_pilots WHERE user_id = $1',
+                            [userId]
+                        );
+                        // Map to the expected format { deviceId: '...', name: '...' }
+                        pilotNames = dbResult.rows.map(row => ({
+                            deviceId: row.device_id,
+                            name: row.pilot_name
+                        }));
+                        console.log(`Fetched pilot names from DB for user ${userId}:`, pilotNames);
+                    } catch (dbError) {
+                        console.error(`Error fetching pilot names from DB for user ${userId}:`, dbError);
+                        // Decide if this is fatal or if we can return preferences without pilot names
+                        // For now, let's return what we have from Keycloak but log the error
+                    }
+                    // --- End Fetch Pilot Names ---
+
+                    // Combine Keycloak prefs and DB pilot names
+                    const combinedPreferences = {
+                        ...preferences,
+                        pilotNames: pilotNames
+                    };
+
+                    return res.json(combinedPreferences);
                 } catch (parseError) {
                     console.error(`Error parsing preferences JSON for user ${userId}:`, parseError);
                     // Decide how to handle corrupted data - return default or error?
                     return res.status(500).json({ message: 'Error parsing stored preferences' });
                 }
             } else {
-                 console.log(`No preferences found for user ${userId}, returning default.`);
-                // No preferences set yet, return default empty object
-                return res.json({});
+                 console.log(`No preferences found in Keycloak for user ${userId}. Fetching pilot names from DB.`);
+                 // Still fetch pilot names even if no Keycloak prefs exist
+                 let pilotNames = [];
+                 try {
+                     const dbResult = await pool.query(
+                         'SELECT device_id, pilot_name FROM xcm_pilots WHERE user_id = $1',
+                         [userId]
+                     );
+                     pilotNames = dbResult.rows.map(row => ({
+                         deviceId: row.device_id,
+                         name: row.pilot_name
+                     }));
+                     console.log(`Fetched pilot names from DB for user ${userId}:`, pilotNames);
+                 } catch (dbError) {
+                     console.error(`Error fetching pilot names from DB for user ${userId}:`, dbError);
+                 }
+                 // Return only pilot names if no other prefs
+                 return res.json({ pilotNames: pilotNames });
             }
 
         } catch (error) {
@@ -164,20 +207,101 @@ export default function createUserPreferencesRouter() {
         try {
             await ensureAdminAuth(); // Make sure admin client is authenticated
 
-            const preferencesString = JSON.stringify(newPreferences);
-            console.log(`Updating preferences for user ${userId} with string: ${preferencesString}`);
+            // --- Separate Pilot Names from other Preferences (Added) ---
+            const pilotNamesToSave = newPreferences.pilotNames || [];
+            // Create a new object for Keycloak attributes *without* pilotNames
+            const keycloakPreferences = { ...newPreferences };
+            delete keycloakPreferences.pilotNames;
+            const preferencesString = JSON.stringify(keycloakPreferences);
+            console.log(`Updating Keycloak preferences for user ${userId} with string: ${preferencesString}`);
+            console.log(`Pilot names to sync for user ${userId}:`, pilotNamesToSave);
+            // --- End Separation ---
 
+            // --- Database Sync Logic (Added) ---
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
 
+                // 1. Get current pilot names from DB for this user
+                const currentDbResult = await client.query(
+                    'SELECT device_id, pilot_name FROM xcm_pilots WHERE user_id = $1',
+                    [userId]
+                );
+                const currentDbPilotNames = currentDbResult.rows.map(row => ({
+                    deviceId: row.device_id,
+                    name: row.pilot_name
+                }));
+                const currentDbDeviceIds = new Set(currentDbPilotNames.map(p => p.deviceId));
+                const incomingDeviceIds = new Set(pilotNamesToSave.map(p => p.deviceId));
+
+                // 2. Identify deletes, inserts, updates
+                const toDelete = currentDbPilotNames.filter(p => !incomingDeviceIds.has(p.deviceId));
+                const toInsert = pilotNamesToSave.filter(p => !currentDbDeviceIds.has(p.deviceId));
+                const toUpdate = pilotNamesToSave.filter(p => {
+                    if (!currentDbDeviceIds.has(p.deviceId)) return false; // Not an update if it's new
+                    const current = currentDbPilotNames.find(dbP => dbP.deviceId === p.deviceId);
+                    return current && current.name !== p.name; // Check if name changed
+                });
+
+                console.log('DB Sync - To Delete:', toDelete);
+                console.log('DB Sync - To Insert:', toInsert);
+                console.log('DB Sync - To Update:', toUpdate);
+
+                // 3. Execute SQL
+                if (toDelete.length > 0) {
+                    const deleteIds = toDelete.map(p => p.deviceId);
+                    await client.query(
+                        'DELETE FROM xcm_pilots WHERE user_id = $1 AND device_id = ANY($2::text[])',
+                        [userId, deleteIds]
+                    );
+                }
+
+                const now = new Date(); // For timestamps
+                for (const pilot of toInsert) {
+                    await client.query(
+                        'INSERT INTO xcm_pilots (user_id, device_id, pilot_name, consent_timestamp, last_updated) VALUES ($1, $2, $3, $4, $5)',
+                        [userId, pilot.deviceId, pilot.name, now, now]
+                    );
+                }
+
+                for (const pilot of toUpdate) {
+                    await client.query(
+                        'UPDATE xcm_pilots SET pilot_name = $1, last_updated = $2 WHERE user_id = $3 AND device_id = $4',
+                        [pilot.name, now, userId, pilot.deviceId]
+                    );
+                }
+
+                // 4. Update Keycloak attributes (only if DB sync is successful)
+                console.log(`Updating Keycloak attributes for user ${userId}`);
+                await kcAdminClient.users.update(
+                    { id: userId, realm: process.env.KEYCLOAK_REALM_NAME },
+                    { attributes: { preferences: [preferencesString] } } // Save string without pilotNames
+                );
+
+                // 5. Commit transaction
+                await client.query('COMMIT');
+                console.log(`Preferences and Pilot Names synced successfully for user ${userId}`);
+
+            } catch (dbError) {
+                await client.query('ROLLBACK');
+                console.error(`Error syncing pilot names to DB for user ${userId}, rolled back transaction:`, dbError);
+                client.release(); // Release client on error
+                // Throw error to prevent sending success response
+                throw new Error('Failed to sync pilot names to database.');
+            } finally {
+                client.release(); // Ensure client is always released
+            }
+            // --- End Database Sync Logic ---
+
+            // Keycloak update moved inside the try block after successful DB commit
             // Update the user attributes
             await kcAdminClient.users.update(
                 { id: userId, realm: process.env.KEYCLOAK_REALM_NAME },
                 { attributes: { preferences: [preferencesString] } }
             );
 
-            console.log(`Preferences updated successfully for user ${userId}`);
-            // Return the saved preferences object directly for immediate feedback
-            // Note: This assumes the 'newPreferences' object accurately reflects the saved state.
-            return res.status(200).json(newPreferences);
+            // Return the full updated preferences (including pilot names from input)
+            return res.status(200).json(newPreferences); // Return original request body
 
         } catch (error) {
             console.error(`Error updating preferences for user ${userId}:`, error.message || error);
@@ -188,7 +312,11 @@ export default function createUserPreferencesRouter() {
                  console.warn(`User not found in Keycloak during update attempt: ${userId}`);
                  return res.status(404).json({ message: 'User not found' });
              }
-            return res.status(500).json({ message: 'Failed to update user preferences' });
+            // Include specific DB sync error message if available
+            const errorMessage = error.message === 'Failed to sync pilot names to database.'
+                ? error.message
+                : 'Failed to update user preferences';
+            return res.status(500).json({ message: errorMessage });
         }
     });
 
