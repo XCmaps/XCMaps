@@ -26,7 +26,7 @@ const FLARMNET_URL = 'https://www.flarmnet.org/static/files/wfn/data.fln';
 const FLARMNET_REFRESH_INTERVAL = 86400000; // 24 hours in milliseconds
 const PURETRACK_URL = 'https://puretrack.io/api/labels.json';
 const PURETRACK_REFRESH_INTERVAL = 86400000; // 24 hours in milliseconds
- 
+
 class OgnAprsClient extends EventEmitter {
   constructor(dbPool) {
     super();
@@ -41,11 +41,11 @@ class OgnAprsClient extends EventEmitter {
     this.lastCleanup = Date.now();
     this.aircraftCache = new Map(); // Cache for current aircraft positions (keep this one)
     this.flarmnetCache = new Map(); // Cache for Flarmnet data
-    
+
     // Initialize elevation modules
     this.srtmElevation = new SrtmElevation(dbPool);
     this.mapboxElevation = new MapboxElevation(dbPool);
-    
+
     // Database initialization and initial data load will be handled separately
   }
 
@@ -128,7 +128,7 @@ class OgnAprsClient extends EventEmitter {
           last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )
       `);
- 
+
       // Create PureTrack pilots table
       await client.query(`
         CREATE TABLE IF NOT EXISTS puretrack_pilots (
@@ -139,7 +139,7 @@ class OgnAprsClient extends EventEmitter {
           last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )
       `);
- 
+
       await client.query('COMMIT');
       console.log('OGN database tables (including pilot lookups from OGN, Flarmnet, PureTrack) initialized successfully');
     } catch (err) {
@@ -150,7 +150,7 @@ class OgnAprsClient extends EventEmitter {
       client.release();
     }
   }
- 
+
   /**
    * Initializes the database, performs initial data refresh, starts timers, and connects.
    */
@@ -159,12 +159,12 @@ class OgnAprsClient extends EventEmitter {
       console.log('Initializing OGN APRS Client...');
       // 1. Initialize database schema
       await this.initDatabase();
-      
+
       // 1.5 Initialize SRTM elevation database (import is now done via Python script)
       console.log('Initializing SRTM elevation database...');
       await this.srtmElevation.initDatabase();
       console.log('SRTM elevation database initialized. Use scripts/import_srtm.py to import data.');
- 
+
       // 2. Perform initial pilot data refresh
       console.log('Performing initial pilot data refresh...');
       // Run refresh tasks sequentially to avoid potential lock contention
@@ -178,26 +178,26 @@ class OgnAprsClient extends EventEmitter {
       await this.refreshPureTrackDatabase(); // Add PureTrack refresh
       console.log('PureTrack refresh complete.');
       console.log('Initial pilot data refresh complete.');
- 
+
       // 3. Start refresh timers
       console.log('Starting pilot data refresh timers...');
       if (this.ddbRefreshTimer) clearInterval(this.ddbRefreshTimer);
       this.ddbRefreshTimer = setInterval(() => {
         this.refreshPilotDatabase();
       }, OGN_DDB_REFRESH_INTERVAL);
- 
+
       if (this.flarmnetRefreshTimer) clearInterval(this.flarmnetRefreshTimer);
       this.flarmnetRefreshTimer = setInterval(() => {
         this.refreshFlarmnetDatabase();
       }, FLARMNET_REFRESH_INTERVAL);
- 
+
       if (this.puretrackRefreshTimer) clearInterval(this.puretrackRefreshTimer); // Add PureTrack timer
       this.puretrackRefreshTimer = setInterval(() => {
         this.refreshPureTrackDatabase();
       }, PURETRACK_REFRESH_INTERVAL);
- 
+
       console.log('Pilot data refresh timers started.');
- 
+
       // 4. Connect to APRS server (Re-enabled)
       this.connect();
       console.log('OGN APRS Client initialization complete.');
@@ -209,12 +209,12 @@ class OgnAprsClient extends EventEmitter {
       throw error; // Re-throw for upstream handling if necessary
     }
   }
- 
+
   /**
    * NOTE: initPilotDatabase and initFlarmnetDatabase methods removed.
    * Initialization and refresh scheduling are handled by initializeAndStart.
    */
- 
+
   /**
    * Refresh pilot database from OGN DDB
    */
@@ -222,24 +222,24 @@ class OgnAprsClient extends EventEmitter {
     let client; // Declare client outside the try block
     try {
       console.log('Refreshing OGN pilot database into DB...');
-      
+
       // Fetch pilot data from OGN DDB
       const response = await fetch(OGN_DDB_URL, {
         headers: {
           'User-Agent': OGN_USER_AGENT
         }
       });
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch OGN DDB: ${response.status} ${response.statusText}`);
       }
-      
+
       const data = await response.text();
       console.log(`OGN DDB: Fetched data size: ${data.length} characters.`); // Log data size
       if (data.length < 200) { // Log beginning if small
           console.log(`OGN DDB: Fetched data start: ${data.substring(0, 200)}`);
       }
-      
+
       // Parse CSV data
       // Format: DEVICE_TYPE,DEVICE_ID,AIRCRAFT_MODEL,REGISTRATION,CN,TRACKED,IDENTIFIED,PILOT_NAME
       const lines = data.split('\n');
@@ -259,7 +259,7 @@ class OgnAprsClient extends EventEmitter {
         const line = lines[i].trim();
         if (line.length === 0) continue;
 
-        
+
         const fields = line.split(',');
         // Allow lines with 7 or 8 fields. Pilot name (8th field) might be missing.
         if (fields.length < 7) { // Check for at least 7 fields now
@@ -268,7 +268,7 @@ class OgnAprsClient extends EventEmitter {
             }
             continue;
         }
-        
+
         // Destructure carefully, pilotName might be undefined if fields.length is 7
         let [deviceType, deviceId, aircraftModel, registration, cn, trackedStr, identifiedStr] = fields;
         let pilotName = fields.length >= 8 ? fields[7] : null; // Assign null if 8th field is missing
@@ -345,7 +345,7 @@ class OgnAprsClient extends EventEmitter {
       }
     }
   }
-  
+
   /**
    * Refresh Flarmnet database by fetching hex-encoded text file and parsing
    */
@@ -474,11 +474,11 @@ class OgnAprsClient extends EventEmitter {
 
     try {
       console.log('Flarmnet: Starting to parse data using the new parser...');
-      
+
       // Use the FlarmnetParser to decode the data
       const parsedData = FlarmnetParser.decode(hexData);
       const records = parsedData.records;
-      
+
       console.log(`Flarmnet: Successfully parsed ${records.length} records. Processing into DB in batches...`);
 
       client = await this.dbPool.connect();
@@ -494,10 +494,10 @@ class OgnAprsClient extends EventEmitter {
       for (let i = 0; i < records.length; i++) {
         currentRecordIndex = i;
         const record = records[i];
-        
+
         // Skip invalid records
         if (!record) continue;
-        
+
         // Extract fields from the record
         currentFlarmId = record.id;
         // We don't use pilot name anymore
@@ -505,7 +505,7 @@ class OgnAprsClient extends EventEmitter {
         const aircraftType = record.plane_type;
         const registration = record.registration;
         const frequency = record.frequency;
-        
+
         // Log for debugging
         if (i < 10) {
           console.log(`Flarmnet DEBUG Record ${i}: ID='${currentFlarmId}', Reg='${registration || '[null]'}', Type='${aircraftType || '[null]'}'`);
@@ -521,12 +521,12 @@ class OgnAprsClient extends EventEmitter {
         if (registration) {
           this.flarmnetCache.set(currentFlarmId, registration);
         }
-        
+
         // Log successful inserts
         if (processedCount < 10) {
           console.log(`Flarmnet INSERTING Record ${i}: FLARM ID: ${currentFlarmId}, Reg: ${registration || '[None]'}, Type: ${aircraftType || '[None]'}`);
         }
-        
+
         // Insert into database (without pilot_name)
         const query = `
           INSERT INTO flarmnet_pilots (flarm_id, registration, aircraft_type, home_airfield, frequency, last_updated)
@@ -538,11 +538,11 @@ class OgnAprsClient extends EventEmitter {
             frequency = EXCLUDED.frequency,
             last_updated = NOW();
         `;
-        
+
         await client.query(query, [currentFlarmId, registration, aircraftType, homeAirfield, frequency]);
         processedCount++;
         currentBatchCount++;
-        
+
         // Commit batch and start new transaction if batch size is reached
         if (currentBatchCount >= batchSize && i < records.length - 1) {
           await client.query('COMMIT');
@@ -587,7 +587,7 @@ class OgnAprsClient extends EventEmitter {
     let client;
     try {
       client = await this.dbPool.connect();
-      
+
       // First check the OGN DDB table
       // First check the OGN DDB table for registration
       let result = await client.query(
@@ -600,18 +600,18 @@ class OgnAprsClient extends EventEmitter {
         return result.rows[0].registration; // Return registration from OGN DDB
       }
       // If no OGN record found, continue to other sources...
-      
+
       // Then check the Flarmnet table (assuming deviceId might be a Flarm ID)
       // Flarm IDs can be of various formats, ensure uppercase for consistency
       const potentialFlarmId = deviceId.toUpperCase();
       // Always try to look up in Flarmnet table regardless of format
-      
+
       // Try the specific lookup
       result = await client.query(
         'SELECT registration, aircraft_type FROM flarmnet_pilots WHERE flarm_id = $1',
         [potentialFlarmId]
       );
-      
+
       // If no results, try with a wildcard search to see if similar IDs exist
       if (result.rows.length === 0) {
         const wildcardResult = await client.query(
@@ -621,7 +621,7 @@ class OgnAprsClient extends EventEmitter {
       }
       if (result.rows.length > 0) {
         const { registration, aircraft_type } = result.rows[0];
-        
+
         // If registration is available, use it
         if (registration) {
           let pilotInfo = registration.trim();
@@ -631,16 +631,16 @@ class OgnAprsClient extends EventEmitter {
           }
           return pilotInfo;
         }
-        
+
         // If registration is null but aircraft_type is available, use aircraft_type
         if (aircraft_type) {
           return aircraft_type.trim();
         }
-        
+
         // If all fields are null, return the deviceId
         return deviceId;
       }
-      
+
       // Finally, check the PureTrack table (using deviceId as hex)
       const potentialHexId = deviceId.toUpperCase(); // PureTrack uses uppercase hex
       result = await client.query(
@@ -650,7 +650,7 @@ class OgnAprsClient extends EventEmitter {
       if (result.rows.length > 0 && result.rows[0].label) {
         return result.rows[0].label; // Return the label directly
       }
-      
+
       // If not found in any table, return the original deviceId as fallback
       // console.log(`Pilot name not found for deviceId ${deviceId}, returning ID as name.`);
       return deviceId;
@@ -671,21 +671,21 @@ class OgnAprsClient extends EventEmitter {
     if (this.connected) return;
 
     console.log(`Connecting to OGN APRS server ${OGN_HOST}:${OGN_PORT}...`);
-    
+
     this.socket = new net.Socket();
-    
+
     this.socket.on('connect', () => {
       console.log('Connected to OGN APRS server');
       this.connected = true;
-      
+
       // Send login command
       const loginCommand = `user XCmaps pass -1 vers ${OGN_USER_AGENT} filter ${OGN_FILTER}\r\n`;
       this.socket.write(loginCommand);
-      
+
       // Start cleanup timer
       this.startCleanupTimer();
     });
-    
+
     this.socket.on('data', (data) => {
       const lines = data.toString().split('\n');
       for (const line of lines) {
@@ -694,19 +694,19 @@ class OgnAprsClient extends EventEmitter {
         }
       }
     });
-    
+
     this.socket.on('error', (err) => {
       console.error('OGN APRS socket error:', err);
       this.disconnect();
       this.scheduleReconnect();
     });
-    
+
     this.socket.on('close', () => {
       console.log('Connection to OGN APRS server closed');
       this.connected = false;
       this.scheduleReconnect();
     });
-    
+
     this.socket.connect(OGN_PORT, OGN_HOST);
   }
 
@@ -718,24 +718,24 @@ class OgnAprsClient extends EventEmitter {
       this.socket.destroy();
       this.socket = null;
     }
-    
+
     this.connected = false;
-    
+
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
       this.cleanupTimer = null;
     }
-    
+
     if (this.ddbRefreshTimer) {
       clearInterval(this.ddbRefreshTimer);
       this.ddbRefreshTimer = null;
     }
-    
+
     if (this.flarmnetRefreshTimer) {
       clearInterval(this.flarmnetRefreshTimer);
       this.flarmnetRefreshTimer = null;
     }
- 
+
     if (this.puretrackRefreshTimer) { // Add PureTrack timer clearing
       clearInterval(this.puretrackRefreshTimer);
       this.puretrackRefreshTimer = null;
@@ -749,7 +749,7 @@ class OgnAprsClient extends EventEmitter {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
     }
-    
+
     this.reconnectTimer = setTimeout(() => {
       console.log('Attempting to reconnect to OGN APRS server...');
       this.connect();
@@ -763,7 +763,7 @@ class OgnAprsClient extends EventEmitter {
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
     }
-    
+
     this.cleanupTimer = setInterval(() => {
       this.cleanupOldData();
     }, CLEANUP_INTERVAL);
@@ -774,80 +774,176 @@ class OgnAprsClient extends EventEmitter {
    */
   async cleanupOldData() {
     console.log('Running OGN data cleanup...');
-    const client = await this.dbPool.connect();
-    
+    let client; // Define client here to ensure it's accessible in finally
     try {
+      client = await this.dbPool.connect();
+
       const cutoffTime = new Date(Date.now() - (DATA_RETENTION_HOURS * 3600000));
-      
+
       // Delete old track points
       await client.query(`
-        DELETE FROM aircraft_tracks 
+        DELETE FROM aircraft_tracks
         WHERE timestamp < $1
       `, [cutoffTime]);
-      
+
       // Delete aircraft that haven't been seen recently
       await client.query(`
-        DELETE FROM aircraft 
+        DELETE FROM aircraft
         WHERE last_seen < $1
       `, [cutoffTime]);
-      
+
       console.log('OGN data cleanup completed');
     } catch (err) {
       console.error('Error during OGN data cleanup:', err);
     } finally {
-      client.release();
+      if (client) { // Check if client was successfully connected before releasing
+         client.release();
+      }
     }
-  }
+  } // End of cleanupOldData
+
+  /**
+   * Check if a device ID corresponds to an eligible aircraft type (Paraglider/Hang-glider)
+   * based on ogn_ddb_pilots and flarmnet_pilots tables.
+   * @param {string} deviceId - The device ID to check.
+   * @returns {Promise<string>} - 'ELIGIBLE', 'INELIGIBLE', or 'UNKNOWN'
+   */
+  async checkDeviceEligibility(deviceId) {
+    if (!deviceId) {
+      return 'UNKNOWN'; // Cannot check eligibility without an ID
+    }
+
+    let client;
+    try {
+      client = await this.dbPool.connect();
+
+      // Check OGN DDB
+      const ognResult = await client.query(
+        `SELECT aircraft_model FROM ogn_ddb_pilots WHERE UPPER(device_id) = UPPER($1)`, // Case-insensitive check
+        [deviceId]
+      );
+
+      if (ognResult.rows.length > 0) {
+        const model = ognResult.rows[0].aircraft_model;
+        if (model && (model.toLowerCase() === 'paraglider' || model.toLowerCase() === 'hangglider')) {
+          // console.log(`Device ${deviceId} ELIGIBLE via OGN DDB (Model: ${model})`);
+          return 'ELIGIBLE';
+        } else {
+          // console.log(`Device ${deviceId} INELIGIBLE via OGN DDB (Model: ${model})`);
+          return 'INELIGIBLE'; // Found but not the right type
+        }
+      }
+
+      // Check Flarmnet (case-insensitive LIKE for type)
+      // Flarm IDs are typically uppercase, but let's ensure the query uses the correct case from the DB if needed.
+      // Assuming flarm_id in the DB is stored consistently (e.g., uppercase).
+      const flarmResult = await client.query(
+        `SELECT aircraft_type FROM flarmnet_pilots WHERE flarm_id = $1`,
+        [deviceId.toUpperCase()] // Match against uppercase ID
+      );
+
+      if (flarmResult.rows.length > 0) {
+        const type = flarmResult.rows[0].aircraft_type;
+        if (type && (type.toLowerCase().includes('hang') || type.toLowerCase().includes('paraglider') || type.toLowerCase().includes('gleitschirm'))) {
+          // console.log(`Device ${deviceId} ELIGIBLE via Flarmnet (Type: ${type})`);
+          return 'ELIGIBLE';
+        } else {
+          // console.log(`Device ${deviceId} INELIGIBLE via Flarmnet (Type: ${type})`);
+          return 'INELIGIBLE'; // Found but not the right type
+        }
+      }
+
+      // Not found in either table
+      // console.log(`Device ${deviceId} UNKNOWN (not found in DDB or Flarmnet)`);
+      return 'UNKNOWN';
+
+    } catch (err) {
+      console.error(`Error checking device eligibility for ${deviceId}:`, err);
+      return 'UNKNOWN'; // Treat errors as unknown to be safe
+    } finally {
+      if (client) {
+        client.release();
+      }
+    }
+  } // End of checkDeviceEligibility
+
 
   /**
    * Process APRS data line
    * @param {string} line - APRS data line
    */
   async processAprsData(line) {
-    try {
+    try { // Start of try block for processAprsData
       // Skip server messages and comments
       if (line.startsWith('#') || line.startsWith('>')) {
         return;
       }
-      
-      // Early filter for ICAO aircraft based on callsign
+
+      // Early filter for ICAO aircraft based on callsign (redundant with parseAprsPacket but safe)
       if (line.startsWith('ICA')) {
         return;
       }
-      
+
       // Parse APRS packet (now async)
       const parsedData = await this.parseAprsPacket(line);
-      
+
       if (!parsedData) {
+        // console.log(`Skipping invalid packet: ${line}`);
         return; // Skip invalid packets
       }
-      
-      // Only process hang gliders (type 6) and paragliders (type 7)
-      // Note: ICAO aircraft, FLARM devices, and aircraft with "^" or "'" symbols are already filtered out in parseAprsPacket
-      const allowedTypes = [3, 6, 7]; // Helicopter, Hang-Glider, Para-glider
-      if (!allowedTypes.includes(parsedData.aircraftType)) {
-          return;
-      }
 
-      // Store in database
-      await this.storeAircraftData(parsedData);
-      
-      // Update cache
-      this.aircraftCache.set(parsedData.id, parsedData);
-      
-      // Emit event for real-time updates
-      this.emit('aircraft-update', parsedData);
-      
-    } catch (err) {
+      // --- New Eligibility Check ---
+      let storeData = false;
+      if (parsedData.deviceId) {
+        const eligibility = await this.checkDeviceEligibility(parsedData.deviceId);
+        if (eligibility === 'ELIGIBLE') {
+          // console.log(`Device ${parsedData.deviceId} is ELIGIBLE, storing.`);
+          storeData = true; // Found and is PG/HG
+        } else if (eligibility === 'INELIGIBLE') {
+          // console.log(`Device ${parsedData.deviceId} is INELIGIBLE, dropping packet.`);
+          return; // Found but NOT PG/HG, drop packet
+        } else { // eligibility === 'UNKNOWN'
+          // console.log(`Device ${parsedData.deviceId} is UNKNOWN, checking aircraft type.`);
+          // Not found in DB, fall back to checking aircraft type from packet
+          const allowedTypes = [3, 6, 7]; // Helicopter, Hang-Glider, Para-glider
+          if (allowedTypes.includes(parsedData.aircraftType)) {
+            // console.log(`Unknown device ${parsedData.deviceId} has allowed type ${parsedData.aircraftType}, storing.`);
+            storeData = true;
+          } else {
+            // console.log(`Unknown device ${parsedData.deviceId} has disallowed type ${parsedData.aircraftType}, dropping.`);
+            return; // Unknown device, disallowed type
+          }
+        }
+      } else {
+        // No deviceId in packet, fall back to checking aircraft type
+        // console.log(`No deviceId in packet, checking aircraft type.`);
+        const allowedTypes = [3, 6, 7]; // Helicopter, Hang-Glider, Para-glider
+        if (allowedTypes.includes(parsedData.aircraftType)) {
+          // console.log(`No deviceId, allowed type ${parsedData.aircraftType}, storing.`);
+          storeData = true;
+        } else {
+          // console.log(`No deviceId, disallowed type ${parsedData.aircraftType}, dropping.`);
+          return; // No deviceId, disallowed type
+        }
+      }
+      // --- End Eligibility Check ---
+
+
+      if (storeData) {
+        // Store in database
+        await this.storeAircraftData(parsedData);
+
+        // Update cache
+        this.aircraftCache.set(parsedData.id, parsedData);
+
+        // Emit event for real-time updates
+        this.emit('aircraft-update', parsedData);
+      }
+    } catch (err) { // End of try, start of catch for processAprsData
       console.error('Error processing APRS data:', err, 'Line:', line);
     }
-  }
+  } // End of processAprsData
 
-  /**
-   * Parse APRS packet
-   * @param {string} packet - APRS packet string
-   * @returns {Object|null} - Parsed data or null if invalid
-   */
   /**
    * Parse APRS packet
    * @param {string} packet - APRS packet string
@@ -858,25 +954,25 @@ class OgnAprsClient extends EventEmitter {
       // Basic APRS packet format: CALLSIGN>TOCALL,PATH:PAYLOAD
       const parts = packet.split(':');
       if (parts.length < 2) return null;
-      
+
       const header = parts[0];
       const payload = parts.slice(1).join(':');
-      
+
       const headerParts = header.split('>');
       if (headerParts.length < 2) return null;
-      
+
       const callsign = headerParts[0].trim();
-      
+
       // Only process APRS position reports (they start with '/')
       if (!payload.startsWith('/') && !payload.startsWith('@')) {
         return null;
       }
-      
+
       // Filter out aircraft with the "^" symbol (large aircraft)
       if (payload.includes('^')) {
         return null;
       }
-      
+
       // Filter out aircraft with the "'" (apostrophe) symbol (gliders/motorgliders)
       // The apostrophe needs to be properly positioned in the payload to be a symbol
       // Typically it appears after the coordinates
@@ -884,38 +980,38 @@ class OgnAprsClient extends EventEmitter {
       if (apostropheMatch) {
         return null;
       }
-      
+
       // Extract position data
       // Format is typically: /HHMMSSh/DDMMSSh/Course/Speed/...
       const positionData = this.parsePositionData(payload);
       if (!positionData) return null;
-      
+
       // Extract aircraft type and address type from comment field
       const aircraftInfo = this.extractAircraftType(payload);
-      
+
       // Filter out ICAO aircraft (address type 01)
       if (aircraftInfo.addressType === 1) { // 01 = ICAO
         return null;
       }
-      
+
       // Filter out aircraft with ICA prefix in callsign (ICAO aircraft)
       if (callsign.startsWith('ICA')) {
         return null;
       }
-      
+
       // Extract device ID from payload
       let deviceId = null;
       const idMatch = payload.match(/id([0-9A-F]{2})([0-9A-F]+)/);
       if (idMatch && idMatch[2]) {
         deviceId = idMatch[2].toUpperCase();
       }
-      
+
       // Extract FLARM ID if present (for Flarmnet lookup)
       let flarmId = null;
       if (callsign.startsWith('FLR')) {
         flarmId = callsign.substring(3).toUpperCase();
       }
-      
+
       // Look up registration from Flarmnet cache if FLARM ID is available
       let registration = null;
       // We prioritize deviceId lookup if available (assuming lookupPilotName might return registration or similar identifier)
@@ -927,13 +1023,13 @@ class OgnAprsClient extends EventEmitter {
       if (!registration && flarmId) {
         registration = this.flarmnetCache.get(flarmId);
       }
-      
+
       // Use registration if available, otherwise use the callsign
       const name = registration || callsign;
-      
+
       // Calculate AGL using SRTM elevation data
       const altAgl = await this.calculateAGL(positionData.lat, positionData.lon, positionData.altMsl || 0);
-      
+
       // Create result object
       return {
         id: callsign.toUpperCase(), // Normalize ID to uppercase
@@ -957,7 +1053,7 @@ class OgnAprsClient extends EventEmitter {
       console.error('Error parsing APRS packet:', err);
       return null;
     }
-  }
+  } // End of parseAprsPacket
 
   /**
    * Parse position data from APRS payload
@@ -968,7 +1064,7 @@ class OgnAprsClient extends EventEmitter {
     try {
       // This is a simplified parser - a real implementation would need to handle
       // all the APRS position formats and edge cases
-      
+
       // Skip the timestamp part
       let positionPart;
       if (payload.startsWith('/')) {
@@ -978,45 +1074,45 @@ class OgnAprsClient extends EventEmitter {
       } else {
         return null;
       }
-      
+
       // Extract latitude and longitude
       // Format: DDMM.SSN/DDDMM.SSE
       const latDegMin = positionPart.substring(0, 7);
       const latNS = positionPart.charAt(7);
       const lonDegMin = positionPart.substring(9, 17);
       const lonEW = positionPart.charAt(17);
-      
+
       if (!latDegMin || !latNS || !lonDegMin || !lonEW) {
         return null;
       }
-      
+
       // Convert DDMM.SS to decimal degrees
       const latDeg = parseInt(latDegMin.substring(0, 2), 10);
       const latMin = parseFloat(latDegMin.substring(2));
       let lat = latDeg + (latMin / 60);
       if (latNS === 'S') lat = -lat;
-      
+
       const lonDeg = parseInt(lonDegMin.substring(0, 3), 10);
       const lonMin = parseFloat(lonDegMin.substring(3));
       let lon = lonDeg + (lonMin / 60);
       if (lonEW === 'W') lon = -lon;
-      
+
       // Extract course and speed if available
       // Format after position: /Course/Speed/
       const remainingData = positionPart.substring(19);
       const parts = remainingData.split('/');
-      
+
       let course = 0;
       let speed = 0;
       let altMsl = 0;
       let climbRate = 0;
-      
+
       if (parts.length >= 2) {
         course = parseInt(parts[0], 10) || 0;
         // APRS speed is in knots, convert to km/h
         speed = Math.round((parseInt(parts[1], 10) || 0) * 1.852);
       }
-      
+
       // Try to extract altitude from comment field
       // Format is typically /A=FFFFFF where FFFFFF is altitude in feet
       const altMatch = remainingData.match(/\/A=(\d{6})/);
@@ -1024,7 +1120,7 @@ class OgnAprsClient extends EventEmitter {
         // Convert feet to meters
         altMsl = Math.round(parseInt(altMatch[1], 10) * 0.3048);
       }
-      
+
       // Try to extract climb rate if available (e.g., +118fpm or -373fpm)
       // Convert feet per minute to m/s (1 fpm = 0.00508 m/s) and round to one decimal place
       const climbMatch = remainingData.match(/([+-]\d+)fpm/);
@@ -1032,13 +1128,13 @@ class OgnAprsClient extends EventEmitter {
         const fpm = parseInt(climbMatch[1], 10);
         climbRate = Math.round(fpm * 0.00508 * 10) / 10; // Calculate m/s and round to 1 decimal
       }
-      
+
       return { lat, lon, course, speed, altMsl, climbRate };
     } catch (err) {
       console.error('Error parsing position data:', err);
       return null;
     }
-  }
+  } // End of parsePositionData
 
   /**
    * Extract aircraft information from APRS packet
@@ -1074,28 +1170,28 @@ class OgnAprsClient extends EventEmitter {
       // Extract aircraft type from the id field in the format idXXYYYYYY
       // where XX encodes stealth mode, no-tracking flag, aircraft type, and address type
       const idMatch = payload.match(/id([0-9A-F]{2})[0-9A-F]+/);
-      
+
       if (idMatch && idMatch[1]) {
         // Convert the first two hex digits to a number
         const encodedInfo = parseInt(idMatch[1], 16);
-        
+
         // Extract the aircraft type (bits 2-5, counting from 0)
         // Shift right by 2 to remove address type bits, then mask with 0x0F to get only the 4 type bits
         const aircraftType = (encodedInfo >> 2) & 0x0F;
-        
+
         // Extract the address type (bits 0-1, counting from 0)
         // Mask with 0x03 to get only the 2 address type bits
         const addressType = encodedInfo & 0x03;
-        
+
         // Return both aircraft type and address type
         return {
           aircraftType: aircraftType,
           addressType: addressType
         };
       }
-      
+
       // If we can't extract from id field, try other methods
-      
+
       // Look for aircraft type in comment field
       // Format is typically !W12! where 1 is the aircraft type category
       const typeMatch = payload.match(/!W(\d)(\d)!/);
@@ -1106,7 +1202,7 @@ class OgnAprsClient extends EventEmitter {
           addressType: 0 // Unknown address type
         };
       }
-      
+
       // If we can't determine the type, return unknown for both
       return {
         aircraftType: 0,
@@ -1114,9 +1210,9 @@ class OgnAprsClient extends EventEmitter {
       };
     } catch (err) {
       console.error('Error extracting aircraft type:', err);
-      return 0; // Unknown
+      return { aircraftType: 0, addressType: 0 }; // Return unknown object on error
     }
-  }
+  } // End of extractAircraftType
 
   /**
    * Extract aircraft name from callsign and comment
@@ -1128,15 +1224,8 @@ class OgnAprsClient extends EventEmitter {
     // This function is currently simplified to just return the callsign.
     // We will revisit this based on further analysis of APRS packets containing names.
     return callsign;
-  }
+  } // End of extractAircraftName
 
-  /**
-   * Calculate height above ground level
-   * @param {number} lat - Latitude
-   * @param {number} lon - Longitude
-   * @param {number} altMsl - Altitude above mean sea level in meters
-   * @returns {number} - Height above ground level in meters
-   */
   /**
    * Calculate height above ground level
    * @param {number} lat - Latitude
@@ -1148,23 +1237,23 @@ class OgnAprsClient extends EventEmitter {
     try {
       // Get elevation from Mapbox
       let elevation = await this.mapboxElevation.getElevation(lat, lon);
-      
+
       // SRTM fallback code kept but disabled as per request
       // if (elevation === null) {
       //   elevation = await this.srtmElevation.getElevation(lat, lon);
       // }
-      
+
       // If we have elevation data, calculate AGL by subtracting ground elevation from MSL altitude
       if (elevation !== null) {
         // Add a small tolerance (5 meters) to account for minor inaccuracies in elevation or MSL data
         const tolerance = 5;
         const agl = Math.max(0, Math.round(altMsl - elevation + tolerance));
-        
+
         // Only log warning for significant discrepancies (for monitoring purposes)
         if (agl === 0 && altMsl > elevation + 20) {
           console.warn(`Zero AGL despite MSL significantly higher than elevation: altMsl=${altMsl}, elevation=${elevation}, diff=${altMsl - elevation}, lat=${lat}, lon=${lon}`);
         }
-        
+
         return agl;
       } else {
         // If no elevation data is available, return MSL as fallback
@@ -1174,7 +1263,7 @@ class OgnAprsClient extends EventEmitter {
       console.error(`Error calculating AGL for ${lat},${lon}:`, err);
       return Math.round(altMsl); // Return MSL as fallback (as integer)
     }
-  }
+  } // End of calculateAGL
 
   /**
    * Store aircraft data in the database
@@ -1236,7 +1325,7 @@ class OgnAprsClient extends EventEmitter {
         data.deviceId,      // $14 - Added deviceId
         pilotName           // $15 - Use pilotName from destructuring
       ]);
-      
+
       // Insert track point with calculated AGL
       await client.query(`
         INSERT INTO aircraft_tracks (
@@ -1257,15 +1346,19 @@ class OgnAprsClient extends EventEmitter {
         data.vs,
         data.turnRate
       ]);
-      
+
       await client.query('COMMIT');
     } catch (err) {
-      await client.query('ROLLBACK');
+      if (client) { // Check if client was successfully connected before rollback
+         await client.query('ROLLBACK');
+      }
       console.error('Error storing aircraft data:', err);
     } finally {
-      client.release();
+      if (client) { // Check if client was successfully connected before release
+        client.release();
+      }
     }
-  }
+  } // End of storeAircraftData
 
   /**
    * Get current aircraft positions within bounds
@@ -1273,9 +1366,9 @@ class OgnAprsClient extends EventEmitter {
    * @returns {Array} - Array of aircraft positions
    */
   async getAircraftInBounds(bounds) {
-    const client = await this.dbPool.connect();
-    
+    let client; // Define client here
     try {
+      client = await this.dbPool.connect();
       const result = await client.query(`
         SELECT * FROM aircraft
         WHERE last_lat BETWEEN $1 AND $2
@@ -1289,15 +1382,17 @@ class OgnAprsClient extends EventEmitter {
         bounds.seLng,
         new Date(Date.now() - 1800000) // Last 30 minutes
       ]);
-      
+
       return result.rows;
     } catch (err) {
       console.error('Error getting aircraft in bounds:', err);
       return [];
     } finally {
-      client.release();
+      if (client) { // Check if client was successfully connected before releasing
+         client.release();
+      }
     }
-  }
+  } // End of getAircraftInBounds
 
   /**
    * Get track points for a specific aircraft
@@ -1306,9 +1401,9 @@ class OgnAprsClient extends EventEmitter {
    * @returns {Array} - Array of track points
    */
   async getAircraftTrack(aircraftId, minutes = 60) {
-    const client = await this.dbPool.connect();
-    
+    let client; // Define client here
     try {
+      client = await this.dbPool.connect();
       const result = await client.query(`
         SELECT * FROM aircraft_tracks
         WHERE aircraft_id = $1
@@ -1318,15 +1413,17 @@ class OgnAprsClient extends EventEmitter {
         aircraftId,
         new Date(Date.now() - (minutes * 60000))
       ]);
-      
+
       return result.rows;
     } catch (err) {
       console.error('Error getting aircraft track:', err);
       return [];
     } finally {
-      client.release();
+      if (client) { // Check if client was successfully connected before releasing
+         client.release();
+      }
     }
-  }
-}
+  } // End of getAircraftTrack
+} // End of OgnAprsClient class
 
 export default OgnAprsClient;
