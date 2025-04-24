@@ -117,3 +117,53 @@ input:checked + .slider:before {
 .slider.round:before {
   border-radius: 50%;
 }
+/* --- Popup Right Placement --- */
+.leaflet-popup {
+    /* Adjust left offset based on marker width + desired spacing. Start with 30px */
+    left: 30px !important;
+    /* Vertically center relative to the anchor point */
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    /* Reset margin-left which might interfere */
+    margin-left: 0 !important;
+    /* Ensure default bottom/right are reset if they interfere */
+    bottom: auto !important;
+    right: auto !important;
+}
+
+/* Move the tip container to the left edge and center vertically */
+.leaflet-popup-tip-container {
+    left: 0px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    /* Reset width/height if necessary */
+    width: auto !important;
+    height: auto !important;
+    /* Reset margin which might interfere */
+    margin: 0 !important;
+    /* Reset default top/bottom positioning */
+    bottom: auto !important;
+}
+
+/* Hide the default tip's appearance */
+.leaflet-popup-tip {
+    box-shadow: none !important;
+    background: transparent !important; /* Hide default background */
+    border: none !important; /* Hide default border */
+    /* Ensure default margin/padding don't interfere */
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Create a new tip pointing left */
+.leaflet-popup:before {
+    content: "";
+    position: absolute;
+    border: 13px solid transparent; /* Tip size */
+    border-right-color: white; /* Make the right border visible (points left) */
+    left: -26px; /* Position tip outside the popup body (negative border-width * 2) */
+    top: 50%; /* Center vertically */
+    margin-top: -13px; /* Adjust vertical centering (negative border-width) */
+    pointer-events: none; /* Prevent interaction */
+    z-index: 10; /* Ensure it's above popup content potentially */
+}

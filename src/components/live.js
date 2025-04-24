@@ -350,7 +350,7 @@ const LiveControl = L.Control.extend({
         const popupContent = this._createPopupContent(aircraft);
 
         // Bind popup
-        marker.bindPopup(popupContent);
+        marker.bindPopup(popupContent, { offset: [50,35] }); // Add offset to push popup right
 
         // Add click handler to show track
         marker.on('click', (e) => {
@@ -388,6 +388,7 @@ const LiveControl = L.Control.extend({
                     iconUrl: '/assets/images/resting.svg',
                     iconSize: groundIconSize,
                     iconAnchor: groundIconAnchor,
+                    popupAnchor: [15, 0], // Anchor popup to middle-right
                     className: 'resting-aircraft-icon ground-aircraft-icon'
                 });
             } else if (speed > 0 && speed <= 16) { // Hiking
@@ -395,13 +396,14 @@ const LiveControl = L.Control.extend({
                     iconUrl: '/assets/images/hiking.svg',
                     iconSize: groundIconSize,
                     iconAnchor: groundIconAnchor,
+                    popupAnchor: [15, 0], // Anchor popup to middle-right
                     className: 'hiking-aircraft-icon ground-aircraft-icon'
                 });
             } else { // Driving (speed > 16)
                 if (!this.drivingSvgContent) {
                     console.warn("Driving SVG not loaded yet.");
                     // Return a placeholder loading icon for driving state
-                    return L.divIcon({ className: 'aircraft-icon-loading', iconSize: groundIconSize, iconAnchor: groundIconAnchor });
+                    return L.divIcon({ className: 'aircraft-icon-loading', iconSize: groundIconSize, iconAnchor: groundIconAnchor, popupAnchor: [15, 0] }); // Anchor popup to middle-right
                 }
 
                 // Ensure driving SVG has width/height attributes
@@ -418,7 +420,8 @@ const LiveControl = L.Control.extend({
                     html: iconHtml,
                     className: 'driving-aircraft-icon ground-aircraft-icon', // Specific class for driving
                     iconSize: groundIconSize,
-                    iconAnchor: groundIconAnchor
+                    iconAnchor: groundIconAnchor,
+                    popupAnchor: [15, 0] // Anchor popup to middle-right
                 });
             }
         }
@@ -430,7 +433,7 @@ const LiveControl = L.Control.extend({
                  // Fetch might have been called above, check again
                  if (!this.canopySvgContent || !this.hangGliderSvgContent) {
                     console.warn("Flying SVGs not loaded yet for icon creation.");
-                    return L.divIcon({ className: 'aircraft-icon-loading', iconSize: [60, 60], iconAnchor: [30, 30] });
+                    return L.divIcon({ className: 'aircraft-icon-loading', iconSize: [60, 60], iconAnchor: [30, 30], popupAnchor: [30, 0] }); // Anchor popup to middle-right
                  }
             }
 
@@ -462,7 +465,8 @@ const LiveControl = L.Control.extend({
                 html: iconHtml,
                 className: 'flying-aircraft-icon', // Specific class for flying
                 iconSize: flyingIconSize,
-                iconAnchor: flyingIconAnchor
+                iconAnchor: flyingIconAnchor,
+                popupAnchor: [30, 0] // Anchor popup to middle-right
             });
         }
     },
@@ -502,12 +506,12 @@ const LiveControl = L.Control.extend({
         if (diffSeconds < 60) {
             // Less than a minute ago: (-SS sec)
             const seconds = String(diffSeconds).padStart(2, '0');
-            formattedTimeAgo = `(-${seconds} sec)`;
+            formattedTimeAgo = `-${seconds} sec`;
         } else if (diffSeconds < 3600) {
             // Less than an hour ago: (-MM:SS min)
             const minutes = String(Math.floor(diffSeconds / 60)).padStart(2, '0');
             const seconds = String(diffSeconds % 60).padStart(2, '0');
-            formattedTimeAgo = `(-${minutes}:${seconds} min)`;
+            formattedTimeAgo = `-${minutes}:${seconds} min`;
         } else {
             // More than an hour ago: (-HH:MM h)
             const hours = String(Math.floor(diffSeconds / 3600)).padStart(2, '0');
@@ -521,8 +525,11 @@ const LiveControl = L.Control.extend({
         // Create popup content
         return `
    <div class="aircraft-popup">
-                <p><strong style="color:#007bff;">${aircraft.pilot_name}</strong> ${formattedTimeAgo}</p>
-                <p><strong>${aircraft.last_alt_msl} m </strong>[${aircraft.last_alt_agl} AGL]</strong> <strong style="color: ${aircraft.last_vs > 0 ? 'green' : aircraft.last_vs < 0 ? 'red' : 'black'};">${aircraft.last_vs}m/s</strong></p>
+                <p style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="flex-grow: 1;"><strong style="color:#007bff;">${aircraft.pilot_name}</strong></span>
+                    <span style="margin-left: 10px; white-space: nowrap;">${formattedTimeAgo}</span>
+                </p>
+                <p><strong>${aircraft.last_alt_msl} m </strong>[${aircraft.last_alt_agl} AGL]</strong> <strong style="color: ${aircraft.last_vs > 0 ? 'green' : aircraft.last_vs < 0 ? 'red' : 'black'};">${aircraft.last_vs} m/s</strong></p>
             </div>
         `;
     },
