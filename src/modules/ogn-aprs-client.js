@@ -1040,27 +1040,30 @@ class OgnAprsClient extends EventEmitter {
 
       // Extract device ID from payload
       let deviceId = null;
-      const idMatch = payload.match(/id([0-9A-F]{2})([0-9A-F]+)/);
-      if (idMatch && idMatch[2]) {
-        deviceId = idMatch[2].toUpperCase();
+      // Match the ID pattern (e.g., id0420DDD527)
+      const idMatch = payload.match(/id[0-9A-F]{2}([0-9A-F]{6})/i); // Capture only the last 6 hex chars, case-insensitive
+      if (idMatch && idMatch[1]) {
+        // Use the captured 6-character Flarm ID as the deviceId
+        deviceId = idMatch[1].toUpperCase();
+      } else {
+         // Fallback: If no 'id' field, try extracting from callsign like FLRDDD527
+         const flarmCallsignMatch = callsign.match(/^FLR([0-9A-F]{6})$/i);
+         if (flarmCallsignMatch && flarmCallsignMatch[1]) {
+            deviceId = flarmCallsignMatch[1].toUpperCase();
+         }
       }
 
-      // Extract FLARM ID if present (for Flarmnet lookup)
-      let flarmId = null;
-      if (callsign.startsWith('FLR')) {
-        flarmId = callsign.substring(3).toUpperCase();
-      }
 
-      // Look up registration from Flarmnet cache if FLARM ID is available
+      // Look up registration using the extracted 6-character deviceId
       let registration = null;
-      // We prioritize deviceId lookup if available (assuming lookupPilotName might return registration or similar identifier)
       if (deviceId) {
-        // Assuming lookupPilotName might return a registration or relevant name based on device ID
+        // First, try the primary lookup (e.g., OGN DDB)
         registration = await this.lookupPilotName(deviceId);
-      }
-      // If no registration found via deviceId and we have a flarmId, try the cache
-      if (!registration && flarmId) {
-        registration = this.flarmnetCache.get(flarmId);
+
+        // If not found in primary lookup, try the Flarmnet cache
+        if (!registration) {
+            registration = this.flarmnetCache.get(deviceId);
+        }
       }
 
       // Use registration if available, otherwise use the callsign
