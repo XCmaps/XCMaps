@@ -198,6 +198,7 @@ async function startServer() {
                     user_id VARCHAR(255) NOT NULL, -- Keycloak user ID
                     pilot_name VARCHAR(255) NOT NULL,
                     device_id VARCHAR(50) NOT NULL,
+                    -- xcontest_uuid VARCHAR(255), -- REMOVED - Store in Keycloak attributes
                     consent_timestamp TIMESTAMPTZ NOT NULL,
                     last_updated TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE (user_id, device_id) -- Ensure a user can only add a device once
@@ -205,8 +206,13 @@ async function startServer() {
                     -- FOREIGN KEY (user_id) REFERENCES your_user_table(id)
                 );
             `);
-            // Optional: Add indexes if not already handled by UNIQUE constraint or for other lookups
-            await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilots(user_id);`);
+// Drop xcontest_uuid column if it exists (moving to Keycloak attributes)
+await pool.query(`
+    ALTER TABLE xcm_pilots
+    DROP COLUMN IF EXISTS xcontest_uuid;
+`);
+// Optional: Add indexes if not already handled by UNIQUE constraint or for other lookups
+await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilots(user_id);`);
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_device_id ON xcm_pilots(device_id);`);
             console.log('xcm_pilots table check/creation complete.');
         } catch (tableError) {

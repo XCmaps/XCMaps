@@ -110,27 +110,28 @@ export default function createUserPreferencesRouter(pool) { // Accept pool as ar
             }
 
             const preferencesAttr = user.attributes?.preferences?.[0];
-            console.log(`Raw preferences attribute for user ${userId}:`, preferencesAttr);
-
-
+            // console.log(`Raw preferences attribute for user ${userId}:`, preferencesAttr); // Reduced logging
+ 
+ 
             if (preferencesAttr) {
                 try {
                     const preferences = JSON.parse(preferencesAttr);
-                    console.log(`Parsed Keycloak preferences for user ${userId}:`, preferences);
-
-                    // --- Fetch Pilot Names from DB (Added) ---
+                    // console.log(`Parsed Keycloak preferences for user ${userId}:`, preferences); // Reduced logging
+ 
+                    // --- Fetch Pilot Names from DB (UUID removed) ---
                     let pilotNames = [];
                     try {
                         const dbResult = await pool.query(
-                            'SELECT device_id, pilot_name FROM xcm_pilots WHERE user_id = $1',
+                            'SELECT device_id, pilot_name FROM xcm_pilots WHERE user_id = $1', // Removed xcontest_uuid
                             [userId]
                         );
                         // Map to the expected format { deviceId: '...', name: '...' }
                         pilotNames = dbResult.rows.map(row => ({
                             deviceId: row.device_id,
                             name: row.pilot_name
+                            // xcontestUuid: row.xcontest_uuid // REMOVED - Get from preferences object
                         }));
-                        console.log(`Fetched pilot names from DB for user ${userId}:`, pilotNames);
+                        // console.log(`Fetched pilot names from DB for user ${userId}:`, pilotNames); // Reduced logging
                     } catch (dbError) {
                         console.error(`Error fetching pilot names from DB for user ${userId}:`, dbError);
                         // Decide if this is fatal or if we can return preferences without pilot names
@@ -138,10 +139,10 @@ export default function createUserPreferencesRouter(pool) { // Accept pool as ar
                     }
                     // --- End Fetch Pilot Names ---
 
-                    // Combine Keycloak prefs and DB pilot names
+                    // Combine Keycloak prefs (which now includes xcontestUuid) and DB pilot names
                     const combinedPreferences = {
-                        ...preferences,
-                        pilotNames: pilotNames
+                        ...preferences, // Contains xcontestUuid from Keycloak attributes
+                        pilotNames: pilotNames // Contains only deviceId and name from DB
                     };
 
                     return res.json(combinedPreferences);
@@ -151,19 +152,20 @@ export default function createUserPreferencesRouter(pool) { // Accept pool as ar
                     return res.status(500).json({ message: 'Error parsing stored preferences' });
                 }
             } else {
-                 console.log(`No preferences found in Keycloak for user ${userId}. Fetching pilot names from DB.`);
+                 // console.log(`No preferences found in Keycloak for user ${userId}. Fetching pilot names from DB.`); // Reduced logging
                  // Still fetch pilot names even if no Keycloak prefs exist
                  let pilotNames = [];
                  try {
                      const dbResult = await pool.query(
-                         'SELECT device_id, pilot_name FROM xcm_pilots WHERE user_id = $1',
+                         'SELECT device_id, pilot_name FROM xcm_pilots WHERE user_id = $1', // Removed xcontest_uuid
                          [userId]
                      );
                      pilotNames = dbResult.rows.map(row => ({
                          deviceId: row.device_id,
                          name: row.pilot_name
+                         // xcontestUuid: row.xcontest_uuid // REMOVED
                      }));
-                     console.log(`Fetched pilot names from DB for user ${userId}:`, pilotNames);
+                     // console.log(`Fetched pilot names from DB for user ${userId}:`, pilotNames); // Reduced logging
                  } catch (dbError) {
                      console.error(`Error fetching pilot names from DB for user ${userId}:`, dbError);
                  }
@@ -195,10 +197,10 @@ export default function createUserPreferencesRouter(pool) { // Accept pool as ar
         }
         const userId = req.user.id;
         const newPreferences = req.body; // Expecting a JSON object
-
-        console.log(`PUT /preferences request for user ID: ${userId} with data:`, newPreferences);
-
-
+ 
+        // console.log(`PUT /preferences request for user ID: ${userId} with data:`, newPreferences); // Reduced logging
+ 
+ 
         // Basic validation: Ensure body is an object (could add more specific schema validation)
         if (typeof newPreferences !== 'object' || newPreferences === null) {
             return res.status(400).json({ message: 'Invalid request body: Expected a JSON object.' });
@@ -209,12 +211,15 @@ export default function createUserPreferencesRouter(pool) { // Accept pool as ar
 
             // --- Separate Pilot Names from other Preferences (Added) ---
             const pilotNamesToSave = newPreferences.pilotNames || [];
+            // const userXcontestUuid = newPreferences.xcontestUuid || null; // No longer needed here
             // Create a new object for Keycloak attributes *without* pilotNames
+            // Keep xcontestUuid IN the object to be saved to Keycloak
             const keycloakPreferences = { ...newPreferences };
-            delete keycloakPreferences.pilotNames;
-            const preferencesString = JSON.stringify(keycloakPreferences);
-            console.log(`Updating Keycloak preferences for user ${userId} with string: ${preferencesString}`);
+            delete keycloakPreferences.pilotNames; // Only remove pilotNames
+            const preferencesString = JSON.stringify(keycloakPreferences); // Stringify the object containing xcontestUuid
+            // console.log(`Updating Keycloak preferences for user ${userId} with string: ${preferencesString}`); // Reduced logging
             console.log(`Pilot names to sync for user ${userId}:`, pilotNamesToSave);
+            // console.log(`XContest UUID to sync for user ${userId}:`, keycloakPreferences.xcontestUuid); // Log UUID being saved to Keycloak
             // --- End Separation ---
 
             // --- Database Sync Logic (Added) ---
@@ -224,15 +229,16 @@ export default function createUserPreferencesRouter(pool) { // Accept pool as ar
 
                 // 1. Get current pilot names from DB for this user
                 const currentDbResult = await client.query(
-                    'SELECT device_id, pilot_name FROM xcm_pilots WHERE user_id = $1',
+                    'SELECT device_id, pilot_name FROM xcm_pilots WHERE user_id = $1', // Removed xcontest_uuid
                     [userId]
                 );
                 const currentDbPilotNames = currentDbResult.rows.map(row => ({
                     deviceId: row.device_id,
                     name: row.pilot_name
+                    // xcontestUuid: row.xcontest_uuid // REMOVED
                 }));
                 const currentDbDeviceIds = new Set(currentDbPilotNames.map(p => p.deviceId));
-                const incomingDeviceIds = new Set(pilotNamesToSave.map(p => p.deviceId));
+                const incomingDeviceIds = new Set(pilotNamesToSave.map(p => p.deviceId)); // Assuming incoming format includes deviceId
 
                 // 2. Identify deletes, inserts, updates
                 const toDelete = currentDbPilotNames.filter(p => !incomingDeviceIds.has(p.deviceId));
@@ -240,12 +246,13 @@ export default function createUserPreferencesRouter(pool) { // Accept pool as ar
                 const toUpdate = pilotNamesToSave.filter(p => {
                     if (!currentDbDeviceIds.has(p.deviceId)) return false; // Not an update if it's new
                     const current = currentDbPilotNames.find(dbP => dbP.deviceId === p.deviceId);
-                    return current && current.name !== p.name; // Check if name changed
+                    // Check if name changed (UUID check removed)
+                    return current && current.name !== p.name;
                 });
 
-                console.log('DB Sync - To Delete:', toDelete);
-                console.log('DB Sync - To Insert:', toInsert);
-                console.log('DB Sync - To Update:', toUpdate);
+                // console.log('DB Sync - To Delete:', toDelete); // Reduced logging
+                // console.log('DB Sync - To Insert:', toInsert); // Reduced logging
+                // console.log('DB Sync - To Update:', toUpdate); // Reduced logging
 
                 // 3. Execute SQL
                 if (toDelete.length > 0) {
@@ -259,29 +266,29 @@ export default function createUserPreferencesRouter(pool) { // Accept pool as ar
                 const now = new Date(); // For timestamps
                 for (const pilot of toInsert) {
                     await client.query(
-                        'INSERT INTO xcm_pilots (user_id, device_id, pilot_name, consent_timestamp, last_updated) VALUES ($1, $2, $3, $4, $5)',
-                        [userId, pilot.deviceId, pilot.name, now, now]
+                        'INSERT INTO xcm_pilots (user_id, device_id, pilot_name, consent_timestamp, last_updated) VALUES ($1, $2, $3, $4, $5)', // Removed xcontest_uuid
+                        [userId, pilot.deviceId, pilot.name, now, now] // Removed UUID
                     );
                 }
 
                 for (const pilot of toUpdate) {
                     await client.query(
-                        'UPDATE xcm_pilots SET pilot_name = $1, last_updated = $2 WHERE user_id = $3 AND device_id = $4',
-                        [pilot.name, now, userId, pilot.deviceId]
+                        'UPDATE xcm_pilots SET pilot_name = $1, last_updated = $2 WHERE user_id = $3 AND device_id = $4', // Removed xcontest_uuid
+                        [pilot.name, now, userId, pilot.deviceId] // Removed UUID
                     );
                 }
 
                 // 4. Update Keycloak attributes (only if DB sync is successful)
-                console.log(`Updating Keycloak attributes for user ${userId}`);
+                // console.log(`Updating Keycloak attributes for user ${userId}`); // Reduced logging
                 await kcAdminClient.users.update(
                     { id: userId, realm: process.env.KEYCLOAK_REALM_NAME },
-                    { attributes: { preferences: [preferencesString] } } // Save string without pilotNames
+                    { attributes: { preferences: [preferencesString] } } // Save string containing xcontestUuid
                 );
 
                 // 5. Commit transaction
                 await client.query('COMMIT');
-                console.log(`Preferences and Pilot Names synced successfully for user ${userId}`);
-
+                // console.log(`Preferences and Pilot Names synced successfully for user ${userId}`); // Reduced logging
+ 
             } catch (dbError) {
                 await client.query('ROLLBACK');
                 console.error(`Error syncing pilot names to DB for user ${userId}, rolled back transaction:`, dbError);
@@ -294,11 +301,12 @@ export default function createUserPreferencesRouter(pool) { // Accept pool as ar
             // --- End Database Sync Logic ---
 
             // Keycloak update moved inside the try block after successful DB commit
-            // Update the user attributes
-            await kcAdminClient.users.update(
-                { id: userId, realm: process.env.KEYCLOAK_REALM_NAME },
-                { attributes: { preferences: [preferencesString] } }
-            );
+            // Keycloak update moved inside the try block after successful DB commit
+            // No need to update again here as it's done within the transaction block
+            // await kcAdminClient.users.update(
+            //     { id: userId, realm: process.env.KEYCLOAK_REALM_NAME },
+            //     { attributes: { preferences: [preferencesString] } }
+            // );
 
             // Return the full updated preferences (including pilot names from input)
             return res.status(200).json(newPreferences); // Return original request body

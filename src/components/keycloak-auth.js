@@ -364,6 +364,17 @@ const showProfileBadge = async (container) => { // Make async
         <!-- Rows will be added here by JS -->
       </div>
       <button id="add-pilot-row-button" class="add-pilot-button">+</button> <!-- Add Button -->
+      
+      <!-- XContest UUID Link Row -->
+      <div class="xcontest-uuid-link-row" style="margin-top: 10px; margin-bottom: 5px; font-size: 0.9em; font-weight: bold; text-align: left;">
+        XContest/XCTrack UUID <a href="https://www.xcontest.org/world/en/my-groups:xcmaps" target="_blank" rel="noopener noreferrer">    get it here</a>
+      </div>
+      
+      <!-- XContest UUID Input Row -->
+      <div class="xcontest-uuid-input-row" style="margin-bottom: 10px;">
+         <input type="text" id="xcontest-uuid-input" name="xcontestUuid" placeholder="Enter your XContest UUID" style="width: 100%; padding: 3px;">
+      </div>
+
       <div class="live-pilot-consent">
         <input type="checkbox" id="live-pilot-consent-checkbox">
         <label for="live-pilot-consent-checkbox" style="font-size: 0.9em;">I certify to be the owner of this device</label>
@@ -506,10 +517,19 @@ const showProfileBadge = async (container) => { // Make async
           // Compare current UI state to the initial state when the badge was opened
           pilotNamesChanged = JSON.stringify(currentPilotNames) !== JSON.stringify(initialPilotNamesState);
       }
-
+ 
+      // 2b. Check XContest UUID changes
+      let uuidChanged = false;
+      const uuidInput = document.getElementById('xcontest-uuid-input');
+      if (uuidInput) {
+          const currentUuid = uuidInput.value.trim();
+          const savedUuid = savedPreferences?.xcontestUuid || ''; // Assume stored at top level
+          uuidChanged = currentUuid !== savedUuid;
+      }
+ 
       // 3. Determine overall changes
-      const hasOverallChanges = mapOrLiveChanged || pilotNamesChanged;
-
+      const hasOverallChanges = mapOrLiveChanged || pilotNamesChanged || uuidChanged;
+ 
       // 4. Update button appearance
       updateSaveButtonAppearance(saveSettingsButton, hasOverallChanges);
   };
@@ -533,6 +553,13 @@ const showProfileBadge = async (container) => { // Make async
       }
       // Store the initially loaded pilot names (sorted)
       initialPilotNamesState = (savedPreferences?.pilotNames || []).sort((a, b) => a.deviceId.localeCompare(b.deviceId));
+ 
+      // --- Populate XContest UUID Input (Added) ---
+      const uuidInput = document.getElementById('xcontest-uuid-input');
+      if (uuidInput && savedPreferences?.xcontestUuid) {
+          uuidInput.value = savedPreferences.xcontestUuid;
+      }
+      // --- End Populate XContest UUID Input ---
   }
   // --- End Load Saved Preferences ---
 
@@ -612,6 +639,14 @@ const showProfileBadge = async (container) => { // Make async
            // The save button click handler already checks this.
            console.log("Consent checkbox changed:", e.target.checked);
        });
+
+       // --- XContest UUID Input Listener (Added) ---
+       const xcontestUuidInput = document.getElementById('xcontest-uuid-input');
+       if (xcontestUuidInput) {
+           L.DomEvent.on(xcontestUuidInput, 'input', updateSaveButtonState);
+       }
+       // --- End XContest UUID Input Listener ---
+
     } else {
         console.error("Could not find all elements needed for Live Pilot Config setup.");
     }
@@ -680,10 +715,15 @@ const showProfileBadge = async (container) => { // Make async
           // Re-fetch map/live state at the moment of saving
           const currentMapStateToSave = getCurrentMapState(window.treeLayersControl);
           let currentLiveSettingsToSave = window.liveControl?.getLiveSettings() || {};
+          // --- Get XContest UUID (Added) ---
+          const xcontestUuidValue = document.getElementById('xcontest-uuid-input')?.value.trim() || null;
+          // --- End Get XContest UUID ---
+ 
           const preferencesToSave = {
               ...currentMapStateToSave,
               liveSettings: currentLiveSettingsToSave,
-              pilotNames: pilotNamesData // Add pilot names
+              pilotNames: pilotNamesData, // Add pilot names
+              xcontestUuid: xcontestUuidValue // Add UUID
           };
           // --- End Get Current State to Save ---
 
