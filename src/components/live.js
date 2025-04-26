@@ -740,7 +740,7 @@ const LiveControl = L.Control.extend({
         } else {
             // More than an hour ago: (-HH:MM h)
             const hours = String(Math.floor(diffSeconds / 3600)).padStart(2, '0');
-            const minutes = String(Math.floor((diffSeconds % 3600) / 60)).padStart(2, '0');
+cd..Control            const minutes = String(Math.floor((diffSeconds % 3600) / 60)).padStart(2, '0');
             formattedTimeAgo = `-${hours}:${minutes} h`;
         }
 
@@ -828,8 +828,15 @@ const LiveControl = L.Control.extend({
                 // Update existing marker
                 this.markers[normalizedId].setLatLng([lat, lon]);
                 this._updateMarkerIcon(this.markers[normalizedId], aircraftWithNormalizedId);
+                            // --- NEW: Update track if popup is open ---
+                            if (this.tracks[normalizedId]) {
+                                // console.debug(`Updating track for ${normalizedId}`); // Optional debug log
+                                this.tracks[normalizedId].addLatLng([lat, lon]);
+                                // Optional: Add logic here to trim old points if the track becomes too long for performance reasons
+                            }
+                            // --- END NEW ---
                 this._updatePopupContent(this.markers[normalizedId], aircraftWithNormalizedId);
-            } else {
+               } else {
                 // Create new marker
                 // Ensure aircraft has all required properties
                 const processedAircraft = {
@@ -875,36 +882,40 @@ const LiveControl = L.Control.extend({
      * Fetch aircraft track using WebSocket or fallback to REST API
      */
     _fetchAircraftTrack: function(normalizedId) {
-        if (this.usingWebSocket && this.socket && this.socket.connected) {
-            // Use WebSocket
-            console.log("Requesting track via WebSocket for:", normalizedId);
-            this.socket.emit('get-track', normalizedId);
-        } else {
-            // Fallback to REST API
-            console.log("Requesting track via REST API for:", normalizedId);
-            fetch(`/api/ogn/track/${normalizedId}?minutes=60`)
-                .then(response => response.json())
-                .then(trackData => {
-                    this._displayAircraftTrack(normalizedId, trackData);
-                })
-                .catch(error => {
-                    console.error('Error fetching aircraft track:', error);
-                });
-        }
+    	if (this.usingWebSocket && this.socket && this.socket.connected) {
+    		// Use WebSocket
+    		console.log(`[LiveControl] Requesting track via WebSocket for: ${normalizedId}`);
+    		this.socket.emit('get-track', normalizedId);
+    	} else {
+    		// Fallback to REST API
+    		console.log("Requesting track via REST API for:", normalizedId);
+    		fetch(`/api/ogn/track/${normalizedId}?minutes=60`)
+    			.then(response => response.json())
+    			.then(trackData => {
+    			             console.log(`[LiveControl] Received track via REST for ${normalizedId}. Length: ${trackData?.length ?? 'N/A'}`);
+    				this._displayAircraftTrack(normalizedId, trackData);
+    			})
+    			.catch(error => {
+    			             // Keep existing error log
+    				console.error('Error fetching aircraft track:', error);
+    			});
+    	}
     },
 
     _displayAircraftTrack: function(normalizedId, trackData) {
-        // Remove existing track if any
-        if (this.tracks[normalizedId]) {
-            this.trackLayer.removeLayer(this.tracks[normalizedId]);
-        }
+    	// Remove existing track if any
+    			 console.log(`[LiveControl] Displaying track for ${normalizedId}. Received data length: ${trackData?.length ?? 'N/A'}`);
+    			 if (this.tracks[normalizedId]) {
+    		this.trackLayer.removeLayer(this.tracks[normalizedId]);
+    	}
 
-        // Create track line
-        if (trackData.length > 0) {
-            const trackPoints = trackData.map(point => [point.lat, point.lon]);
+    	// Create track line
+    	if (trackData.length > 0) {
+    		const trackPoints = trackData.map(point => [point.lat, point.lon]);
+    			     console.log(`[LiveControl] Creating polyline for ${normalizedId} with ${trackPoints.length} points.`);
 
-            // Get assigned color or fallback using normalized ID
-            const assignedColor = this.activePopupColors[normalizedId] || this.options.trackColor; // Fallback to default track color
+    		// Get assigned color or fallback using normalized ID
+    		const assignedColor = this.activePopupColors[normalizedId] || this.options.trackColor; // Fallback to default track color
 
             // Create polyline with the assigned color
             const track = L.polyline(trackPoints, {
@@ -916,12 +927,15 @@ const LiveControl = L.Control.extend({
 
             // Add to layer and store reference using normalized ID
             this.trackLayer.addLayer(track);
+                  console.log(`[LiveControl] Added track polyline for ${normalizedId} to trackLayer.`);
             this.tracks[normalizedId] = track;
-
+      
+              } else {
+                  console.log(`[LiveControl] No track data or empty track data for ${normalizedId}, not displaying track.`);
             // Altitude markers removed as requested
             // this._addAltitudeMarkers(normalizedId, trackData);
-        }
-    },
+              }
+          },
 
     // _addAltitudeMarkers function removed as it's no longer called
 

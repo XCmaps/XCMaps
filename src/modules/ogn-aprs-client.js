@@ -60,10 +60,11 @@ class OgnAprsClient extends EventEmitter {
 
       // Create aircraft table if it doesn't exist
       await client.query(`
-        CREATE TABLE IF NOT EXISTS aircraft (
-          id VARCHAR(50) PRIMARY KEY, -- Increased size to 50
+        CREATE TABLE IF NOT EXISTS aircraft ( -- Use device_id as primary key
+          device_id VARCHAR(50) PRIMARY KEY, -- Normalized 6-char ID, increased size for safety
           name VARCHAR(100),
           type SMALLINT,
+          callsign VARCHAR(50), -- Store original APRS callsign
           last_seen TIMESTAMP WITH TIME ZONE,
           last_lat DOUBLE PRECISION,
           last_lon DOUBLE PRECISION,
@@ -73,8 +74,7 @@ class OgnAprsClient extends EventEmitter {
           last_speed_kmh SMALLINT,
           last_vs REAL,
           last_turn_rate SMALLINT,
-          raw_packet TEXT,
-          device_id VARCHAR(50),
+          raw_packet TEXT, -- Keep raw packet for debugging if needed
           pilot_name VARCHAR(100)
         )
       `);
@@ -83,7 +83,7 @@ class OgnAprsClient extends EventEmitter {
       await client.query(`
         CREATE TABLE IF NOT EXISTS aircraft_tracks (
           id SERIAL PRIMARY KEY,
-          aircraft_id VARCHAR(20) REFERENCES aircraft(id) ON DELETE CASCADE,
+          aircraft_id VARCHAR(50) REFERENCES aircraft(device_id) ON DELETE CASCADE, -- Reference new PK
           timestamp TIMESTAMP WITH TIME ZONE,
           lat DOUBLE PRECISION,
           lon DOUBLE PRECISION,
@@ -98,7 +98,7 @@ class OgnAprsClient extends EventEmitter {
 
       // Create index on aircraft_id and timestamp for faster queries
       await client.query(`
-        CREATE INDEX IF NOT EXISTS idx_aircraft_tracks_aircraft_id ON aircraft_tracks(aircraft_id);
+        CREATE INDEX IF NOT EXISTS idx_aircraft_tracks_device_id ON aircraft_tracks(aircraft_id); -- Index the FK
         CREATE INDEX IF NOT EXISTS idx_aircraft_tracks_timestamp ON aircraft_tracks(timestamp);
       `);
 
@@ -788,6 +788,7 @@ class OgnAprsClient extends EventEmitter {
       `, [cutoffTime]);
 
       // Delete aircraft that haven't been seen recently
+      // Schema is now using device_id as primary key, but the query remains the same
       await client.query(`
         DELETE FROM aircraft
         WHERE last_seen < $1
@@ -950,21 +951,21 @@ class OgnAprsClient extends EventEmitter {
             
             // Format the data for WebSocket transmission
             const wsData = {
-              id: parsedData.id,
-              name: parsedData.name,
-              last_lat: parsedData.lat,
-              last_lon: parsedData.lon,
-              last_alt_msl: parsedData.altMsl,
-              last_alt_agl: parsedData.altAgl,
-              last_course: parsedData.course,
-              last_speed_kmh: parsedData.speedKmh,
-              last_vs: parsedData.vs,
-              last_turn_rate: parsedData.turnRate,
-              type: parsedData.aircraftType,
-              pilot_name: parsedData.pilotName,
-              last_seen: parsedData.timestamp,
-              // Add a unique timestamp to help client identify duplicates
-              update_timestamp: Date.now()
+            	id: parsedData.id, // This is now the normalized deviceId
+            	name: parsedData.name,
+            	last_lat: parsedData.lat,
+            	last_lon: parsedData.lon, // Corrected typo from last_lon to lon
+            	last_alt_msl: parsedData.altMsl,
+            	last_alt_agl: parsedData.altAgl,
+            	last_course: parsedData.course,
+            	last_speed_kmh: parsedData.speedKmh,
+            	last_vs: parsedData.vs,
+            	last_turn_rate: parsedData.turnRate,
+            	type: parsedData.aircraftType,
+            	pilot_name: parsedData.pilotName,
+            	last_seen: parsedData.timestamp,
+            	// Add a unique timestamp to help client identify duplicates
+            	update_timestamp: Date.now()
             };
             
             // Send updates only to clients whose bounds contain this aircraft
@@ -1071,11 +1072,13 @@ class OgnAprsClient extends EventEmitter {
 
       // Calculate AGL using SRTM elevation data
       const altAgl = await this.calculateAGL(positionData.lat, positionData.lon, positionData.altMsl || 0);
-
-      // Create result object
+  
+      // Create result object - Use normalized deviceId as the primary 'id'
       return {
-        id: callsign.toUpperCase(), // Normalize ID to uppercase
-        name: name,
+        // id: callsign.toUpperCase(), // OLD: Use callsign as ID
+        id: deviceId, // NEW: Use normalized deviceId as the primary ID
+        callsign: callsign.toUpperCase(), // Keep original callsign separately
+        name: name, // This is usually registration or callsign
         timestamp: new Date(),
         lat: positionData.lat,
         lon: positionData.lon,
@@ -1088,7 +1091,7 @@ class OgnAprsClient extends EventEmitter {
         aircraftType: aircraftInfo.aircraftType,
         addressType: aircraftInfo.addressType,
         deviceId: deviceId,
-        pilotName: registration, // Use the registration found (or null)
+        pilotName: registration, // Use the registration found (or null) - might be same as 'name'
         rawPacket: packet // Store the raw APRS packet for debugging
       };
     } catch (err) {
@@ -1325,19 +1328,20 @@ class OgnAprsClient extends EventEmitter {
       // Destructure data fields from parseAprsPacket result
       const {
         id, name, aircraftType, timestamp, lat, lon, altMsl, /* alt_agl is calculated below */
-        course, speedKmh, vs, turnRate, rawPacket, deviceId, pilotName /* pilotName looked up in parseAprsPacket */
+        course, speedKmh, vs, turnRate, rawPacket, deviceId, pilotName, callsign /* Added callsign */
       } = data;
-
+  
       // Update or insert aircraft record, now including pilot_name and calculated AGL
       await client.query(`
         INSERT INTO aircraft (
-          id, name, type, last_seen, last_lat, last_lon,
-          last_alt_msl, last_alt_agl, last_course, last_speed_kmh, last_vs, last_turn_rate, raw_packet, device_id, pilot_name
+          device_id, name, type, callsign, last_seen, last_lat, last_lon,
+          last_alt_msl, last_alt_agl, last_course, last_speed_kmh, last_vs, last_turn_rate, raw_packet, pilot_name
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
-        ) ON CONFLICT (id) DO UPDATE SET
+        ) ON CONFLICT (device_id) DO UPDATE SET
           name = EXCLUDED.name,
           type = EXCLUDED.type,
+          callsign = EXCLUDED.callsign,
           last_seen = EXCLUDED.last_seen,
           last_lat = EXCLUDED.last_lat,
           last_lon = EXCLUDED.last_lon,
@@ -1348,26 +1352,25 @@ class OgnAprsClient extends EventEmitter {
           last_vs = EXCLUDED.last_vs,
           last_turn_rate = EXCLUDED.last_turn_rate,
           raw_packet = EXCLUDED.raw_packet,
-          device_id = EXCLUDED.device_id, -- Ensure device_id is updated if needed
           pilot_name = EXCLUDED.pilot_name -- Update pilot name
       `, [
-        data.id,            // $1
+        deviceId,           // $1 - Use deviceId as primary key
         data.name,          // $2
         aircraftType,       // $3 - Use the correct type from parseAprsPacket
-        data.timestamp,     // $4
-        data.lat,           // $5
-        data.lon,           // $6
-        data.altMsl,        // $7
-        altAgl,             // $8 - Use calculated AGL instead of data.altAgl
-        data.course,        // $9
-        data.speedKmh,      // $10
-        data.vs,            // $11
-        data.turnRate,      // $12
-        data.rawPacket,     // $13
-        data.deviceId,      // $14 - Added deviceId
+        callsign,           // $4 - Store original callsign
+        data.timestamp,     // $5
+        data.lat,           // $6
+        data.lon,           // $7
+        data.altMsl,        // $8
+        altAgl,             // $9 - Use calculated AGL instead of data.altAgl
+        data.course,        // $10
+        data.speedKmh,      // $11
+        data.vs,            // $12
+        data.turnRate,      // $13
+        data.rawPacket,     // $14
         pilotName           // $15 - Use pilotName from destructuring
       ]);
-
+  
       // Insert track point with calculated AGL
       await client.query(`
         INSERT INTO aircraft_tracks (
@@ -1377,16 +1380,16 @@ class OgnAprsClient extends EventEmitter {
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
         )
       `, [
-        data.id,
-        data.timestamp,
-        data.lat,
-        data.lon,
-        data.altMsl,
-        altAgl,           // Use calculated AGL instead of data.altAgl
-        data.course,
-        data.speedKmh,
-        data.vs,
-        data.turnRate
+        deviceId,         // $1 - Use deviceId as aircraft_id to match the new schema
+        data.timestamp,   // $2
+        data.lat,         // $3
+        data.lon,         // $4
+        data.altMsl,      // $5
+        altAgl,           // $6 - Use calculated AGL instead of data.altAgl
+        data.course,      // $7
+        data.speedKmh,    // $8
+        data.vs,          // $9
+        data.turnRate     // $10
       ]);
 
       await client.query('COMMIT');
@@ -1412,7 +1415,23 @@ class OgnAprsClient extends EventEmitter {
     try {
       client = await this.dbPool.connect();
       const result = await client.query(`
-        SELECT * FROM aircraft
+        SELECT
+          device_id AS id, -- Map device_id to id for backward compatibility
+          name,
+          type,
+          callsign,
+          last_seen,
+          last_lat,
+          last_lon,
+          last_alt_msl,
+          last_alt_agl,
+          last_course,
+          last_speed_kmh,
+          last_vs,
+          last_turn_rate,
+          raw_packet,
+          pilot_name
+        FROM aircraft
         WHERE last_lat BETWEEN $1 AND $2
         AND last_lon BETWEEN $3 AND $4
         AND last_seen > $5
@@ -1451,20 +1470,22 @@ class OgnAprsClient extends EventEmitter {
    * @returns {Array} - Array of track points
    */
   async getAircraftTrack(aircraftId, minutes = 60) {
-    let client; // Define client here
-    try {
-      client = await this.dbPool.connect();
-      const result = await client.query(`
-        SELECT * FROM aircraft_tracks
-        WHERE aircraft_id = $1
-        AND timestamp > $2
-        ORDER BY timestamp ASC
-      `, [
-        aircraftId,
-        new Date(Date.now() - (minutes * 60000))
-      ]);
+  	let client; // Define client here
+  	try {
+  		client = await this.dbPool.connect();
+  		// aircraftId is already the normalized device_id from live.js
+  		// which now directly matches the aircraft_id column in aircraft_tracks
+  		const result = await client.query(`
+  			SELECT * FROM aircraft_tracks
+  			WHERE aircraft_id = $1
+  			AND timestamp > $2
+  			ORDER BY timestamp ASC
+  		`, [
+  			aircraftId, // This is now the normalized device_id
+  			new Date(Date.now() - (minutes * 60000))
+  		]);
 
-      return result.rows;
+  		return result.rows;
     } catch (err) {
       console.error('Error getting aircraft track:', err);
       return [];

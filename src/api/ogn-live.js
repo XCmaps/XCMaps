@@ -130,7 +130,7 @@ function createOgnLiveRouter(pool, ognClient) {
       const client = await pool.connect();
       
       try {
-        // Get total aircraft count
+        // Get total aircraft count - updated for new schema with device_id as primary key
         const aircraftResult = await client.query(`
           SELECT COUNT(*) as total,
             SUM(CASE WHEN type = 6 THEN 1 ELSE 0 END) as hang_gliders,
