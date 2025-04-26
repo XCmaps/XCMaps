@@ -1519,12 +1519,12 @@ class OgnAprsClient extends EventEmitter {
     );
     
     // Debug log for bounds checking
-    if (!inBounds) {
-      console.debug(`Aircraft ${aircraft.id} is outside bounds:`, {
-        lat, lon,
-        bounds: `${bounds.seLat},${bounds.nwLat},${bounds.nwLng},${bounds.seLng}`
-      });
-    }
+     // if (!inBounds) {
+     //   console.debug(`Aircraft ${aircraft.id} is outside bounds:`, {
+     //     lat, lon,
+     //     bounds: `${bounds.seLat},${bounds.nwLat},${bounds.nwLng},${bounds.seLng}`
+      //  });
+     // }
     
     return inBounds;
   }

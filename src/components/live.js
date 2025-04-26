@@ -56,6 +56,7 @@ const LiveControl = L.Control.extend({
             showDriving: true
         };
         // --- END NEW ---
+        this.popupTimers = {}; // Store interval IDs for updating popup times
     },
 
     onAdd: function(map) {
@@ -215,12 +216,15 @@ const LiveControl = L.Control.extend({
             this._closeConfigBadge();
         }
 
+        // Clear any running popup timers
+        this._clearAllPopupTimers();
+
         // Disconnect WebSocket
         this._disconnectWebSocket();
 
         // Remove map move end listener
         this._map.off('moveend', this._updateBounds, this);
-        
+
         // Clear state
         this.lastUpdateTimestamps = {};
 
@@ -475,7 +479,7 @@ const LiveControl = L.Control.extend({
                 // Update existing marker
                 this.markers[normalizedId].setLatLng([aircraft.last_lat, aircraft.last_lon]);
                 this._updateMarkerIcon(this.markers[normalizedId], aircraftWithNormalizedId); // Icon might change (e.g., flying -> landing)
-                this._updatePopupContent(this.markers[normalizedId], aircraftWithNormalizedId);
+                this._updatePopupContent(this.markers[normalizedId], aircraftWithNormalizedId, normalizedId); // Pass normalizedId
             } else {
                 // Attempt to create new marker (might return null if filtered by _createAircraftMarker)
                 const newMarker = this._createAircraftMarker(aircraftWithNormalizedId);
@@ -560,6 +564,10 @@ const LiveControl = L.Control.extend({
 
             // Fetch and display track (will use the assigned color)
             this._fetchAircraftTrack(normalizedId);
+
+            // --- NEW: Start timer for this popup ---
+            this._startPopupTimer(e.popup, normalizedId);
+            // --- END NEW ---
         });
 
         marker.on('popupclose', (e) => {
@@ -580,6 +588,10 @@ const LiveControl = L.Control.extend({
             }
             delete this.activePopupColors[normalizedId];
             console.log(`Unassigned color and removed ${normalizedId} from active order. New order:`, this.activePopupOrder);
+
+            // --- NEW: Stop timer for this popup ---
+            this._stopPopupTimer(normalizedId);
+            // --- END NEW ---
 
             // Optional: Update popups of remaining active tracks if their color index changed?
             // This might be complex and potentially jarring. Let's skip for now.
@@ -721,28 +733,33 @@ const LiveControl = L.Control.extend({
          marker.setIcon(this._createAircraftIcon(aircraft));
      },
 
-     _createPopupContent: function(aircraft) {
-        // Calculate time ago
-        const lastSeen = new Date(aircraft.last_seen);
+    // --- NEW: Helper function to format time difference ---
+    _formatTimeAgo: function(timestamp) {
+        const lastSeen = new Date(timestamp);
         const now = new Date();
-        const diffSeconds = Math.round((now - lastSeen) / 1000);
-        let formattedTimeAgo;
+        const diffSeconds = Math.max(0, Math.round((now - lastSeen) / 1000)); // Ensure non-negative
 
         if (diffSeconds < 60) {
             // Less than a minute ago: (-SS sec)
             const seconds = String(diffSeconds).padStart(2, '0');
-            formattedTimeAgo = `-${seconds} sec`;
+            return `-${seconds} sec`;
         } else if (diffSeconds < 3600) {
             // Less than an hour ago: (-MM:SS min)
             const minutes = String(Math.floor(diffSeconds / 60)).padStart(2, '0');
             const seconds = String(diffSeconds % 60).padStart(2, '0');
-            formattedTimeAgo = `-${minutes}:${seconds} min`;
+            return `-${minutes}:${seconds} min`;
         } else {
             // More than an hour ago: (-HH:MM h)
             const hours = String(Math.floor(diffSeconds / 3600)).padStart(2, '0');
             const minutes = String(Math.floor((diffSeconds % 3600) / 60)).padStart(2, '0');
-            formattedTimeAgo = `-${hours}:${minutes} h`;
+            return `-${hours}:${minutes} h`;
         }
+    },
+    // --- END NEW ---
+
+     _createPopupContent: function(aircraft) {
+        const lastSeenTimestamp = new Date(aircraft.last_seen).getTime();
+        const initialFormattedTimeAgo = this._formatTimeAgo(lastSeenTimestamp); // Use helper
 
         // Determine aircraft type (though not used in the popup string anymore)
         const aircraftType = aircraft.type === 6 ? 'Hang Glider' : 'Paraglider';
@@ -750,21 +767,43 @@ const LiveControl = L.Control.extend({
         // Get assigned color or fallback using normalized ID
         const assignedColor = this.activePopupColors[aircraft.id] || '#007bff'; // Fallback to blue
 
-        // Create popup content
+        // Create popup content with data-timestamp and class for the time span
         return `
-   <div class="aircraft-popup">
+            <div class="aircraft-popup" data-aircraft-id="${aircraft.id}">
                 <p style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="flex-grow: 1;"><strong style="color:${assignedColor};">${aircraft.pilot_name}</strong></span>
-                    <span style="margin-left: 10px; white-space: nowrap;">${formattedTimeAgo}</span>
+                    <span class="live-time-ago" data-timestamp="${lastSeenTimestamp}" style="margin-left: 10px; white-space: nowrap;">${initialFormattedTimeAgo}</span>
                 </p>
                 <p><strong>${aircraft.last_alt_msl} m </strong>[${aircraft.last_alt_agl} AGL]</strong> <strong style="color: ${aircraft.last_vs > 0 ? 'green' : aircraft.last_vs < 0 ? 'red' : 'black'};">${aircraft.last_vs} m/s</strong></p>
             </div>
         `;
     },
 
-    _updatePopupContent: function(marker, aircraft) {
-        if (marker.getPopup()) {
-            marker.getPopup().setContent(this._createPopupContent(aircraft));
+    _updatePopupContent: function(marker, aircraft, normalizedId) { // Add normalizedId
+        const popup = marker.getPopup();
+        if (popup) {
+            // Generate the new base HTML content
+            const newContent = this._createPopupContent(aircraft);
+            popup.setContent(newContent);
+
+            // If the popup is currently open, restart its timer.
+            // This ensures the timer uses the new DOM element and the new timestamp.
+            if (popup.isOpen()) {
+                // We need the normalizedId here to manage the timer correctly
+                if (normalizedId) {
+                     this._startPopupTimer(popup, normalizedId);
+                } else {
+                     // Fallback: Try to get ID from popup content if not passed (less ideal)
+                     const popupElement = popup.getElement();
+                     const containerDiv = popupElement?.querySelector('.aircraft-popup');
+                     const idFromDOM = containerDiv?.getAttribute('data-aircraft-id');
+                     if (idFromDOM) {
+                         this._startPopupTimer(popup, idFromDOM);
+                     } else {
+                         console.warn("[LiveControl] Could not restart popup timer: normalizedId missing and not found in DOM.");
+                     }
+                }
+            }
         }
     },
 
@@ -835,7 +874,7 @@ const LiveControl = L.Control.extend({
                                 // Optional: Add logic here to trim old points if the track becomes too long for performance reasons
                             }
                             // --- END NEW ---
-                this._updatePopupContent(this.markers[normalizedId], aircraftWithNormalizedId);
+                this._updatePopupContent(this.markers[normalizedId], aircraftWithNormalizedId, normalizedId); // Pass normalizedId
                } else {
                 // Create new marker
                 // Ensure aircraft has all required properties
@@ -938,6 +977,52 @@ const LiveControl = L.Control.extend({
           },
 
     // _addAltitudeMarkers function removed as it's no longer called
+
+    // --- NEW: Timer management functions ---
+    _startPopupTimer: function(popup, normalizedId) {
+        this._stopPopupTimer(normalizedId); // Clear existing timer first
+
+        const popupElement = popup.getElement();
+        if (!popupElement) return;
+
+        const timeElement = popupElement.querySelector('.live-time-ago');
+        if (!timeElement) return;
+
+        const timestamp = parseInt(timeElement.getAttribute('data-timestamp'), 10);
+        if (isNaN(timestamp)) return;
+
+        // Update immediately
+        timeElement.textContent = this._formatTimeAgo(timestamp);
+
+        // Start interval - Capture the initial timestamp
+        const initialTimestamp = timestamp;
+        this.popupTimers[normalizedId] = setInterval(() => {
+            // Check if element still exists (popup might have been closed/removed unexpectedly)
+            // Use contains check on the popup element itself for robustness
+            if (!popupElement || !document.body.contains(popupElement)) {
+                this._stopPopupTimer(normalizedId);
+                return;
+            }
+            // Calculate time difference based on the initial timestamp captured when the timer started
+            timeElement.textContent = this._formatTimeAgo(initialTimestamp);
+
+        }, 1000); // Update every second
+    },
+
+    _stopPopupTimer: function(normalizedId) {
+        if (this.popupTimers[normalizedId]) {
+            clearInterval(this.popupTimers[normalizedId]);
+            delete this.popupTimers[normalizedId];
+        }
+    },
+
+    _clearAllPopupTimers: function() {
+        Object.keys(this.popupTimers).forEach(normalizedId => {
+            this._stopPopupTimer(normalizedId);
+        });
+        this.popupTimers = {}; // Reset the object
+    },
+    // --- END NEW ---
 
     // --- NEW: Methods for Config Badge and Preferences ---
     _showConfigBadge: function() {
