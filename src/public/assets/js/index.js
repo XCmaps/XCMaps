@@ -482,7 +482,7 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
 
   // Add locate control
   // Define icon paths
-  const locateInactiveIcon = '/assets/images/crosshair-3.svg';
+  const locateInactiveIcon = '/assets/images/track-inactive.svg';
   const locateActiveIcon = '/assets/images/track-active.svg';
 
   // Add locate control
@@ -506,8 +506,8 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   if (locateIconElement) {
       // Ensure initial state is correct
       locateIconElement.src = locateInactiveIcon;
-      locateIconElement.style.width = '16px'; // Set desired size
-      locateIconElement.style.height = '16px'; // Set desired size
+      locateIconElement.style.width = '20px'; // Set desired size
+      locateIconElement.style.height = '20px'; // Set desired size
   }
 
   // Event listeners to change the icon source
