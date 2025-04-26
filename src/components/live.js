@@ -740,7 +740,7 @@ const LiveControl = L.Control.extend({
         } else {
             // More than an hour ago: (-HH:MM h)
             const hours = String(Math.floor(diffSeconds / 3600)).padStart(2, '0');
-cd..Control            const minutes = String(Math.floor((diffSeconds % 3600) / 60)).padStart(2, '0');
+            const minutes = String(Math.floor((diffSeconds % 3600) / 60)).padStart(2, '0');
             formattedTimeAgo = `-${hours}:${minutes} h`;
         }
 

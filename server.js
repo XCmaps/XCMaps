@@ -222,6 +222,62 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilot
         }
         // --- End Ensure xcm_pilots table ---
 
+        // --- Ensure aircraft and aircraft_tracks tables exist ---
+        try {
+            console.log('Ensuring aircraft and aircraft_tracks tables exist...');
+            
+            // Create aircraft table if it doesn't exist
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS aircraft (
+                    device_id VARCHAR(50) PRIMARY KEY,
+                    name VARCHAR(100),
+                    type SMALLINT,
+                    callsign VARCHAR(50),
+                    last_seen TIMESTAMP WITH TIME ZONE,
+                    last_lat DOUBLE PRECISION,
+                    last_lon DOUBLE PRECISION,
+                    last_alt_msl INTEGER,
+                    last_alt_agl INTEGER,
+                    last_course SMALLINT,
+                    last_speed_kmh SMALLINT,
+                    last_vs REAL,
+                    last_turn_rate SMALLINT,
+                    raw_packet TEXT,
+                    pilot_name VARCHAR(100)
+                );
+            `);
+            
+            // Create tracks table if it doesn't exist
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS aircraft_tracks (
+                    id SERIAL PRIMARY KEY,
+                    aircraft_id VARCHAR(50) REFERENCES aircraft(device_id) ON DELETE CASCADE,
+                    timestamp TIMESTAMP WITH TIME ZONE,
+                    lat DOUBLE PRECISION,
+                    lon DOUBLE PRECISION,
+                    alt_msl INTEGER,
+                    alt_agl INTEGER,
+                    course SMALLINT,
+                    speed_kmh SMALLINT,
+                    vs REAL,
+                    turn_rate SMALLINT
+                );
+            `);
+            
+            // Create indexes for faster queries
+            await pool.query(`
+                CREATE INDEX IF NOT EXISTS idx_aircraft_tracks_device_id ON aircraft_tracks(aircraft_id);
+                CREATE INDEX IF NOT EXISTS idx_aircraft_tracks_timestamp ON aircraft_tracks(timestamp);
+            `);
+            
+            console.log('aircraft and aircraft_tracks tables check/creation complete.');
+        } catch (tableError) {
+            console.error('Error ensuring aircraft and aircraft_tracks tables exist:', tableError);
+            console.log('Will continue startup process despite aircraft tables error.');
+            // Not throwing error here to allow server to start even if these tables fail
+        }
+        // --- End Ensure aircraft and aircraft_tracks tables ---
+
         // --- Manual Trigger ---
         console.log('MANUALLY TRIGGERING PILOT DB REFRESH...');
         try {
