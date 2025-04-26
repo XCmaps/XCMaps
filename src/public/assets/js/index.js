@@ -481,17 +481,75 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   L.control.logo({ position: 'topleft' }).addTo(window.map);
 
   // Add locate control
-  var lc = L.control
-      .locate({
-          drawCircle: false,
-          keepCurrentZoomLevel: true,
-          position: 'bottomright',
-          icon: 'locate',
-          iconLoading: 'loading',
-          iconElementTag: 'div',
-          setView: 'always', // Keep map centered on user's location
-          flyTo: true // Use flyTo animation for smoother panning
-      }).addTo(window.map);
+  // Define icon paths
+  const locateInactiveIcon = '/assets/images/crosshair-3.svg';
+  const locateActiveIcon = '/assets/images/track-active.svg';
+
+  // Add locate control
+  var lc = L.control.locate({
+      position: 'bottomright',
+      drawCircle: false,
+      keepCurrentZoomLevel: true,
+      setView: 'always', // Keep map centered on user's location
+      flyTo: true, // Use flyTo animation for smoother panning
+      iconElementTag: 'img', // Use an img tag for the icon
+      // Initial icon settings (will be updated by events)
+      icon: locateInactiveIcon, // Set initial src (though plugin might override)
+      iconLoading: locateInactiveIcon, // Use inactive while loading too
+      strings: {
+          title: "Show current location" // Tooltip
+      }
+  }).addTo(window.map);
+
+  // Get the actual img element created by the plugin
+  const locateIconElement = lc._container.querySelector('img');
+  if (locateIconElement) {
+      // Ensure initial state is correct
+      locateIconElement.src = locateInactiveIcon;
+      locateIconElement.style.width = '16px'; // Set desired size
+      locateIconElement.style.height = '16px'; // Set desired size
+  }
+
+  // Event listeners to change the icon source
+  window.map.on('locateactivate', function() {
+      console.log("Locate activated");
+      if (locateIconElement) {
+          locateIconElement.src = locateActiveIcon;
+      }
+  });
+
+  window.map.on('locatedeactivate', function() {
+      console.log("Locate deactivated");
+      if (locateIconElement) {
+          locateIconElement.src = locateInactiveIcon;
+      }
+      // Handle potential errors or manual stop where location wasn't found
+      if (lc._event) { // Check if there was a location event
+          // If location was found, keep the active icon until explicitly deactivated
+      } else {
+          // If stopped before finding location, revert icon
+          if (locateIconElement) {
+              locateIconElement.src = locateInactiveIcon;
+          }
+      }
+  });
+
+   // Handle location found - might need active icon here too if activate event doesn't cover all cases
+   window.map.on('locationfound', function(e) {
+       console.log("Location found");
+       if (locateIconElement && lc._active) { // Check if control is still active
+           locateIconElement.src = locateActiveIcon;
+       }
+   });
+
+   // Handle location error - revert to inactive icon
+   window.map.on('locationerror', function(e) {
+       console.error("Location error:", e.message);
+       if (locateIconElement) {
+           locateIconElement.src = locateInactiveIcon;
+       }
+   });
+
 
   // Add layer control tree
 
