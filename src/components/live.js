@@ -19,10 +19,12 @@ const LiveControl = L.Control.extend({
         trackOpacity: 0.8,
         canopySvgUrl: '/assets/images/canopy.svg',
         hangGliderSvgUrl: '/assets/images/hang-glider.svg',
-        drivingSvgUrl: '/assets/images/driving.svg', // Added driving SVG URL
+        drivingSvgUrl: '/assets/images/driving.svg',
+        restingSvgUrl: '/assets/images/resting.svg', // Added resting SVG URL
+        hikingSvgUrl: '/assets/images/hiking.svg',   // Added hiking SVG URL
         canopyPlaceholderFill: 'fill:#0000ff;',
         hangGliderPlaceholderFill: 'fill:#ff0000;',
-        // No placeholder needed for driving SVG unless color change is required later
+        // No placeholder needed for driving/resting/hiking SVGs unless color change is required later
         trackHighlightColors: [ // Added color list for tracks/popups
             '#4169E1', '#DC143C', '#3CB371', '#DAA520', '#00BFFF',
             '#FF4500', '#9400D3', '#00CED1', '#6A5ACD', '#FF6347',
@@ -45,6 +47,8 @@ const LiveControl = L.Control.extend({
         this.canopySvgContent = null;
         this.hangGliderSvgContent = null;
         this.drivingSvgContent = null;
+        this.restingSvgContent = null; // Added property for resting SVG
+        this.hikingSvgContent = null;  // Added property for hiking SVG
         this._svgsLoading = false;
         this._configBadgeOpen = false; // Track if config badge is open
 
@@ -90,8 +94,8 @@ const LiveControl = L.Control.extend({
     // --- MODIFIED: Function to fetch SVG content ---
     _fetchSvgs: function() {
         // Check if already loading or if all SVGs are loaded
-        if (this._svgsLoading || (this.canopySvgContent && this.hangGliderSvgContent && this.drivingSvgContent)) {
-            return;
+        if (this._svgsLoading || (this.canopySvgContent && this.hangGliderSvgContent && this.drivingSvgContent && this.restingSvgContent && this.hikingSvgContent)) {
+            return; // All SVGs loaded
         }
         this._svgsLoading = true;
 
@@ -126,8 +130,27 @@ const LiveControl = L.Control.extend({
                     .catch(error => console.error('Error fetching driving SVG:', error))
             );
         }
-
-
+ 
+        // Fetch Resting SVG if not already loaded
+        if (!this.restingSvgContent) {
+            fetches.push(
+                fetch(this.options.restingSvgUrl)
+                    .then(response => response.ok ? response.text() : Promise.reject('Failed to load resting SVG'))
+                    .then(text => { this.restingSvgContent = text; })
+                    .catch(error => console.error('Error fetching resting SVG:', error))
+            );
+        }
+ 
+        // Fetch Hiking SVG if not already loaded
+        if (!this.hikingSvgContent) {
+            fetches.push(
+                fetch(this.options.hikingSvgUrl)
+                    .then(response => response.ok ? response.text() : Promise.reject('Failed to load hiking SVG'))
+                    .then(text => { this.hikingSvgContent = text; })
+                    .catch(error => console.error('Error fetching hiking SVG:', error))
+            );
+        }
+ 
         Promise.all(fetches).finally(() => {
             this._svgsLoading = false;
             // Optionally trigger a redraw if needed, though updates happen on data fetch
@@ -502,13 +525,129 @@ const LiveControl = L.Control.extend({
                 }
             }
         });
+    }, // End of _updateAircraft method
+ 
+    // --- NEW HELPER: Get Aircraft Icon ---
+    _getAircraftIcon: function(aircraft) {
+        const iconSize = [30, 30]; // Standard icon size
+        const iconAnchor = [15, 15]; // Center anchor
+        let svgContent = null;
+        let className = 'live-marker-icon'; // Base class
+        let html = '';
+        let rotation = 0;
+        let useRotation = false;
+        let isFlyingType = false; // Flag to check if color fill should be applied
 
-        // Removed track update logic based on this.selectedAircraft
-        // Track updates are now handled by popupopen/popupclose events
-    },
-    // --- END MODIFIED ---
+        // Determine base SVG based on status
+        const status = aircraft.status || 'unknown'; // Default status if missing
+        switch (status) {
+            case 'resting':
+                // Use L.icon for simple resting state
+                return L.icon({
+                    iconUrl: this.options.restingSvgUrl,
+                    iconSize: iconSize, // [30, 30]
+                    iconAnchor: iconAnchor, // [15, 15]
+                    popupAnchor: [15, 0], // Add popup anchor
+                    className: className + ' status-resting'
+                });
+                // break; // Unreachable after return
+            case 'hiking':
+                 // Use L.icon for simple hiking state
+                return L.icon({
+                    iconUrl: this.options.hikingSvgUrl,
+                    iconSize: iconSize, // [30, 30]
+                    iconAnchor: iconAnchor, // [15, 15]
+                    popupAnchor: [15, 0], // Add popup anchor
+                    className: className + ' status-hiking'
+                });
+                // break; // Unreachable after return
+            case 'driving':
+                // Driving needs DivIcon for rotation
+                svgContent = this.drivingSvgContent;
+                className += ' status-driving';
+                useRotation = true; // Driving icon should rotate
+                break;
+            case 'flying':
+            case 'started': // Treat 'started' and 'landed' visually as flying for icon choice
+            case 'landed':
+            case 'unknown': // Default to flying icon if status is unknown or unexpected
+            default: // Flying, Started, Landed, Unknown
+                iconSize = [60, 60]; // Flying icon size
+                iconAnchor = [30, 30]; // Anchor for 60x60
+                useRotation = true;
+                className += ' status-flying'; // Generic flying class
+                // Determine flying type (PG or HG)
+                if (aircraft.type === 7) { // Paraglider
+                    svgContent = this.canopySvgContent;
+                    className += ' type-paraglider';
+                    isFlyingType = true;
+                } else if (aircraft.type === 6) { // Hang Glider
+                    svgContent = this.hangGliderSvgContent;
+                    className += ' type-hangglider';
+                    isFlyingType = true;
+                } else {
+                    // Fallback for other types if needed, maybe a default dot?
+                    // For now, default to paraglider icon if type is unexpected but status is flying-related
+                    svgContent = this.canopySvgContent;
+                     className += ' type-paraglider';
+                     isFlyingType = true; // Assume colorable if defaulting to PG
+                }
+                break;
+        }
 
-    // --- MODIFIED: _createAircraftMarker to check visibility settings and add popup listeners ---
+        // Handle SVG loading state
+        if (!svgContent) {
+            // Return a simple placeholder icon if SVGs haven't loaded yet
+            // console.warn(`SVG content not ready for status: ${status}, type: ${aircraft.type}`);
+            // Use appropriate size for placeholder based on intended state
+            const placeholderSize = (status === 'resting' || status === 'hiking' || status === 'driving') ? [30, 30] : [60, 60];
+            const placeholderAnchor = (status === 'resting' || status === 'hiking' || status === 'driving') ? [15, 15] : [30, 30];
+            return L.divIcon({ // Use DivIcon for consistency, even for loading
+                 html: '?', // Simple placeholder text or small spinner SVG
+                 className: 'live-marker-loading',
+                 iconSize: placeholderSize,
+                 iconAnchor: placeholderAnchor
+             });
+        }
+        // Note: Resting and Hiking cases now return L.icon directly above.
+        // The following code only applies to Driving and Flying states which use L.divIcon.
+ 
+        // Apply rotation if applicable (driving, flying states)
+        if (useRotation && typeof aircraft.last_course === 'number' && aircraft.last_course >= 0) {
+            rotation = aircraft.last_course;
+        }
+
+        // Apply color fill for PG/HG icons
+        let finalSvg = svgContent;
+        if (isFlyingType) { // Only apply color to PG/HG
+             const color = this._getAircraftColor(aircraft.id); // Get assigned color
+             const placeholder = aircraft.type === 7 ? this.options.canopyPlaceholderFill : this.options.hangGliderPlaceholderFill;
+             // Ensure placeholder exists before replacing
+             if (placeholder && svgContent.includes(placeholder)) {
+                finalSvg = svgContent.replace(placeholder, `fill:${color};`);
+             } else if (placeholder) {
+                // console.warn(`Placeholder '${placeholder}' not found in SVG for type ${aircraft.type}`);
+             }
+        }
+
+
+        // Create the HTML for the DivIcon (Driving and Flying states)
+        // Apply rotation directly to the outer div.
+        // Explicitly set width/height on the SVG tag within the HTML.
+        const sizedSvg = finalSvg.replace(/<svg/i, `<svg width="${iconSize[0]}" height="${iconSize[1]}"`);
+        html = `<div class="marker-rotation-wrapper" style="transform: rotate(${rotation}deg);">${sizedSvg}</div>`;
+ 
+        return L.divIcon({
+            html: html,
+            className: className, // Apply status/type classes here
+            iconSize: iconSize, // Use determined size (Leaflet needs this)
+            iconAnchor: iconAnchor, // Use determined anchor
+            popupAnchor: (status === 'driving') ? [15, 0] : [30, 0] // Set popup anchor based on size
+        });
+    }, // Keep comma here
+    // --- END NEW HELPER ---
+ 
+    // --- MODIFIED: _createAircraftMarker to use helper ---
     _createAircraftMarker: function(aircraft) {
         // --- NEW: Check visibility settings before creating ground markers ---
         const agl = aircraft.last_alt_agl;
@@ -521,10 +660,10 @@ const LiveControl = L.Control.extend({
         // --- END NEW ---
 
 
-        // Create icon first (might return loading icon)
-        const icon = this._createAircraftIcon(aircraft);
+        // Create icon first using the new helper (might return loading icon)
+        const icon = this._getAircraftIcon(aircraft);
         if (!icon) return null; // If icon creation failed (e.g., SVG not loaded yet)
-
+ 
         // Create marker
         const marker = L.marker([aircraft.last_lat, aircraft.last_lon], {
             icon: icon,
@@ -588,8 +727,8 @@ const LiveControl = L.Control.extend({
             }
             delete this.activePopupColors[normalizedId];
             console.log(`Unassigned color and removed ${normalizedId} from active order. New order:`, this.activePopupOrder);
-
-            // --- NEW: Stop timer for this popup ---
+ 
+            // Stop the update timer for this popup
             this._stopPopupTimer(normalizedId);
             // --- END NEW ---
 
@@ -607,107 +746,7 @@ const LiveControl = L.Control.extend({
     },
     // --- END MODIFIED ---
 
-    // --- MODIFIED: _createAircraftIcon ---
-    _createAircraftIcon: function(aircraft) {
-        const agl = aircraft.last_alt_agl;
-        const speed = aircraft.last_speed_kmh;
-        const heading = aircraft.last_course || 0;
-        const groundIconSize = [30, 30]; // Updated size for ground states
-        const groundIconAnchor = [15, 15]; // Center anchor for 30x30
-
-        // Ensure SVGs are fetched if needed (especially for driving)
-        this._fetchSvgs(); // Call fetchSvgs to ensure all SVGs are requested
-
-        // Ground States (Resting, Hiking, Driving)
-        if (agl < 5) {
-            if (speed === 0) { // Resting
-                return L.icon({
-                    iconUrl: '/assets/images/resting.svg',
-                    iconSize: groundIconSize,
-                    iconAnchor: groundIconAnchor,
-                    popupAnchor: [15, 0], // Anchor popup to middle-right
-                    className: 'resting-aircraft-icon ground-aircraft-icon'
-                });
-            } else if (speed > 0 && speed <= 16) { // Hiking
-                return L.icon({
-                    iconUrl: '/assets/images/hiking.svg',
-                    iconSize: groundIconSize,
-                    iconAnchor: groundIconAnchor,
-                    popupAnchor: [15, 0], // Anchor popup to middle-right
-                    className: 'hiking-aircraft-icon ground-aircraft-icon'
-                });
-            } else { // Driving (speed > 16)
-                if (!this.drivingSvgContent) {
-                    console.warn("Driving SVG not loaded yet.");
-                    // Return a placeholder loading icon for driving state
-                    return L.divIcon({ className: 'aircraft-icon-loading', iconSize: groundIconSize, iconAnchor: groundIconAnchor, popupAnchor: [15, 0] }); // Anchor popup to middle-right
-                }
-
-                // Ensure driving SVG has width/height attributes
-                let drivingSvg = this.drivingSvgContent.replace(/<svg/i, `<svg width="${groundIconSize[0]}px" height="${groundIconSize[1]}px"`);
-
-                // Apply rotation to the wrapper div for driving icon
-                const iconHtml = `
-                    <div style="width: ${groundIconSize[0]}px; height: ${groundIconSize[1]}px; transform: rotate(${heading}deg); transform-origin: center center; display: block;">
-                        ${drivingSvg}
-                    </div>
-                `;
-
-                return L.divIcon({
-                    html: iconHtml,
-                    className: 'driving-aircraft-icon ground-aircraft-icon', // Specific class for driving
-                    iconSize: groundIconSize,
-                    iconAnchor: groundIconAnchor,
-                    popupAnchor: [15, 0] // Anchor popup to middle-right
-                });
-            }
-        }
-
-        // Flying State (Existing logic - size 60x60)
-        else {
-            // Ensure SVGs for flying state are fetched if needed
-            if (!this.canopySvgContent || !this.hangGliderSvgContent) {
-                 // Fetch might have been called above, check again
-                 if (!this.canopySvgContent || !this.hangGliderSvgContent) {
-                    console.warn("Flying SVGs not loaded yet for icon creation.");
-                    return L.divIcon({ className: 'aircraft-icon-loading', iconSize: [60, 60], iconAnchor: [30, 30], popupAnchor: [30, 0] }); // Anchor popup to middle-right
-                 }
-            }
-
-            const isHangGlider = aircraft.type === 6;
-            const vs = aircraft.last_vs;
-            const flyingIconSize = [60, 60]; // Keep original flying size
-            const flyingIconAnchor = [30, 30]; // Center anchor for 60x60
-
-            const baseSvg = isHangGlider ? this.hangGliderSvgContent : this.canopySvgContent;
-            const placeholderFill = isHangGlider ? this.options.hangGliderPlaceholderFill : this.options.canopyPlaceholderFill;
-            const newColor = this._getVSColor(vs); // Get color based on vertical speed
-
-            // Replace placeholder fill with the dynamic color
-            const colorFill = `fill:${newColor};`;
-            const regex = new RegExp(placeholderFill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-            let modifiedSvg = baseSvg.replace(regex, colorFill);
-
-            // Ensure SVG has width/height attributes
-            modifiedSvg = modifiedSvg.replace(/<svg/i, `<svg width="${flyingIconSize[0]}px" height="${flyingIconSize[1]}px"`);
-
-            // Apply rotation to the wrapper div
-            const iconHtml = `
-                <div style="width: ${flyingIconSize[0]}px; height: ${flyingIconSize[1]}px; transform: rotate(${heading}deg); transform-origin: center center; display: block;">
-                    ${modifiedSvg}
-                </div>
-            `;
-
-            return L.divIcon({
-                html: iconHtml,
-                className: 'flying-aircraft-icon', // Specific class for flying
-                iconSize: flyingIconSize,
-                iconAnchor: flyingIconAnchor,
-                popupAnchor: [30, 0] // Anchor popup to middle-right
-            });
-        }
-    },
-    // --- END MODIFIED ---
+    // --- Removed redundant _createAircraftIcon method ---
 
     // --- NEW: Helper function for VS color ---
     _getVSColor: function(vs) {
@@ -730,7 +769,7 @@ const LiveControl = L.Control.extend({
     // Note: _updateMarkerIcon now correctly calls the modified _createAircraftIcon
 
      _updateMarkerIcon: function(marker, aircraft) {
-         marker.setIcon(this._createAircraftIcon(aircraft));
+         marker.setIcon(this._getAircraftIcon(aircraft)); // Use the new helper function
      },
 
     // --- NEW: Helper function to format time difference ---
@@ -754,6 +793,52 @@ const LiveControl = L.Control.extend({
             const minutes = String(Math.floor((diffSeconds % 3600) / 60)).padStart(2, '0');
             return `-${hours}:${minutes} h`;
         }
+    },
+    // --- END NEW ---
+// --- NEW: Timer management for popups ---
+    _startPopupTimer: function(popup, aircraftId) {
+        // Clear any existing timer for this aircraft first
+        this._stopPopupTimer(aircraftId);
+
+        const popupElement = popup.getElement();
+        if (!popupElement) return;
+
+        const timeElement = popupElement.querySelector('.live-time-ago');
+        const timestamp = parseInt(timeElement?.getAttribute('data-timestamp'), 10);
+
+        if (!timeElement || isNaN(timestamp)) {
+            console.warn(`Could not find time element or valid timestamp for popup timer: ${aircraftId}`);
+            return;
+        }
+
+        // Update immediately
+        timeElement.textContent = this._formatTimeAgo(timestamp);
+
+        // Start interval
+        this.popupTimers[aircraftId] = setInterval(() => {
+            // Check if the popup is still open and the element exists
+            const currentPopupElement = popup.getElement(); // Re-fetch element in case popup was replaced
+            const currentTimeElement = currentPopupElement?.querySelector('.live-time-ago');
+            if (popup.isOpen() && currentTimeElement) {
+                currentTimeElement.textContent = this._formatTimeAgo(timestamp);
+            } else {
+                // Popup closed or element gone, stop the timer
+                this._stopPopupTimer(aircraftId);
+            }
+        }, 1000); // Update every second
+    },
+
+    _stopPopupTimer: function(aircraftId) {
+        if (this.popupTimers[aircraftId]) {
+            clearInterval(this.popupTimers[aircraftId]);
+            delete this.popupTimers[aircraftId];
+        }
+    },
+
+    _clearAllPopupTimers: function() {
+        Object.keys(this.popupTimers).forEach(aircraftId => {
+            this._stopPopupTimer(aircraftId);
+        });
     },
     // --- END NEW ---
 

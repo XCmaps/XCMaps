@@ -27,6 +27,26 @@ const FLARMNET_REFRESH_INTERVAL = 86400000; // 24 hours in milliseconds
 const PURETRACK_URL = 'https://puretrack.io/api/labels.json';
 const PURETRACK_REFRESH_INTERVAL = 86400000; // 24 hours in milliseconds
 
+// --- Pilot Status Calculation Constants ---
+const AGL_GROUND_MAX = 15; // Max AGL considered 'on ground' (meters)
+const AGL_FLYING_MIN = 30; // Min AGL considered 'flying' (meters)
+const SPEED_RESTING_MAX_MS = 1.0; // m/s
+const SPEED_HIKING_MAX_MS = 3.0; // m/s
+const SPEED_TAKEOFF_MIN_MS = 5.0; // m/s
+const SPEED_LANDING_MAX_MS = 4.0; // m/s
+const VS_TAKEOFF_MIN = 0.3; // m/s (Optional, can be adjusted/removed)
+const VS_LANDING_MAX = -0.3; // m/s (Optional, can be adjusted/removed)
+const TIME_WINDOW_TRANSITION_MS = 10000; // 10 seconds
+const TIME_WINDOW_LANDING_CONFIRM_MS = 15000; // 15 seconds
+const STATUS_HISTORY_SIZE = 10; // Number of recent points for status calculation
+// --- End Pilot Status Constants ---
+ 
+// --- Skytraxx Default Location Filter Constants ---
+const SKYTRAXX_DEFAULT_LAT = 47.91866666666667;
+const SKYTRAXX_DEFAULT_LON = 8.186;
+const SKYTRAXX_FILTER_RADIUS_M = 300; // Meters
+// --- End Skytraxx Filter Constants ---
+ 
 class OgnAprsClient extends EventEmitter {
   constructor(dbPool) {
     super();
@@ -40,6 +60,7 @@ class OgnAprsClient extends EventEmitter {
     this.puretrackRefreshTimer = null; // Timer for PureTrack refresh
     this.lastCleanup = Date.now();
     this.aircraftCache = new Map(); // Cache for current aircraft positions (keep this one)
+    this.pilotStatusCache = new Map(); // Cache for pilot status calculation state
     this.flarmnetCache = new Map(); // Cache for Flarmnet data
     this.io = null; // Socket.IO instance (will be set externally)
 
@@ -92,7 +113,8 @@ class OgnAprsClient extends EventEmitter {
           course SMALLINT,
           speed_kmh SMALLINT,
           vs REAL,
-          turn_rate SMALLINT
+          turn_rate SMALLINT,
+          status VARCHAR(20) -- Added pilot status column
         )
       `);
 
@@ -786,23 +808,194 @@ class OgnAprsClient extends EventEmitter {
         DELETE FROM aircraft_tracks
         WHERE timestamp < $1
       `, [cutoffTime]);
-
-      // Delete aircraft that haven't been seen recently
+ 
+      // Optionally, delete aircraft records not seen recently (be careful with this)
       // Schema is now using device_id as primary key, but the query remains the same
-      await client.query(`
-        DELETE FROM aircraft
-        WHERE last_seen < $1
-      `, [cutoffTime]);
-
-      console.log('OGN data cleanup completed');
+      // await client.query(`
+      //   DELETE FROM aircraft
+      //   WHERE last_seen < $1
+      // `, [cutoffTime]);
+ 
+      console.log(`Cleanup: Deleted tracks older than ${cutoffTime.toISOString()}`);
+      // console.log('OGN data cleanup completed'); // Removed duplicate log
+      this.lastCleanup = Date.now();
     } catch (err) {
-      console.error('Error during OGN data cleanup:', err);
+      console.error('Error during old data cleanup:', err);
     } finally {
-      if (client) { // Check if client was successfully connected before releasing
-         client.release();
+      if (client) {
+        client.release();
       }
     }
-  } // End of cleanupOldData
+  } // End of cleanupOldData method
+ 
+  /**
+   * Calculates the pilot status based on the latest track point and historical data.
+   * Manages the in-memory state cache for each aircraft.
+   * @param {string} aircraftId - The ID of the aircraft.
+   * @param {object} newPointData - The latest track point data containing { timestamp, alt_agl, speed_kmh, vs }.
+   * @returns {Promise<string>} The calculated pilot status (e.g., 'resting', 'flying').
+   */
+  async _calculatePilotStatus(aircraftId, newPointData) {
+    // --- 1. Prepare New Point Data ---
+    if (newPointData.alt_agl === null || newPointData.speed_kmh === null || newPointData.vs === null) {
+      // Cannot calculate status without essential data
+      // Return previous status from cache if available, otherwise 'unknown'
+      const cachedState = this.pilotStatusCache.get(aircraftId);
+      return cachedState ? cachedState.currentStatus : 'unknown';
+    }
+    const currentTimestamp = new Date(newPointData.timestamp).getTime();
+    const currentSpeedMS = newPointData.speed_kmh / 3.6;
+    const currentPoint = {
+      timestampMs: currentTimestamp,
+      alt_agl: newPointData.alt_agl,
+      speed_ms: currentSpeedMS,
+      vs: newPointData.vs
+    };
+
+    // --- 2. Get or Initialize Aircraft State from Cache ---
+    let state = this.pilotStatusCache.get(aircraftId);
+    if (!state) {
+      // State not in cache, fetch recent history from DB to initialize
+      console.log(`Status cache miss for ${aircraftId}. Initializing from DB...`);
+      let client; // Define client within this scope
+      try {
+        client = await this.dbPool.connect(); // Connect here
+        const historyRes = await client.query(
+          `SELECT timestamp, alt_agl, speed_kmh, vs, status
+           FROM aircraft_tracks
+           WHERE aircraft_id = $1 AND alt_agl IS NOT NULL AND speed_kmh IS NOT NULL AND vs IS NOT NULL
+           ORDER BY timestamp DESC
+           LIMIT $2`,
+          [aircraftId, STATUS_HISTORY_SIZE]
+        );
+        // Initialize state
+        state = {
+          currentStatus: 'unknown', // Default if no history
+          recentPoints: [],
+          landingConfirmationStart: null
+        };
+        if (historyRes.rows.length > 0) {
+          // Reverse rows to be in chronological order
+          const historyRows = historyRes.rows.reverse();
+          state.currentStatus = historyRows[historyRows.length - 1].status || 'unknown'; // Use last known status
+          state.recentPoints = historyRows.map(r => ({
+            timestampMs: new Date(r.timestamp).getTime(),
+            alt_agl: r.alt_agl,
+            speed_ms: r.speed_kmh / 3.6,
+            vs: r.vs
+          }));
+        }
+        console.log(`Initialized status for ${aircraftId} to ${state.currentStatus} with ${state.recentPoints.length} historical points.`);
+      } catch (dbError) {
+        console.error(`Error fetching status history for ${aircraftId}:`, dbError);
+        // Proceed with default empty state if DB query fails
+        state = { currentStatus: 'unknown', recentPoints: [], landingConfirmationStart: null };
+      } finally {
+        if (client) client.release(); // Release client if connected
+      }
+    }
+
+    // --- 3. Update Recent Points History ---
+    state.recentPoints.push(currentPoint);
+    if (state.recentPoints.length > STATUS_HISTORY_SIZE) {
+      state.recentPoints.shift(); // Remove oldest point
+    }
+
+    // --- 4. Calculate Trends from History ---
+    let nextStatus = state.currentStatus; // Assume status doesn't change
+    const relevantHistory = state.recentPoints.filter(p => currentTimestamp - p.timestampMs <= TIME_WINDOW_TRANSITION_MS);
+    let avgSpeed = 0;
+    let altChange = 0;
+    let avgVs = 0;
+    let isConsistentlyAboveGround = false;
+    let isConsistentlyBelowGround = false;
+
+    if (relevantHistory.length >= 2) {
+        const first = relevantHistory[0];
+        const last = relevantHistory[relevantHistory.length - 1];
+        // const timeDeltaS = (last.timestampMs - first.timestampMs) / 1000; // timeDeltaS not used currently
+        avgSpeed = relevantHistory.reduce((sum, p) => sum + p.speed_ms, 0) / relevantHistory.length;
+        altChange = last.alt_agl - first.alt_agl;
+        avgVs = relevantHistory.reduce((sum, p) => sum + p.vs, 0) / relevantHistory.length;
+        isConsistentlyAboveGround = relevantHistory.every(p => p.alt_agl > AGL_GROUND_MAX);
+        isConsistentlyBelowGround = relevantHistory.every(p => p.alt_agl < AGL_GROUND_MAX);
+    } else if (relevantHistory.length === 1) {
+        avgSpeed = relevantHistory[0].speed_ms;
+        avgVs = relevantHistory[0].vs;
+        isConsistentlyAboveGround = relevantHistory[0].alt_agl > AGL_GROUND_MAX;
+        isConsistentlyBelowGround = relevantHistory[0].alt_agl < AGL_GROUND_MAX;
+    }
+
+
+    // --- 5. State Machine Logic ---
+    const currentAgl = currentPoint.alt_agl;
+
+    if (state.currentStatus === 'flying') {
+        // Check for Landing: Low AGL, low speed
+        if (currentAgl < AGL_GROUND_MAX && currentSpeedMS < SPEED_LANDING_MAX_MS /* && avgVs < VS_LANDING_MAX */) {
+            nextStatus = 'landed';
+            state.landingConfirmationStart = currentTimestamp;
+        }
+    } else if (state.currentStatus === 'landed') {
+        // Check if landing confirmed (stationary for duration)
+        if (currentSpeedMS < SPEED_RESTING_MAX_MS && state.landingConfirmationStart && (currentTimestamp - state.landingConfirmationStart >= TIME_WINDOW_LANDING_CONFIRM_MS)) {
+            nextStatus = 'resting';
+            state.landingConfirmationStart = null;
+        } else if (currentSpeedMS >= SPEED_RESTING_MAX_MS) {
+            // Moved before confirmation timer elapsed, reset timer and determine ground status
+            state.landingConfirmationStart = null;
+            if (currentSpeedMS < SPEED_HIKING_MAX_MS) nextStatus = 'hiking';
+            else nextStatus = 'driving';
+        }
+        // Check for immediate Takeoff after landing?
+        else if (currentAgl > AGL_GROUND_MAX && currentSpeedMS > SPEED_TAKEOFF_MIN_MS /* && avgVs > VS_TAKEOFF_MIN */) {
+             nextStatus = 'started';
+             state.landingConfirmationStart = null;
+        }
+        // Else: Remain 'landed' while timer runs
+    } else if (state.currentStatus === 'started') {
+        // Check for Confirmed Flying: Consistently above min flying AGL
+        if (currentAgl > AGL_FLYING_MIN && isConsistentlyAboveGround) {
+             nextStatus = 'flying';
+        }
+        // Check if Takeoff Aborted (back below ground AGL)
+        else if (currentAgl < AGL_GROUND_MAX) {
+            if (currentSpeedMS < SPEED_RESTING_MAX_MS) nextStatus = 'resting';
+            else if (currentSpeedMS < SPEED_HIKING_MAX_MS) nextStatus = 'hiking';
+            else nextStatus = 'driving';
+        }
+        // Else: Remain 'started'
+    } else { // Initial state ('unknown') or Ground states ('resting', 'hiking', 'driving')
+        // Check for Takeoff: Sustained speed > takeoff min AND AGL increasing above ground max
+        const takeoffSpeedCondition = relevantHistory.length > 1 && relevantHistory.every(p => p.speed_ms > SPEED_TAKEOFF_MIN_MS);
+        const takeoffAltCondition = currentAgl > AGL_GROUND_MAX && altChange > 0; // Current AGL and positive trend
+        // const takeoffVsCondition = avgVs > VS_TAKEOFF_MIN; // Optional
+
+        if (takeoffSpeedCondition && takeoffAltCondition /* && takeoffVsCondition */) {
+            nextStatus = 'started';
+        } else if (currentAgl < AGL_GROUND_MAX) {
+            // Update Ground Status based on current speed
+            if (currentSpeedMS < SPEED_RESTING_MAX_MS) nextStatus = 'resting';
+            else if (currentSpeedMS < SPEED_HIKING_MAX_MS) nextStatus = 'hiking';
+            else nextStatus = 'driving';
+        } else {
+            // AGL > GROUND_MAX but takeoff conditions not met (e.g., low speed flight?)
+            // Revert to a ground status based on speed, or keep previous if known
+            if (state.currentStatus === 'unknown') {
+                 if (currentSpeedMS < SPEED_RESTING_MAX_MS) nextStatus = 'resting';
+                 else if (currentSpeedMS < SPEED_HIKING_MAX_MS) nextStatus = 'hiking';
+                 else nextStatus = 'driving';
+            } else {
+                 nextStatus = state.currentStatus; // Keep previous ground status
+            }
+        }
+    }
+
+    // --- 6. Update Cache and Return Status ---
+    state.currentStatus = nextStatus;
+    this.pilotStatusCache.set(aircraftId, state); // Save updated state back to cache
+    return nextStatus;
+  } // End of _calculatePilotStatus method
 
   /**
    * Check if a device ID corresponds to an eligible aircraft type (Paraglider/Hang-glider)
@@ -932,11 +1125,20 @@ class OgnAprsClient extends EventEmitter {
 
 
       if (storeData) {
-        // Store in database
+        // Calculate pilot status BEFORE storing/emitting
+        const pilotStatus = await this._calculatePilotStatus(parsedData.deviceId, {
+          timestamp: parsedData.timestamp,
+          alt_agl: parsedData.altAgl, // Use the calculated/corrected AGL
+          speed_kmh: parsedData.speedKmh,
+          vs: parsedData.vs
+        });
+        parsedData.status = pilotStatus; // Add status to the data object
+ 
+        // Store in database (now includes status)
         await this.storeAircraftData(parsedData);
-
-        // Update cache
-        this.aircraftCache.set(parsedData.id, parsedData);
+ 
+        // Update cache (ensure parsedData includes status if needed here)
+        this.aircraftCache.set(parsedData.id, parsedData); // Cache now includes status
 
         // Emit event for real-time updates (local event)
         this.emit('aircraft-update', parsedData);
@@ -961,6 +1163,7 @@ class OgnAprsClient extends EventEmitter {
             	last_speed_kmh: parsedData.speedKmh,
             	last_vs: parsedData.vs,
             	last_turn_rate: parsedData.turnRate,
+                status: parsedData.status, // Include calculated pilot status
             	type: parsedData.aircraftType,
             	pilot_name: parsedData.pilotName,
             	last_seen: parsedData.timestamp,
@@ -1371,27 +1574,39 @@ class OgnAprsClient extends EventEmitter {
         pilotName           // $15 - Use pilotName from destructuring
       ]);
   
-      // Insert track point with calculated AGL
-      await client.query(`
-        INSERT INTO aircraft_tracks (
-          aircraft_id, timestamp, lat, lon,
-          alt_msl, alt_agl, course, speed_kmh, vs, turn_rate
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-        )
-      `, [
-        deviceId,         // $1 - Use deviceId as aircraft_id to match the new schema
-        data.timestamp,   // $2
-        data.lat,         // $3
-        data.lon,         // $4
-        data.altMsl,      // $5
-        altAgl,           // $6 - Use calculated AGL instead of data.altAgl
-        data.course,      // $7
-        data.speedKmh,    // $8
-        data.vs,          // $9
-        data.turnRate     // $10
-      ]);
-
+      // --- Filter Skytraxx Default Location ---
+      const distance = this._haversineDistance(
+          data.lat, data.lon,
+          SKYTRAXX_DEFAULT_LAT, SKYTRAXX_DEFAULT_LON
+      );
+ 
+      if (distance >= SKYTRAXX_FILTER_RADIUS_M) {
+        // Only insert into tracks table if outside the filter radius
+        await client.query(`
+          INSERT INTO aircraft_tracks (
+            aircraft_id, timestamp, lat, lon,
+            alt_msl, alt_agl, course, speed_kmh, vs, turn_rate, status -- Added status column
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11 -- Added $11 for status
+          )
+        `, [
+          deviceId,         // $1 - Use deviceId as aircraft_id
+          data.timestamp,   // $2
+          data.lat,         // $3
+          data.lon,         // $4
+          data.altMsl,      // $5
+          altAgl,           // $6 - Use calculated AGL
+          data.course,      // $7
+          data.speedKmh,    // $8
+          data.vs,          // $9
+          data.turnRate,    // $10
+          data.status       // $11 - Pass the calculated status
+        ]);
+      } else {
+        console.log(`Filtered track point for ${deviceId} near Skytraxx default location (Distance: ${distance.toFixed(1)}m)`);
+      }
+      // --- End Filter ---
+ 
       await client.query('COMMIT');
     } catch (err) {
       if (client) { // Check if client was successfully connected before rollback
@@ -1537,6 +1752,30 @@ class OgnAprsClient extends EventEmitter {
     this.io = io;
     console.log('Socket.IO instance set in OGN APRS client');
   }
+ 
+  /**
+   * Calculates the distance between two lat/lon points using the Haversine formula.
+   * @param {number} lat1 Latitude of point 1
+   * @param {number} lon1 Longitude of point 1
+   * @param {number} lat2 Latitude of point 2
+   * @param {number} lon2 Longitude of point 2
+   * @returns {number} Distance in meters.
+   */
+  _haversineDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371e3; // Earth radius in meters
+    const phi1 = lat1 * Math.PI / 180;
+    const phi2 = lat2 * Math.PI / 180;
+    const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+    const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+ 
+    const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+ 
+    return R * c; // Distance in meters
+  }
+ 
 } // End of OgnAprsClient class
-
+ 
 export default OgnAprsClient;

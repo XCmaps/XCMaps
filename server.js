@@ -260,7 +260,8 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilot
                     course SMALLINT,
                     speed_kmh SMALLINT,
                     vs REAL,
-                    turn_rate SMALLINT
+                    turn_rate SMALLINT,
+                    status VARCHAR(20)
                 );
             `);
             
