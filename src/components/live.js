@@ -20,11 +20,13 @@ const LiveControl = L.Control.extend({
         canopySvgUrl: '/assets/images/canopy.svg',
         hangGliderSvgUrl: '/assets/images/hang-glider.svg',
         drivingSvgUrl: '/assets/images/driving.svg',
-        restingSvgUrl: '/assets/images/resting.svg', // Added resting SVG URL
-        hikingSvgUrl: '/assets/images/hiking.svg',   // Added hiking SVG URL
+        restingSvgUrl: '/assets/images/resting.svg',
+        hikingSvgUrl: '/assets/images/hiking.svg',
+        canopyInactiveSvgUrl: '/assets/images/canopy-inactive.svg', // Added inactive canopy URL
+        hangGliderInactiveSvgUrl: '/assets/images/hang-glider-inactive.svg', // Added inactive HG URL
         canopyPlaceholderFill: 'fill:#0000ff;',
         hangGliderPlaceholderFill: 'fill:#ff0000;',
-        // No placeholder needed for driving/resting/hiking SVGs unless color change is required later
+        // Assuming inactive SVGs also use the same placeholders for color fill if needed
         trackHighlightColors: [ // Added color list for tracks/popups
             '#4169E1', '#DC143C', '#3CB371', '#DAA520', '#00BFFF',
             '#FF4500', '#9400D3', '#00CED1', '#6A5ACD', '#FF6347',
@@ -47,8 +49,10 @@ const LiveControl = L.Control.extend({
         this.canopySvgContent = null;
         this.hangGliderSvgContent = null;
         this.drivingSvgContent = null;
-        this.restingSvgContent = null; // Added property for resting SVG
-        this.hikingSvgContent = null;  // Added property for hiking SVG
+        this.restingSvgContent = null;
+        this.hikingSvgContent = null;
+        this.canopyInactiveSvgContent = null; // Added property for inactive canopy SVG
+        this.hangGliderInactiveSvgContent = null; // Added property for inactive HG SVG
         this._svgsLoading = false;
         this._configBadgeOpen = false; // Track if config badge is open
 
@@ -94,7 +98,11 @@ const LiveControl = L.Control.extend({
     // --- MODIFIED: Function to fetch SVG content ---
     _fetchSvgs: function() {
         // Check if already loading or if all SVGs are loaded
-        if (this._svgsLoading || (this.canopySvgContent && this.hangGliderSvgContent && this.drivingSvgContent && this.restingSvgContent && this.hikingSvgContent)) {
+        if (this._svgsLoading || (
+            this.canopySvgContent && this.hangGliderSvgContent &&
+            this.drivingSvgContent && this.restingSvgContent && this.hikingSvgContent &&
+            this.canopyInactiveSvgContent && this.hangGliderInactiveSvgContent
+        )) {
             return; // All SVGs loaded
         }
         this._svgsLoading = true;
@@ -148,6 +156,26 @@ const LiveControl = L.Control.extend({
                     .then(response => response.ok ? response.text() : Promise.reject('Failed to load hiking SVG'))
                     .then(text => { this.hikingSvgContent = text; })
                     .catch(error => console.error('Error fetching hiking SVG:', error))
+            );
+        }
+ 
+        // Fetch Inactive Canopy SVG if not already loaded
+        if (!this.canopyInactiveSvgContent) {
+            fetches.push(
+                fetch(this.options.canopyInactiveSvgUrl)
+                    .then(response => response.ok ? response.text() : Promise.reject('Failed to load inactive canopy SVG'))
+                    .then(text => { this.canopyInactiveSvgContent = text; })
+                    .catch(error => console.error('Error fetching inactive canopy SVG:', error))
+            );
+        }
+ 
+        // Fetch Inactive Hang Glider SVG if not already loaded
+        if (!this.hangGliderInactiveSvgContent) {
+            fetches.push(
+                fetch(this.options.hangGliderInactiveSvgUrl)
+                    .then(response => response.ok ? response.text() : Promise.reject('Failed to load inactive hang-glider SVG'))
+                    .then(text => { this.hangGliderInactiveSvgContent = text; })
+                    .catch(error => console.error('Error fetching inactive hang-glider SVG:', error))
             );
         }
  
@@ -576,22 +604,31 @@ const LiveControl = L.Control.extend({
                 iconAnchor = [30, 30]; // Anchor for 60x60
                 useRotation = true;
                 className += ' status-flying'; // Generic flying class
-                // Determine flying type (PG or HG)
+                // Determine if aircraft is stale (e.g., > 10 minutes)
+                const isStale = (Date.now() - new Date(aircraft.last_seen).getTime()) > (10 * 60 * 1000);
+ 
+                // Determine flying type (PG or HG) and select active/inactive SVG
                 if (aircraft.type === 7) { // Paraglider
-                    svgContent = this.canopySvgContent;
+                    svgContent = isStale ? this.canopyInactiveSvgContent : this.canopySvgContent;
                     className += ' type-paraglider';
-                    isFlyingType = true;
+                    isFlyingType = true; // Color fill applies to both active/inactive
                 } else if (aircraft.type === 6) { // Hang Glider
-                    svgContent = this.hangGliderSvgContent;
+                    svgContent = isStale ? this.hangGliderInactiveSvgContent : this.hangGliderSvgContent;
                     className += ' type-hangglider';
-                    isFlyingType = true;
+                    isFlyingType = true; // Color fill applies to both active/inactive
                 } else {
-                    // Fallback for other types if needed, maybe a default dot?
-                    // For now, default to paraglider icon if type is unexpected but status is flying-related
-                    svgContent = this.canopySvgContent;
-                     className += ' type-paraglider';
-                     isFlyingType = true; // Assume colorable if defaulting to PG
+                    // Fallback for other types if needed
+                    // Default to paraglider icon (active/inactive based on staleness)
+                    svgContent = isStale ? this.canopyInactiveSvgContent : this.canopySvgContent;
+                    className += ' type-paraglider';
+                    isFlyingType = true; // Assume colorable if defaulting to PG
                 }
+ 
+                // Add stale class if needed
+                if (isStale) {
+                    className += ' stale-aircraft';
+                }
+ 
                 break;
         }
 
