@@ -8,6 +8,8 @@ import { EventEmitter } from 'events';
 import pkg from 'pg';
 import fetch from 'node-fetch';
 import iconv from 'iconv-lite'; // Added import
+import fs from 'fs'; // Added for CSV logging
+import path from 'path'; // Added for CSV path construction
 import SrtmElevation from './srtm-elevation.js';
 import MapboxElevation from './mapbox-elevation.js';
 import * as FlarmnetParser from './flarmnet-parser.js';
@@ -46,7 +48,12 @@ const SKYTRAXX_DEFAULT_LAT = 47.91866666666667;
 const SKYTRAXX_DEFAULT_LON = 8.186;
 const SKYTRAXX_FILTER_RADIUS_M = 300; // Meters
 // --- End Skytraxx Filter Constants ---
- 
+
+// --- Name Logging Constants ---
+const NAME_MATCH_LOG_FILE = 'ogn_name_matches.csv';
+const nameMatchLogPath = path.resolve(process.cwd(), NAME_MATCH_LOG_FILE);
+// --- End Name Logging Constants ---
+
 class OgnAprsClient extends EventEmitter {
   constructor(dbPool) {
     super();
@@ -1068,6 +1075,18 @@ class OgnAprsClient extends EventEmitter {
    * @param {string} line - APRS data line
    */
   async processAprsData(line) {
+    // --- Name Logging Check ---
+    if (line.includes('Gregor') || line.includes('Name="')) {
+      try {
+        // Append the raw packet line to the CSV file
+        fs.appendFileSync(nameMatchLogPath, line + '\n');
+        console.log(`Logged packet containing 'Theo' or 'Hans' to ${NAME_MATCH_LOG_FILE}: ${line}`);
+      } catch (err) {
+        console.error(`Error writing to ${NAME_MATCH_LOG_FILE}:`, err);
+      }
+    }
+    // --- End Name Logging Check ---
+
     try { // Start of try block for processAprsData
       // Skip server messages and comments
       if (line.startsWith('#') || line.startsWith('>')) {

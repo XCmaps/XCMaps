@@ -114,8 +114,11 @@ const LiveControl = L.Control.extend({
             fetches.push(
                 fetch(this.options.canopySvgUrl)
                     .then(response => response.ok ? response.text() : Promise.reject('Failed to load canopy SVG'))
-                    .then(text => { this.canopySvgContent = text; })
-                    .catch(error => console.error('Error fetching canopy SVG:', error))
+                    .then(text => {
+                        console.log("Successfully fetched canopy.svg"); // Added log
+                        this.canopySvgContent = text;
+                    })
+                    .catch(error => console.error('Error fetching canopy SVG:', error)) // Keep existing error log
             );
         }
 
@@ -124,8 +127,11 @@ const LiveControl = L.Control.extend({
             fetches.push(
                 fetch(this.options.hangGliderSvgUrl)
                     .then(response => response.ok ? response.text() : Promise.reject('Failed to load hang-glider SVG'))
-                    .then(text => { this.hangGliderSvgContent = text; })
-                    .catch(error => console.error('Error fetching hang-glider SVG:', error))
+                    .then(text => {
+                        console.log("Successfully fetched hang-glider.svg"); // Added log
+                        this.hangGliderSvgContent = text;
+                    })
+                    .catch(error => console.error('Error fetching hang-glider SVG:', error)) // Keep existing error log
             );
         }
 
@@ -557,8 +563,8 @@ const LiveControl = L.Control.extend({
  
     // --- NEW HELPER: Get Aircraft Icon ---
     _getAircraftIcon: function(aircraft) {
-        const iconSize = [30, 30]; // Standard icon size
-        const iconAnchor = [15, 15]; // Center anchor
+        let iconSize = [30, 30]; // Standard icon size - Changed to let
+        let iconAnchor = [15, 15]; // Center anchor - Changed to let
         let svgContent = null;
         let className = 'live-marker-icon'; // Base class
         let html = '';
@@ -575,7 +581,7 @@ const LiveControl = L.Control.extend({
                     iconUrl: this.options.restingSvgUrl,
                     iconSize: iconSize, // [30, 30]
                     iconAnchor: iconAnchor, // [15, 15]
-                    popupAnchor: [15, 0], // Add popup anchor
+                    popupAnchor: [23, 0], // Add popup anchor
                     className: className + ' status-resting'
                 });
                 // break; // Unreachable after return
@@ -585,7 +591,7 @@ const LiveControl = L.Control.extend({
                     iconUrl: this.options.hikingSvgUrl,
                     iconSize: iconSize, // [30, 30]
                     iconAnchor: iconAnchor, // [15, 15]
-                    popupAnchor: [15, 0], // Add popup anchor
+                    popupAnchor: [23, 0], // Add popup anchor
                     className: className + ' status-hiking'
                 });
                 // break; // Unreachable after return
@@ -600,8 +606,8 @@ const LiveControl = L.Control.extend({
             case 'landed':
             case 'unknown': // Default to flying icon if status is unknown or unexpected
             default: // Flying, Started, Landed, Unknown
-                iconSize = [60, 60]; // Flying icon size
-                iconAnchor = [30, 30]; // Anchor for 60x60
+                iconSize = [42, 42]; // Flying icon size (Reduced by ~30% from 60)
+                iconAnchor = [21, 21]; // Anchor for 42x42 (Reduced by ~30% from 30)
                 useRotation = true;
                 className += ' status-flying'; // Generic flying class
                 // Determine if aircraft is stale (e.g., > 10 minutes)
@@ -634,6 +640,9 @@ const LiveControl = L.Control.extend({
 
         // Handle SVG loading state
         if (!svgContent) {
+            // --- Added Log ---
+            console.warn(`[LiveControl._getAircraftIcon] SVG content not ready for aircraft ${aircraft.id} (status: ${status}, type: ${aircraft.type}). Returning placeholder.`);
+            // --- End Added Log ---
             // Return a simple placeholder icon if SVGs haven't loaded yet
             // console.warn(`SVG content not ready for status: ${status}, type: ${aircraft.type}`);
             // Use appropriate size for placeholder based on intended state
@@ -654,26 +663,28 @@ const LiveControl = L.Control.extend({
             rotation = aircraft.last_course;
         }
 
-        // Apply color fill for PG/HG icons
+        // --- Reinstated SVG Color Fill Logic ---
+        // Apply color fill for PG/HG icons based on Vertical Speed
         let finalSvg = svgContent;
         if (isFlyingType) { // Only apply color to PG/HG
-             const color = this._getAircraftColor(aircraft.id); // Get assigned color
+             const vsColor = this._getVSColor(aircraft.last_vs); // Use _getVSColor
              const placeholder = aircraft.type === 7 ? this.options.canopyPlaceholderFill : this.options.hangGliderPlaceholderFill;
              // Ensure placeholder exists before replacing
              if (placeholder && svgContent.includes(placeholder)) {
-                finalSvg = svgContent.replace(placeholder, `fill:${color};`);
+                finalSvg = svgContent.replace(placeholder, `fill:${vsColor};`);
              } else if (placeholder) {
-                // console.warn(`Placeholder '${placeholder}' not found in SVG for type ${aircraft.type}`);
+                // Optional: Warn if placeholder isn't found, might indicate SVG structure changed
+                // console.warn(`Placeholder '${placeholder}' not found in SVG for type ${aircraft.type}. Cannot apply VS color.`);
              }
         }
-
+        // --- End Reinstated Logic ---
 
         // Create the HTML for the DivIcon (Driving and Flying states)
         // Apply rotation directly to the outer div.
         // Explicitly set width/height on the SVG tag within the HTML.
-        const sizedSvg = finalSvg.replace(/<svg/i, `<svg width="${iconSize[0]}" height="${iconSize[1]}"`);
+        const sizedSvg = finalSvg.replace(/<svg/i, `<svg width="${iconSize[0]}" height="${iconSize[1]}"`); // Use finalSvg here
         html = `<div class="marker-rotation-wrapper" style="transform: rotate(${rotation}deg);">${sizedSvg}</div>`;
- 
+
         return L.divIcon({
             html: html,
             className: className, // Apply status/type classes here
@@ -743,6 +754,26 @@ const LiveControl = L.Control.extend({
 
             // --- NEW: Start timer for this popup ---
             this._startPopupTimer(e.popup, normalizedId);
+            // --- END NEW ---
+
+            // --- NEW: Close popup on click ---
+            const popupContainer = e.popup.getElement();
+            if (popupContainer) {
+                // Use a flag to prevent immediate closure after opening due to event propagation
+                let justOpened = true;
+                setTimeout(() => { justOpened = false; }, 0); // Allow current event loop to finish
+
+                L.DomEvent.on(popupContainer, 'click', (ev) => {
+                    if (justOpened) return; // Don't close immediately on the click that might have opened it
+                    // Check if the click target is the close button itself to avoid double handling
+                    if (ev.target && L.DomUtil.hasClass(ev.target, 'leaflet-popup-close-button')) {
+                        return;
+                    }
+                    marker.closePopup();
+                    L.DomEvent.stop(ev); // Stop propagation to map
+                }, this);
+                // Note: Leaflet might handle listener removal on close, but explicit removal in popupclose might be safer if issues arise.
+            }
             // --- END NEW ---
         });
 
@@ -896,7 +927,7 @@ const LiveControl = L.Control.extend({
                     <span style="flex-grow: 1;"><strong style="color:${assignedColor};">${aircraft.pilot_name}</strong></span>
                     <span class="live-time-ago" data-timestamp="${lastSeenTimestamp}" style="margin-left: 10px; white-space: nowrap;">${initialFormattedTimeAgo}</span>
                 </p>
-                <p><strong>${aircraft.last_alt_msl} m </strong>[${aircraft.last_alt_agl} AGL]</strong> <strong style="color: ${aircraft.last_vs > 0 ? 'green' : aircraft.last_vs < 0 ? 'red' : 'black'};">${aircraft.last_vs} m/s</strong></p>
+                <p><strong>${aircraft.last_alt_msl} m </strong>[${aircraft.last_alt_agl} AGL]</strong> <strong style="color: ${this._getVSColor(aircraft.last_vs)};">${aircraft.last_vs} m/s</strong></p>
             </div>
         `;
     },
