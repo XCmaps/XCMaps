@@ -243,10 +243,18 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilot
                     last_vs REAL,
                     last_turn_rate SMALLINT,
                     raw_packet TEXT,
-                    pilot_name VARCHAR(100)
+                    pilot_name VARCHAR(100),
+                    aprs_name VARCHAR(255) -- Added for OGN status message names
                 );
             `);
-            
+
+            // Add aprs_name column if it doesn't exist
+            await pool.query(`
+                ALTER TABLE aircraft
+                ADD COLUMN IF NOT EXISTS aprs_name VARCHAR(255);
+            `);
+            console.log('Ensured aprs_name column exists in aircraft table.');
+
             // Create tracks table if it doesn't exist
             await pool.query(`
                 CREATE TABLE IF NOT EXISTS aircraft_tracks (

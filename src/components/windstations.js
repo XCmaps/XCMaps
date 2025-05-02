@@ -666,7 +666,7 @@ function fetchWindStations() {
                     const cameraImageElement = document.getElementById(`camera-image-${station._id}`);
                     
                     // Special cases for Moselfalken webcams
-                    if (station._id === "holfuy-361" || station._id === "holfuy-362" || station._id === "holfuy-363") {
+                    if (station._id === "holfuy-361" || station._id === "holfuy-362" || station._id === "holfuy-363" || station._id === "holfuy-1407") {
                       console.log(`Handling special case for ${station._id}`);
                       
                       // Create a container div for better layout control
@@ -707,6 +707,9 @@ function fetchWindStations() {
                           websiteUrl = 'https://www.moselfalken.de/ockfen';
                       } else if (station._id === "holfuy-363") {
                           websiteUrl = 'https://www.moselfalken.de/meerfeld';
+                      }
+                      else if (station._id === "holfuy-1407") {
+                        websiteUrl = 'https://www.moselfalken.de/burgen';
                       }
                       
                       

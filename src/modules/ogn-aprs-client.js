@@ -1075,12 +1075,68 @@ class OgnAprsClient extends EventEmitter {
    * @param {string} line - APRS data line
    */
   async processAprsData(line) {
-    // --- Name Logging Check ---
-    if (line.includes('Gregor') || line.includes('Name="')) {
+    // --- Handle OGN Status Messages ---
+    if (line.includes('>OGNFNT,qAS,') && line.includes('Name="')) {
+      try {
+        // Correctly extract sender callsign and then the device ID (last 6 chars)
+        const senderMatch = line.match(/^([^>]+)>/);
+        const nameMatch = line.match(/Name="([^"]+)"/);
+
+        if (senderMatch && senderMatch[1] && senderMatch[1].length >= 6 && nameMatch) {
+          const senderCallsign = senderMatch[1];
+          // Extract the last 6 characters as the potential device ID
+          const deviceId = senderCallsign.substring(senderCallsign.length - 6).toUpperCase();
+          const aprsName = nameMatch[1].trim(); // Trim whitespace from name
+
+          // Add a check to ensure the extracted ID looks like a hex ID (optional but good practice)
+          if (!/^[A-F0-9]{6}$/.test(deviceId)) {
+             console.warn(`Extracted potential device ID "${deviceId}" from sender "${senderCallsign}" doesn't look like a 6-char hex ID. Skipping status update for line: ${line}`);
+             return; // Skip if the extracted ID is not a 6-char hex
+          }
+
+          // Log the extracted info for debugging
+          console.log(`Processing status message: Sender = ${senderCallsign}, Device ID = ${deviceId}, APRS Name = ${aprsName}`);
+
+          const client = await this.dbPool.connect();
+          try {
+            // Use INSERT ... ON CONFLICT (Upsert) to handle both new and existing devices
+            const upsertQuery = `
+              INSERT INTO aircraft (device_id, name, aprs_name, last_seen)
+              VALUES ($1, $2, $2, NOW()) -- Insert device_id and name/aprs_name, set last_seen
+              ON CONFLICT (device_id) DO UPDATE SET
+                name = EXCLUDED.name,
+                aprs_name = EXCLUDED.aprs_name,
+                last_seen = NOW(); -- Update names and last_seen timestamp
+            `;
+            // We use aprsName ($2) for both name and aprs_name columns here
+            const result = await client.query(upsertQuery, [deviceId, aprsName]);
+
+            // Optional: Log the action (Insert or Update) - result.command might indicate this
+            // console.log(`Upserted name/aprs_name for ${deviceId} to "${aprsName}". Command: ${result.command}`);
+
+          } finally {
+            client.release();
+          }
+          return; // Status message processed, no further action needed for this line
+        } else {
+          console.warn(`Could not extract device ID or name from status message: ${line}`);
+        }
+      } catch (err) {
+        console.error(`Error processing OGN status message: ${line}`, err);
+      }
+      // Even if there's an error processing as status, might still be a regular packet?
+      // Decide if we should return here or let it fall through. Returning for now.
+      return;
+    }
+    // --- End Handle OGN Status Messages ---
+
+
+    // --- Name Logging Check (Moved down, might still be useful for other name formats) ---
+    if (line.includes('Piot') || line.includes('Achim')) { // Keep this check for general logging if needed
       try {
         // Append the raw packet line to the CSV file
         fs.appendFileSync(nameMatchLogPath, line + '\n');
-        console.log(`Logged packet containing 'Theo' or 'Hans' to ${NAME_MATCH_LOG_FILE}: ${line}`);
+        // console.log(`Logged packet containing 'Gregor' or 'Name=' to ${NAME_MATCH_LOG_FILE}: ${line}`); // Adjusted log message
       } catch (err) {
         console.error(`Error writing to ${NAME_MATCH_LOG_FILE}:`, err);
       }
@@ -1118,7 +1174,7 @@ class OgnAprsClient extends EventEmitter {
           return; // Found but NOT PG/HG, drop packet
         } else { // eligibility === 'UNKNOWN'
           // console.log(`Device ${parsedData.deviceId} is UNKNOWN, checking aircraft type.`);
-          // Not found in DB, fall back to checking aircraft type from packet
+          // Not found in DB, fall back to checking aircraft type from packet (now improved with sFx check)
           const allowedTypes = [3, 6, 7]; // Helicopter, Hang-Glider, Para-glider
           if (allowedTypes.includes(parsedData.aircraftType)) {
             // console.log(`Unknown device ${parsedData.deviceId} has allowed type ${parsedData.aircraftType}, storing.`);
@@ -1143,7 +1199,11 @@ class OgnAprsClient extends EventEmitter {
       // --- End Eligibility Check ---
 
 
-      if (storeData) {
+      // Add check: Ensure aircraftType is valid AND pilotName is not null before proceeding
+      const isValidType = typeof parsedData.aircraftType === 'number' && !isNaN(parsedData.aircraftType);
+      const hasPilotName = parsedData.pilotName !== null;
+
+      if (storeData && isValidType && hasPilotName) { // Only proceed if storeData is true, type is valid, AND pilotName exists
         // Calculate pilot status BEFORE storing/emitting
         const pilotStatus = await this._calculatePilotStatus(parsedData.deviceId, {
           timestamp: parsedData.timestamp,
@@ -1170,10 +1230,30 @@ class OgnAprsClient extends EventEmitter {
             // Get all clients in the aircraft-updates room
             const sockets = await ognNamespace.in('aircraft-updates').fetchSockets();
             
+            // RE-ADDED: Fetch the current name from the database to ensure we send the correct one
+            let currentDbName = parsedData.name; // Default to parsed name in case DB lookup fails
+            const client = await this.dbPool.connect();
+            try {
+              // Fetch name specifically from aircraft table using deviceId
+              const nameResult = await client.query('SELECT name FROM aircraft WHERE device_id = $1', [parsedData.deviceId]);
+              if (nameResult.rows.length > 0 && nameResult.rows[0].name) {
+                // Use the name from the database if found
+                currentDbName = nameResult.rows[0].name;
+              } else {
+                 // If not found in DB (shouldn't happen after storeAircraftData), keep parsedData.name
+                 console.warn(`Device ${parsedData.deviceId} not found in aircraft table when preparing WS update, using parsed name: ${parsedData.name}`);
+              }
+            } catch (dbError) {
+              console.error(`Error fetching current name for ${parsedData.deviceId} from DB for WS update:`, dbError);
+              // Keep the default parsed name if DB query fails
+            } finally {
+              client.release();
+            }
+
             // Format the data for WebSocket transmission
             const wsData = {
             	id: parsedData.id, // This is now the normalized deviceId
-            	name: parsedData.name,
+            	name: currentDbName, // Use the name fetched from DB (or default)
             	last_lat: parsedData.lat,
             	last_lon: parsedData.lon, // Corrected typo from last_lon to lon
             	last_alt_msl: parsedData.altMsl,
@@ -1200,6 +1280,14 @@ class OgnAprsClient extends EventEmitter {
             console.error('Error emitting WebSocket event:', err);
           }
         }
+      } else if (storeData && (!isValidType || !hasPilotName)) {
+          // Log if we intended to store but the type was invalid OR pilotName was null
+          if (!isValidType) {
+              console.log(`Skipping store/update for device ${parsedData.deviceId} due to invalid aircraftType: ${parsedData.aircraftType}`);
+          }
+          if (!hasPilotName) {
+              console.log(`Skipping store/update for device ${parsedData.deviceId} (Name: ${parsedData.name}) because pilotName is null.`);
+          }
       }
     } catch (err) { // End of try, start of catch for processAprsData
       console.error('Error processing APRS data:', err, 'Line:', line);
@@ -1434,6 +1522,20 @@ class OgnAprsClient extends EventEmitter {
    */
   extractAircraftType(payload) {
     try {
+      // --- New Check for sFx codes (Paraglider/Hangglider) ---
+      const sFMatch = payload.match(/\s(sF[12])\s/); // Look for " sF1 " or " sF2 "
+      if (sFMatch) {
+        const sFCode = sFMatch[1];
+        if (sFCode === 'sF1') {
+          // console.log("Detected sF1 (Paraglider)");
+          return { aircraftType: 7, addressType: 0 }; // 7 = Para-glider
+        } else if (sFCode === 'sF2') {
+          // console.log("Detected sF2 (Hang glider)");
+          return { aircraftType: 6, addressType: 0 }; // 6 = Hang-glider
+        }
+      }
+      // --- End New Check ---
+
       // Extract aircraft type from the id field in the format idXXYYYYYY
       // where XX encodes stealth mode, no-tracking flag, aircraft type, and address type
       const idMatch = payload.match(/id([0-9A-F]{2})[0-9A-F]+/);
@@ -1561,9 +1663,9 @@ class OgnAprsClient extends EventEmitter {
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
         ) ON CONFLICT (device_id) DO UPDATE SET
-          name = EXCLUDED.name,
-          type = EXCLUDED.type,
-          callsign = EXCLUDED.callsign,
+         -- name = EXCLUDED.name, -- Do NOT update name from position reports if record exists
+         type = EXCLUDED.type,
+         callsign = EXCLUDED.callsign,
           last_seen = EXCLUDED.last_seen,
           last_lat = EXCLUDED.last_lat,
           last_lon = EXCLUDED.last_lon,
