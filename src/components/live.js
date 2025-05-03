@@ -22,6 +22,7 @@ const LiveControl = L.Control.extend({
         drivingSvgUrl: '/assets/images/driving.svg',
         restingSvgUrl: '/assets/images/resting.svg',
         hikingSvgUrl: '/assets/images/hiking.svg',
+        helicopterSvgUrl: '/assets/images/helicopter.svg', // Added helicopter URL
         canopyInactiveSvgUrl: '/assets/images/canopy-inactive.svg', // Added inactive canopy URL
         hangGliderInactiveSvgUrl: '/assets/images/hang-glider-inactive.svg', // Added inactive HG URL
         canopyPlaceholderFill: 'fill:#0000ff;',
@@ -51,6 +52,7 @@ const LiveControl = L.Control.extend({
         this.drivingSvgContent = null;
         this.restingSvgContent = null;
         this.hikingSvgContent = null;
+        this.helicopterSvgContent = null; // Added property for helicopter SVG
         this.canopyInactiveSvgContent = null; // Added property for inactive canopy SVG
         this.hangGliderInactiveSvgContent = null; // Added property for inactive HG SVG
         this._svgsLoading = false;
@@ -100,7 +102,7 @@ const LiveControl = L.Control.extend({
         // Check if already loading or if all SVGs are loaded
         if (this._svgsLoading || (
             this.canopySvgContent && this.hangGliderSvgContent &&
-            this.drivingSvgContent && this.restingSvgContent && this.hikingSvgContent &&
+            this.drivingSvgContent && this.restingSvgContent && this.hikingSvgContent && this.helicopterSvgContent &&
             this.canopyInactiveSvgContent && this.hangGliderInactiveSvgContent
         )) {
             return; // All SVGs loaded
@@ -184,7 +186,17 @@ const LiveControl = L.Control.extend({
                     .catch(error => console.error('Error fetching inactive hang-glider SVG:', error))
             );
         }
- 
+
+        // Fetch Helicopter SVG if not already loaded
+        if (!this.helicopterSvgContent) {
+            fetches.push(
+                fetch(this.options.helicopterSvgUrl)
+                    .then(response => response.ok ? response.text() : Promise.reject('Failed to load helicopter SVG'))
+                    .then(text => { this.helicopterSvgContent = text; })
+                    .catch(error => console.error('Error fetching helicopter SVG:', error))
+            );
+        }
+
         Promise.all(fetches).finally(() => {
             this._svgsLoading = false;
             // Optionally trigger a redraw if needed, though updates happen on data fetch
@@ -601,6 +613,7 @@ const LiveControl = L.Control.extend({
                 className += ' status-driving';
                 useRotation = true; // Driving icon should rotate
                 break;
+            // REMOVED incorrect helicopter status case
             case 'flying':
             case 'started': // Treat 'started' and 'landed' visually as flying for icon choice
             case 'landed':
@@ -622,9 +635,16 @@ const LiveControl = L.Control.extend({
                     svgContent = isStale ? this.hangGliderInactiveSvgContent : this.hangGliderSvgContent;
                     className += ' type-hangglider';
                     isFlyingType = true; // Color fill applies to both active/inactive
+                } else if (aircraft.type === 3) { // Helicopter
+                    svgContent = this.helicopterSvgContent;
+                    iconSize = [24, 24]; // Use smaller size for helicopter
+                    iconAnchor = [12, 12]; // Adjust anchor for smaller size
+                    className += ' type-helicopter';
+                    isFlyingType = false; // No color fill for helicopter
+                    // useRotation is already true for 'flying' status
                 } else {
-                    // Fallback for other types if needed
-                    // Default to paraglider icon (active/inactive based on staleness)
+                    // Fallback for other types if needed (e.g., gliders, planes if added later)
+                    // Default to paraglider icon (active/inactive based on staleness) for now
                     svgContent = isStale ? this.canopyInactiveSvgContent : this.canopySvgContent;
                     className += ' type-paraglider';
                     isFlyingType = true; // Assume colorable if defaulting to PG
@@ -658,7 +678,7 @@ const LiveControl = L.Control.extend({
         // Note: Resting and Hiking cases now return L.icon directly above.
         // The following code only applies to Driving and Flying states which use L.divIcon.
  
-        // Apply rotation if applicable (driving, flying states)
+        // Apply rotation if applicable (driving, flying states - helicopter handled within flying)
         if (useRotation && typeof aircraft.last_course === 'number' && aircraft.last_course >= 0) {
             rotation = aircraft.last_course;
         }

@@ -986,14 +986,15 @@ class OgnAprsClient extends EventEmitter {
             else if (currentSpeedMS < SPEED_HIKING_MAX_MS) nextStatus = 'hiking';
             else nextStatus = 'driving';
         } else {
-            // AGL > GROUND_MAX but takeoff conditions not met (e.g., low speed flight?)
-            // Revert to a ground status based on speed, or keep previous if known
-            if (state.currentStatus === 'unknown') {
-                 if (currentSpeedMS < SPEED_RESTING_MAX_MS) nextStatus = 'resting';
-                 else if (currentSpeedMS < SPEED_HIKING_MAX_MS) nextStatus = 'hiking';
-                 else nextStatus = 'driving';
+            // AGL > GROUND_MAX but takeoff conditions not met.
+            // This means the aircraft is airborne.
+            // If the previous state was a ground state or unknown, transition to flying.
+            // If it was already flying or started, keep that status.
+            if (state.currentStatus === 'unknown' || state.currentStatus === 'resting' || state.currentStatus === 'hiking' || state.currentStatus === 'driving') {
+                nextStatus = 'flying'; // Now airborne, regardless of takeoff detection
             } else {
-                 nextStatus = state.currentStatus; // Keep previous ground status
+                // Already 'flying' or 'started', maintain current status
+                nextStatus = state.currentStatus;
             }
         }
     }
@@ -1365,6 +1366,45 @@ class OgnAprsClient extends EventEmitter {
       }
 
 
+      // --- Refined logic: Check trailing OGN type code ---
+      let finalAircraftType = aircraftInfo.aircraftType; // Default to original type
+      let rejectPacket = false;
+
+      const payloadParts = payload.trim().split(/\s+/);
+      if (payloadParts.length > 0) {
+        const lastPart = payloadParts[payloadParts.length - 1];
+        // Check if last part looks like an OGN type code (e.g., FNT11, FPG01, FHG02)
+        if (/^[A-Z]{3}\d+$/.test(lastPart)) {
+          const ognAircraftTypeCode = lastPart;
+          const typePrefix = ognAircraftTypeCode.substring(0, 2);
+          if (typePrefix === 'FP') { // Paraglider
+            finalAircraftType = 6; // Override with PG type
+            console.log(`OGN: Identified Paraglider (${deviceId || callsign}) from trailing code: ${ognAircraftTypeCode}`);
+          } else if (typePrefix === 'FH') { // Hang glider
+            finalAircraftType = 7; // Override with HG type
+            console.log(`OGN: Identified Hang glider (${deviceId || callsign}) from trailing code: ${ognAircraftTypeCode}`);
+          } else if (typePrefix === 'RNH') { // Hang glider
+            finalAircraftType = 3; // Override with HG type
+            console.log(`OGN: Identified Helicopter (${deviceId || callsign}) from trailing code: ${ognAircraftTypeCode}`);
+          } else {
+            // Valid OGN code, but not PG/HG - Mark for REJECTION
+            console.log(`OGN: Rejecting packet for ${deviceId || callsign}. Non-PG/HG trailing type: ${ognAircraftTypeCode}. Packet: ${packet}`);
+            rejectPacket = true;
+          }
+        }
+        // If it doesn't look like an OGN code, we keep the original finalAircraftType
+      }
+      // If payloadParts was empty, we also keep the original finalAircraftType
+
+      // --- End refined logic ---
+
+      // Reject packet if marked
+      if (rejectPacket) {
+        return null;
+      }
+
+      // --- Continue processing if not rejected ---
+
       // Look up registration using the extracted 6-character deviceId
       let registration = null;
       if (deviceId) {
@@ -1382,7 +1422,7 @@ class OgnAprsClient extends EventEmitter {
 
       // Calculate AGL using SRTM elevation data
       const altAgl = await this.calculateAGL(positionData.lat, positionData.lon, positionData.altMsl || 0);
-  
+
       // Create result object - Use normalized deviceId as the primary 'id'
       return {
         // id: callsign.toUpperCase(), // OLD: Use callsign as ID
@@ -1398,8 +1438,8 @@ class OgnAprsClient extends EventEmitter {
         speedKmh: positionData.speed || 0,
         vs: positionData.climbRate || 0,
         turnRate: 0, // Not directly available in APRS, would need to calculate from multiple points
-        aircraftType: aircraftInfo.aircraftType,
-        addressType: aircraftInfo.addressType,
+        aircraftType: finalAircraftType, // Use determined type (6, 7, or original)
+        addressType: aircraftInfo.addressType, // Keep original address type if needed elsewhere
         deviceId: deviceId,
         pilotName: registration, // Use the registration found (or null) - might be same as 'name'
         rawPacket: packet // Store the raw APRS packet for debugging
