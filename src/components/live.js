@@ -927,7 +927,7 @@ const LiveControl = L.Control.extend({
                     <span style="flex-grow: 1;"><strong style="color:${assignedColor};">${aircraft.name}</strong></span>
                     <span class="live-time-ago" data-timestamp="${lastSeenTimestamp}" style="margin-left: 10px; white-space: nowrap;">${initialFormattedTimeAgo}</span>
                 </p>
-                <p><strong>${aircraft.last_alt_msl} m </strong>[${aircraft.last_alt_agl} AGL]</strong> <strong style="color: ${this._getVSColor(aircraft.last_vs)};">${aircraft.last_vs} m/s</strong></p>
+                <p><strong>${aircraft.last_alt_msl} m </strong>[${aircraft.last_alt_agl} AGL]</strong> <strong style="color: ${aircraft.last_vs === 0 ? 'black' : (aircraft.last_vs < 0 ? 'red' : 'green')};">${aircraft.last_vs} m/s</strong></p>
             </div>
         `;
     },
