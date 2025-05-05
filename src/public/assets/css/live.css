@@ -148,7 +148,7 @@
   content: "";
   height: 16px; /* Smaller handle */
   width: 16px;  /* Smaller handle */
-  left: 2px;   /* Adjust position */
+  left: 3px;   /* Increased left margin */
   bottom: 2px; /* Adjust position */
   background-color: white;
   -webkit-transition: .4s;
@@ -164,14 +164,17 @@ input:focus + .slider {
 }
 
 input:checked + .slider:before {
-  -webkit-transform: translateX(20px); /* Adjust translation distance */
-  -ms-transform: translateX(20px);
-  transform: translateX(20px);
+  /* Slider width (40) - Handle width (16) - Left margin (3) - Right margin (3) = 18 */
+  -webkit-transform: translateX(18px);
+  -ms-transform: translateX(18px);
+  transform: translateX(18px);
 }
 
 /* Rounded sliders */
 .slider.round {
   border-radius: 20px; /* Adjust radius */
+  margin-right: 0px;
+
 }
 
 .slider.round:before {

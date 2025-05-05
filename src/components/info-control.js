@@ -1,3 +1,5 @@
+import { keycloak } from './keycloak-auth.js'; // Import keycloak
+
 const InfoControl = L.Control.extend({
     onAdd: function(map) {
         // --- Create the button on the map ---
@@ -24,45 +26,7 @@ const InfoControl = L.Control.extend({
 
         // --- Content Definitions ---
         const popupSections = {
-            home: `
-                <h3>About XCMaps</h3>
-                <p>XCMaps is a non-commercial, free and open-source project that brings together various data sources for para- and hang-gliders, providing valuable insights for the community.</p>
-
-                <h3>Contact</h3>
-                <p>You can reach out to us via the Feedback form below or by <a href="mailto:info@XCMaps.com" target="_blank">email</a>.</p>
-                <p>If you’d like to report an issue, such as a bug or a feature request, please visit our <a href="https://github.com/XCMaps/XCMaps" target="_blank">GitHub</a> project page.</p>
-                <p>To stay up-to date on latest updates, please follow us on <a href="https://www.paraglidingforum.com/viewtopic.php?p=687646#687646" target="_blank">Paraglidingforum</a>, <a href="https://facebook.com/xcmaps" target="_blank">Facebook</a> or <a href="https://github.com/XCMaps/XCMaps" target="_blank">GitHub</a>.</p>
-
-                <p>If you enjoy our content, consider buying us a landing beer! Your support helps keep this service running, as we cover real costs for servers, storage, AI models, and data sources.<br>It’s simple: the more funding we receive, the faster we can roll out new features!</p>
-                <p><a href="https://buymeacoffee.com/XCMaps" target="_blank" class="donation-button"> 🍺 Buy us a Landing Beer</a></p>
-
-                <h3>Features</h3>
-                <ul>
-                  <li><strong><a href="#" data-section="weather-stations">Weather Stations:</a></strong> Wind, Gusts, Direction, Temp and Camera if available. Marker refresh every 1 minute.</li>
-                  <li><strong>Rain Viewer:</strong> Radar and Satellite, past 2 hours + 20 min forecast</li>
-                  <li><strong>Thermals:</strong> kk7 thermal and skyways map</li>
-                  <li><strong>Spots:</strong> Para- and Hangliding take-off and Landing Zones (© <a href="https://paraglidingspots.com" target="_blank">paraglidingspots.com</a>)</li>
-                  <li><strong><a href="#" data-section="airspaces">Airspaces:</a></strong> Xcontest Airspaces & Activations in local time zone, filter for today and the next 6 days and lowest floor level. Click the link for details on airspace types.</li>
-                  <li><strong>Obstacles:</strong> OSM based obstacles from Xcontest</li>
-                  <li><strong>Locate and Track:</strong> Locate and Track your position using the Locate Control</li>
-                  <li><strong>XCMaps User Account:</strong> By using your account, your can save your preferred map layers in the profile-badge—so every time you log in, you'll return to your personalized view.</li>
-                  <li><strong>Current Release:</strong> v1.0.3 <a href="#" data-section="changelog">Change Log</a></li>
-                </ul>
-
-                <h3>Credits</h3>
-                <ul>
-                  <li><strong>Base Maps:</strong> <a href="https://www.jawg.io" target="_blank">Jawg.io</a>, <a href="https://openstreetmap.org" target="_blank">OpenStreetMap</a>, <a href="https://xcontest.org" target="_blank">XContest</a>, <a href="https://maptiler.com" target="_blank">MapTiler</a></li>
-                  <li><strong>Weather Stations:</strong> <a href="https://github.com/winds-mobi" target="_blank">winds.mobi</a> by Yann Savary and additional data sources</li>
-                  <li><strong>Airspaces & Obstacles:</strong> <a href="https://xcontest.org" target="_blank">XContest</a>, <a href="https://openaip.net" target="_blank">OpenAIP</a></li>
-                  <li><strong>Take-off and Landing Spots:</strong> © <a href="https://paraglidingspots.com" target="_blank">paraglidingspots.com</a> by Karsten Ehlers</li>
-                  <li><strong>Rain Viewer:</strong> <a href="https://www.rainviewer.com" target="_blank">rainviewer</a></li>
-                  <li><strong>Thermals:</strong> <a href="https://thermal.kk7.ch" target="_blank">thermal.kk7</a> by Michi von Känel</li>
-                  <li>and many more open source libraries, projects, and artwork</li>
-                </ul>
-
-                <h3>License and Code</h3>
-                <p>As some integrations are licensed under CC BY-NC-SA 4.0, XCMaps applied the same level and is licensed under a <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.</a></p>
-            `,
+            // Home section removed - will be generated dynamically in updateView
             privacy: `
                 <h3>XCMaps Privacy Policy</h3>
                 <p>At XCMaps (referred to as "we", "us" or "our" in this policy), we understand the importance of protecting your personal data. This privacy policy explains how we collect, use, share and store information when you access our website at XCMaps.com, which is operated by us, and any other services provided by flyXC (collectively referred to as the "Services").</p>
@@ -171,6 +135,10 @@ const InfoControl = L.Control.extend({
                   <li>Locate and Track: Locate and Track your position using the Locate Control</li>
                   <li>XCmaps User Account: By using your account, your preferred map layers will be saved when you log out—so every time you log in, you'll return to your personalized view.</li>
                 </ul>
+            `,
+            live: `
+            <h3>LIVE!</h3>
+            <p> some text</p>
             `,
             airspaces: `
                 <h3>Airspaces</h3>
@@ -395,9 +363,56 @@ const InfoControl = L.Control.extend({
         function updateView(sectionName) {
             if (!contentAreaDiv || !breadcrumbDiv || !footerDiv) return;
             cancelFeedback(false);
-            if (!popupSections[sectionName]) { console.error("Unknown section:", sectionName); return; }
-            contentAreaDiv.innerHTML = popupSections[sectionName];
-             footerDiv.style.display = (sectionName === 'home') ? 'flex' : 'none';
+            if (sectionName === 'home') {
+                // Generate home content dynamically
+                const showLiveFeature = keycloak && keycloak.authenticated && keycloak.hasRealmRole('live');
+                contentAreaDiv.innerHTML = `
+                    <h3>About XCMaps</h3>
+                    <p>XCMaps is a non-commercial, free and open-source project that brings together various data sources for para- and hang-gliders, providing valuable insights for the community.</p>
+
+                    <h3>Contact</h3>
+                    <p>You can reach out to us via the Feedback form below or by <a href="mailto:info@XCMaps.com" target="_blank">email</a>.</p>
+                    <p>If you’d like to report an issue, such as a bug or a feature request, please visit our <a href="https://github.com/XCMaps/XCMaps" target="_blank">GitHub</a> project page.</p>
+                    <p>To stay up-to date on latest updates, please follow us on <a href="https://www.paraglidingforum.com/viewtopic.php?p=687646#687646" target="_blank">Paraglidingforum</a>, <a href="https://facebook.com/xcmaps" target="_blank">Facebook</a> or <a href="https://github.com/XCMaps/XCMaps" target="_blank">GitHub</a>.</p>
+
+                    <p>If you enjoy our content, consider buying us a landing beer! Your support helps keep this service running, as we cover real costs for servers, storage, AI models, and data sources.<br>It’s simple: the more funding we receive, the faster we can roll out new features!</p>
+                    <p><a href="https://buymeacoffee.com/XCMaps" target="_blank" class="donation-button"> 🍺 Buy us a Landing Beer</a></p>
+
+                    <h3>Features</h3>
+                    <ul>
+                      ${showLiveFeature ? '<li><strong><a href="#" data-section="live">LIVE!:</a></strong> OGN & XContest/XCTrack Live Tracking</li>' : ''}
+                      <li><strong><a href="#" data-section="weather-stations">Weather Stations:</a></strong> Wind, Gusts, Direction, Temp and Camera if available. Marker refresh every 1 minute.</li>
+                      <li><strong>Rain Viewer:</strong> Radar and Satellite, past 2 hours + 20 min forecast</li>
+                      <li><strong>Thermals:</strong> kk7 thermal and skyways map</li>
+                      <li><strong>Spots:</strong> Para- and Hangliding take-off and Landing Zones (© <a href="https://paraglidingspots.com" target="_blank">paraglidingspots.com</a>)</li>
+                      <li><strong><a href="#" data-section="airspaces">Airspaces:</a></strong> Xcontest Airspaces & Activations in local time zone, filter for today and the next 6 days and lowest floor level. Click the link for details on airspace types.</li>
+                      <li><strong>Obstacles:</strong> OSM based obstacles from Xcontest</li>
+                      <li><strong>Locate and Track:</strong> Locate and Track your position using the Locate Control</li>
+                      <li><strong>XCMaps User Account:</strong> By using your account, your can save your preferred map layers in the profile-badge—so every time you log in, you'll return to your personalized view.</li>
+                      <li><strong>Current Release:</strong> v1.0.3 <a href="#" data-section="changelog">Change Log</a></li>
+                    </ul>
+
+                    <h3>Credits</h3>
+                    <ul>
+                      <li><strong>Base Maps:</strong> <a href="https://www.jawg.io" target="_blank">Jawg.io</a>, <a href="https://openstreetmap.org" target="_blank">OpenStreetMap</a>, <a href="https://xcontest.org" target="_blank">XContest</a>, <a href="https://maptiler.com" target="_blank">MapTiler</a></li>
+                      <li><strong>Weather Stations:</strong> <a href="https://github.com/winds-mobi" target="_blank">winds.mobi</a> by Yann Savary and additional data sources</li>
+                      <li><strong>Airspaces & Obstacles:</strong> <a href="https://xcontest.org" target="_blank">XContest</a>, <a href="https://openaip.net" target="_blank">OpenAIP</a></li>
+                      <li><strong>Take-off and Landing Spots:</strong> © <a href="https://paraglidingspots.com" target="_blank">paraglidingspots.com</a> by Karsten Ehlers</li>
+                      <li><strong>Rain Viewer:</strong> <a href="https://www.rainviewer.com" target="_blank">rainviewer</a></li>
+                      <li><strong>Thermals:</strong> <a href="https://thermal.kk7.ch" target="_blank">thermal.kk7</a> by Michi von Känel</li>
+                      <li>and many more open source libraries, projects, and artwork</li>
+                    </ul>
+
+                    <h3>License and Code</h3>
+                    <p>As some integrations are licensed under CC BY-NC-SA 4.0, XCMaps applied the same level and is licensed under a <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.</a></p>
+                `;
+            } else if (popupSections[sectionName]) {
+                 contentAreaDiv.innerHTML = popupSections[sectionName];
+            } else {
+                 console.error("Unknown section:", sectionName); return;
+            }
+
+            footerDiv.style.display = (sectionName === 'home') ? 'flex' : 'none'; // Show footer only for home
 
             breadcrumbDiv.innerHTML = '';
             if (sectionName !== 'home') {
@@ -408,6 +423,7 @@ const InfoControl = L.Control.extend({
                 else if (sectionName === 'changelog') currentPageSpan.innerText = 'Change Log';
                 else if (sectionName === 'airspaces') currentPageSpan.innerText = 'Airspaces';
                 else if (sectionName === 'weather-stations') currentPageSpan.innerText = 'Weather Stations';
+                else if (sectionName === 'live') currentPageSpan.innerText = 'LIVE!';
             }
             contentAreaDiv.scrollTop = 0;
         }
