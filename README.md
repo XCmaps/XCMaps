@@ -37,8 +37,7 @@ XCmaps is an interactive web-based map designed specifically for paragliding and
   - Altitude filtering to focus on relevant airspaces
 
 ## Sponsors
-![JawgMaps logo](https://blog.jawg.io/content/images/2019/10/jawgmaps-pin.png =x50)
-![JawgMaps](https://blog.jawg.io/content/images/2019/10/jawgmaps-pin.png)
+![JawgMaps](https://blog.jawg.io/content/images/2019/10/jawgmaps-pin.png | height=50)
 JawgMaps provides their vector map tiles service to XCMaps for free, i.e. the Terrain Base Map.
 
 ## Installation
