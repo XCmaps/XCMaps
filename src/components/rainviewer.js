@@ -81,6 +81,12 @@ L.TimeDimension.Layer.Rainviewer = L.TimeDimension.Layer.extend({
           // Clear old frames before setting new ones
           this._frames = {};
           this._setAvailableTimes(); // This updates _availableTimes and the timeDimension control
+
+          // Explicitly set the current time after refresh to the default index
+          if (this._timeDimension && this._availableTimes.length > this._defaultTime) {
+              this._timeDimension.setCurrentTime(this._availableTimes[this._defaultTime]);
+          }
+
           this._update(); // This updates the currently displayed layer
           console.log('Rainviewer data refreshed (' + this._type + ').');
         } catch (error) {
