@@ -38,6 +38,7 @@
     "leaflet": "^1.9.4",
     "leaflet-canvasicon": "^0.1.6",
     "leaflet-responsive-popup": "^1.0.0",
+    "leaflet-timedimension": "^1.1.1",
     "leaflet.locatecontrol": "^0.83.1",
     "leaflet.markercluster": "^1.5.3",
     "luxon": "^3.5.0",

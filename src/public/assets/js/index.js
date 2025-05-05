@@ -1,8 +1,23 @@
+import L from 'leaflet'; // Explicitly import L first
+import 'leaflet/dist/leaflet.css'; // Import Leaflet CSS
+import { LocateControl } from 'leaflet.locatecontrol'; // Use named import
+import 'leaflet.locatecontrol/dist/L.Control.Locate.min.css'; // Import locate control CSS
+import 'mapbox-gl-leaflet'; // Keep GL plugin side-effect import for now
+import 'leaflet.markercluster'; // Import MarkerCluster JS for side effects
+import 'leaflet.markercluster/dist/MarkerCluster.css'; // Import MarkerCluster CSS
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css'; // Import MarkerCluster Default CSS
+
 import './L.Control.Layers.Tree.js';
 import '../css/L.Control.Layers.Tree.css';
 
 import './leaflet.responsive.popup.js';
 import './leaflet.responsive.popup.css';
+
+// Import leaflet-timedimension
+import 'leaflet-timedimension';
+import 'leaflet-timedimension/dist/leaflet.timedimension.control.css';
+
+// Ensure no duplicate locatecontrol imports remain
 
 import '../css/styles.css';
 import '../css/user-control.css';
@@ -11,7 +26,9 @@ import InfoControl from '../../../components/info-control.js';
 import LiveControl from '../../../components/live.js';
 import moment from 'moment';
 import 'moment-timezone';
- 
+
+// Keep other imports as they are
+
 // import './../../../components/airspaces.js'; // Removed EFG airspaces
 import '../../../components/deprecated/airspaces-gliding.js';
 import '../../../components/deprecated/airspaces-notam.js';
@@ -60,7 +77,16 @@ function initMap() {
 
   // Define Esri Topo Map (Moved here)
   var esriTopo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Esri'
+      attribution: 'Esri; © <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+  });
+
+  // Revert to L.mapboxGL (assuming mapbox-gl-leaflet is installed)
+  var jawgTerrain = L.mapboxGL({
+    accessToken: 'not-needed', // Add dummy token to satisfy Mapbox GL JS
+    style: 'https://api.jawg.io/styles/jawg-terrain.json?access-token=qBDXRu1KSlZGhx4ROlceBD9hcxmrumL34oj29tUkzDVkafqx08tFWPeRNb0KSoKa&lang=&extrude=&worldview=&draft=',
+    attribution: '<a href="https://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank" class="jawg-attrib">&copy; <b>Jawg</b>Maps</a> | <a href="https://www.openstreetmap.org/copyright" title="OpenStreetMap is open data licensed under ODbL" target="_blank" class="osm-attrib">&copy; OSM contributors</a>',
+    // center: [0, 0], // Remove unnecessary center option here
+    maxZoom: 22 // Keep maxZoom matching the working example
   });
 
   // Create the map object and make it globally accessible
@@ -68,9 +94,13 @@ function initMap() {
       center: [50, 6],
       zoom: 9,
       zoomControl: false,
-      layers: [esriTopo], // Add esriTopo as the default layer
+      layers: [esriTopo], // Revert to esriTopo as the default layer initially
+      dragging: true, // Keep dragging explicitly enabled
       timeDimension: true
   });
+
+  // Explicitly add jawgTerrain after map initialization
+  // jawgTerrain.addTo(window.map);
 
   L.control.zoom({
       position: 'bottomright',
@@ -378,8 +408,9 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
     label: 'Base Maps',
     collapsed: true, // Add this line to collapse by default
     children: [
-        { label: 'Topo Map', layer: esriTopo }, // Replaced Terrain with Esri Topo
+        { label: 'Topo - Esri', layer: esriTopo }, // Replaced Terrain with Esri Topo
         // { label: 'XContest', layer: L.layerGroup([xcontest, mapTilerTerrain])},
+        { label: 'Terrain - JawgMaps', layer: jawgTerrain },
         { label: 'OpenStreetMap', layer: osm },
         { label: 'Satellite',  layer: sat },
     ]
@@ -485,8 +516,8 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   const locateInactiveIcon = '/assets/images/track-inactive.svg';
   const locateActiveIcon = '/assets/images/track-active.svg';
 
-  // Add locate control
-  var lc = L.control.locate({
+  // Add locate control by instantiating the imported class
+  var lc = new LocateControl({
       position: 'bottomright',
       drawCircle: false,
       keepCurrentZoomLevel: true,

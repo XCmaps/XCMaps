@@ -25,32 +25,16 @@
     <link rel="icon" type="image/png" href="/assets/images/favicon-96X96.png" sizes="96x96" />
     <link rel="shortcut icon" href="/assets/images/favicon.ico" />
 
-    <!-- Leaflet Core -->
+    <!-- Leaflet Core and Plugins will be loaded via Webpack bundle -->
+    <!-- Removed Leaflet CDN links -->
+    <!-- Removed TimeDimension CDN links -->
+    <!-- Removed LocateControl CDN links -->
+    <!-- Removed CanvasIcon CDN link -->
+    <!-- Removed Mapbox/MapLibre CDN links -->
+    <!-- Removed mapbox-gl-leaflet CDN link -->
+    <!-- Removed @maplibre/maplibre-gl-leaflet CDN link -->
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <!-- Leaflet Plugins -->
-    
-    <!-- TimeDimension for RainViewer -->
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/iso8601-js-period@0.2.1/iso8601.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.1/dist/leaflet.timedimension.control.min.css" />
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.1/dist/leaflet.timedimension.min.js"></script>
-
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
-    <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol/dist/L.Control.Locate.min.js" charset="utf-8"></script>
-    <script src="https://sashakavun.github.io/leaflet-canvasicon/leaflet-canvasicon.js"></script>
-    
-    <!-- MapBox/MapLibre -->
-    <link href="https://api.tiles.mapbox.com/mapbox-gl-js/v1.2.0/mapbox-gl.css" rel='stylesheet' />
-    <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v1.2.0/mapbox-gl.js"></script> 
-
-    <script src="https://cdn.jsdelivr.net/npm/mapbox-gl-leaflet/leaflet-mapbox-gl.js"></script>
-    
-    <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@^5.1.0/dist/maplibre-gl.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@^5.1.0/dist/maplibre-gl.css" rel="stylesheet" />
-
-    <!-- Chart.js -->
+    <!-- Chart.js (Keep if not managed by Webpack) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 
@@ -75,10 +59,8 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.1.1/min/dropzone.min.css" rel="stylesheet" type="text/css"/>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.1.1/min/dropzone.min.js"></script>
 
-    <!-- Markercluster -->
-    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <!-- Markercluster (Will be loaded via Webpack bundle) -->
+    <!-- Removed Markercluster CDN links -->
 
     <link href='http://fonts.googleapis.com/css?family=Roboto' rel='stylesheet' type='text/css'>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">

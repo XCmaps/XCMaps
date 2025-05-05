@@ -392,6 +392,10 @@ const InfoControl = L.Control.extend({
                       <li><strong>Current Release:</strong> v1.0.3 <a href="#" data-section="changelog">Change Log</a></li>
                     </ul>
 
+                    <h3>Sponsors</h3>
+                    <p><a href="https://www.jawg.io/"><img src="/assets/images/logo_jawgmaps.png" style="height:50px;"></a></p>
+                    <p>JawgMaps provides their vector map tiles service to XCMaps for free, i.e. the Terrain Base Map.</p>
+
                     <h3>Credits</h3>
                     <ul>
                       <li><strong>Base Maps:</strong> <a href="https://www.jawg.io" target="_blank">Jawg.io</a>, <a href="https://openstreetmap.org" target="_blank">OpenStreetMap</a>, <a href="https://xcontest.org" target="_blank">XContest</a>, <a href="https://maptiler.com" target="_blank">MapTiler</a></li>
