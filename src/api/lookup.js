@@ -19,9 +19,10 @@ export default function createLookupRouter(pool) {
         // Prioritized lookup query
         // IMPORTANT: Adjust table and column names if they differ in your schema!
         const query = `
-            SELECT COALESCE(xcm.pilot_name, ogn.registration, flarm.registration) as name
+            SELECT COALESCE(xcm.pilot_name, ac.aprs_name, ogn.registration, flarm.registration) as name
             FROM (SELECT $1::text AS device_id) input_device -- Create a row with the input device ID
             LEFT JOIN xcm_pilots xcm ON input_device.device_id = xcm.device_id -- Check user's custom name first (NOTE: This lookup is global, not user-specific)
+            LEFT JOIN aircraft ac ON input_device.device_id = ac.device_id -- Check aircraft table for aprs_name
             LEFT JOIN ogn_ddb_pilots ogn ON input_device.device_id = ogn.device_id -- Uses device_id
             LEFT JOIN flarmnet_pilots flarm ON input_device.device_id = flarm.flarm_id -- Corrected to use flarm_id
             LIMIT 1;

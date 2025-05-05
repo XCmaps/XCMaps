@@ -660,12 +660,28 @@ const showProfileBadge = async (container) => { // Make async
       L.DomEvent.stopPropagation(e);
 
       // Re-check button state and consent just before saving
-      updateSaveButtonState(); // Ensure state is current
+      updateSaveButtonState(); // Ensure button appearance is current
       const isSaveButtonEnabled = saveSettingsButton.dataset.hasChanges === 'true';
       const livePilotConfigSection = document.getElementById('live-pilot-config-section');
       const consentCheckbox = document.getElementById('live-pilot-consent-checkbox');
       const isLiveSectionVisible = livePilotConfigSection && livePilotConfigSection.style.display !== 'none';
-      const isConsentChecked = !isLiveSectionVisible || consentCheckbox.checked;
+
+      // --- Recalculate specific changes at the moment of click ---
+      let pilotNamesChangedOnClick = false;
+      let uuidChangedOnClick = false;
+      if (isLiveSectionVisible) {
+          const currentPilotNames = getCurrentPilotNamesFromUI();
+          pilotNamesChangedOnClick = JSON.stringify(currentPilotNames) !== JSON.stringify(initialPilotNamesState);
+
+          const uuidInput = document.getElementById('xcontest-uuid-input');
+          if (uuidInput) {
+              const currentUuid = uuidInput.value.trim();
+              const savedUuid = savedPreferences?.xcontestUuid || '';
+              uuidChangedOnClick = currentUuid !== savedUuid;
+          }
+      }
+      const requiresConsent = isLiveSectionVisible && (pilotNamesChangedOnClick || uuidChangedOnClick);
+      // --- End Recalculate specific changes ---
 
       if (isSaveButtonEnabled) {
           // --- Device ID Validation (Added) ---
@@ -694,15 +710,16 @@ const showProfileBadge = async (container) => { // Make async
           }
           // --- End Device ID Validation ---
 
-
           // --- Consent Check ---
-          if (isLiveSectionVisible && !isConsentChecked) {
-              messageArea.textContent = 'Please certify ownership to save live pilot names.';
+          // Fail if consent was required (pilot/UUID changed) AND the box is not checked by the user
+          if (requiresConsent && !consentCheckbox.checked) {
+              messageArea.textContent = 'Please certify ownership to save live pilot names/UUID.';
               messageArea.style.color = 'red';
               messageArea.style.display = 'block';
               setTimeout(() => { messageArea.style.display = 'none'; messageArea.textContent = ''; }, 3000);
               return; // Stop saving
           }
+          // --- End Consent Check ---
 
           console.log('Save Settings button clicked - attempting to save...');
 
