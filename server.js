@@ -331,7 +331,7 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilot
             socket.on('get-track', (aircraftId) => {
                 console.log(`Client ${socket.id} requested track for aircraft:`, aircraftId);
                 if (ognClient && aircraftId) {
-                    ognClient.getAircraftTrack(aircraftId, 60) // 60 minutes of history
+                    ognClient.getAircraftTrack(aircraftId, 720) // 60 minutes of history
                         .then(track => {
                             socket.emit('track-data', { aircraftId, track });
                         })
