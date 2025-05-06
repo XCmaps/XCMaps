@@ -2,9 +2,8 @@ import L from 'leaflet'; // Explicitly import L first
 import 'leaflet/dist/leaflet.css'; // Import Leaflet CSS
 import { LocateControl } from 'leaflet.locatecontrol'; // Use named import
 import 'leaflet.locatecontrol/dist/L.Control.Locate.min.css'; // Import locate control CSS
-import maplibregl from 'maplibre-gl'; // Import maplibre-gl explicitly
+import 'maplibre-gl'; // Import maplibre-gl
 import '@maplibre/maplibre-gl-leaflet'; // Use MapLibre GL Leaflet plugin (side-effect import)
-window.maplibregl = maplibregl; // Make it global before plugin import (diagnostic step)
 import 'leaflet.markercluster'; // Import MarkerCluster JS for side effects
 import 'leaflet.markercluster/dist/MarkerCluster.css'; // Import MarkerCluster CSS
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'; // Import MarkerCluster Default CSS
@@ -93,7 +92,7 @@ function initMap() {
 
     // Revert to L.mapboxGL (assuming mapbox-gl-leaflet is installed)
     var jawgTerrain = L.maplibreGL({
-      style: 'https://api.jawg.io/styles/jawg-terrain.json?access-token=qBDXRu1KSlZGhx4ROlceBD9hcxmrumL34oj29tUkzDVkafqx08tFWPeRNb0KSoKa&lang=&extrude=&worldview=&draft=',
+      style: `https://api.jawg.io/styles/jawg-terrain.json?access-token=${process.env.JAWG_ACCESS_TOKEN}&lang=&extrude=&worldview=&draft=`,
       attribution: '<a href="https://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank" class="jawg-attrib">&copy; <b>Jawg</b>Maps</a> | <a href="https://www.openstreetmap.org/copyright" title="OpenStreetMap is open data licensed under ODbL" target="_blank" class="osm-attrib">&copy; OSM contributors</a>',
       // center: [0, 0], // Remove unnecessary center option here
       maxZoom: 22 // Keep maxZoom matching the working example
@@ -418,9 +417,9 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
     label: 'Base Maps',
     collapsed: true, // Add this line to collapse by default
     children: [
+        { label: 'Terrain - JawgMaps', layer: jawgTerrain },
         { label: 'Topo - Esri', layer: esriTopo }, // Replaced Terrain with Esri Topo
         // { label: 'XContest', layer: L.layerGroup([xcontest, mapTilerTerrain])},
-        { label: 'Terrain - JawgMaps', layer: jawgTerrain },
         { label: 'OpenStreetMap', layer: osm },
         { label: 'Satellite',  layer: sat },
     ]
