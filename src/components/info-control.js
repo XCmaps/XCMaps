@@ -98,6 +98,13 @@ const InfoControl = L.Control.extend({
             `,
             changelog: `
                 <h3>Change Log</h3>
+                <p><strong>2025-MAY-06 version 1.0.4</strong></p>
+                <ul>
+                <li>JawgMaps provides their vector map tiles service to XCMaps for free as a sponsor.</br>
+                    New default terrain layer is now again Terrain - JawgMaps. </li>
+                <li>Rain Viewer: fixed a refresh issue in control-timecontrol.</li>
+                <li>Weather Stations: reduced the size of the arrow markers by 15%.</li>
+                </ul>
                 <p><strong>2025-APR-21 version 1.0.3</strong></p>
                 <ul>
                   <li>replaced the default basemap terrain laver from Jawg.io as we were running out of credits in the free tier. </br>
@@ -389,7 +396,7 @@ const InfoControl = L.Control.extend({
                       <li><strong>Obstacles:</strong> OSM based obstacles from Xcontest</li>
                       <li><strong>Locate and Track:</strong> Locate and Track your position using the Locate Control</li>
                       <li><strong>XCMaps User Account:</strong> By using your account, your can save your preferred map layers in the profile-badge—so every time you log in, you'll return to your personalized view.</li>
-                      <li><strong>Current Release:</strong> v1.0.3 <a href="#" data-section="changelog">Change Log</a></li>
+                      <li><strong>Current Release:</strong> v1.0.4 <a href="#" data-section="changelog">Change Log</a></li>
                     </ul>
 
                     <h3>Sponsors</h3>

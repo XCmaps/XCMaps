@@ -226,14 +226,14 @@ function fetchWindStations() {
 
                 // Create separate SVGs for arrow and text
                 const arrowOnlySvg = `
-                  <svg width="30" height="30" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+                  <svg width="26" height="26" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
                     <g transform="rotate(${windDirection + 90}, 400, 400)" stroke="${strokeColor}" stroke-width="60">
                       <path d="M203,391 L75,144 L738,391 L75,637 L203,391 Z" fill="${fillColor}"/>
                     </g>
                   </svg>`;
                 
                 const textOnlySvg = `
-                  <svg width="30" height="15" viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
+                  <svg width="26" height="13" viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
                     <rect x="0" y="0" width="800" height="280" rx="30" fill="white" />
                     <text x="400" y="200" font-size="220" text-anchor="middle" fill="black" font-weight="bold">
                       ${peakArrow}${Math.round(windAvg)} / ${Math.round(windMax)}
@@ -244,10 +244,10 @@ function fetchWindStations() {
                     className: "wind-arrow",
                     html: `<div style="display: flex; flex-direction: column; align-items: center;">
                             <div>${arrowOnlySvg}</div>
-                            <div style="margin-top: -5px;">${textOnlySvg}</div>
+                            <div style="margin-top: -4px;">${textOnlySvg}</div>
                           </div>`,
-                    iconSize: [30, 45],
-                    iconAnchor: [15, 15],
+                    iconSize: [26, 38], // Reduced from [30, 45]
+                    iconAnchor: [13, 13], // Reduced from [15, 15]
                 });
 
                 marker.setIcon(newArrowIcon);
@@ -319,14 +319,14 @@ function fetchWindStations() {
 
             // Create separate SVGs for arrow and text
             const arrowOnlySvg = `
-              <svg width="30" height="30" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+              <svg width="26" height="26" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
                 <g transform="rotate(${windDirection + 90}, 400, 400)" stroke="${strokeColor}" stroke-width="60">
                   <path d="M203,391 L75,144 L738,391 L75,637 L203,391 Z" fill="${fillColor}"/>
                 </g>
               </svg>`;
             
             const textOnlySvg = `
-              <svg width="30" height="15" viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
+              <svg width="26" height="13" viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
                 <rect x="0" y="0" width="800" height="280" rx="30" fill="white" />
                 <text x="400" y="200" font-size="220" text-anchor="middle" fill="black" font-weight="bold">
                   ${peakArrow}${Math.round(windAvg)} / ${Math.round(windMax)}
@@ -337,10 +337,10 @@ function fetchWindStations() {
               className: "wind-arrow",
               html: `<div style="display: flex; flex-direction: column; align-items: center;">
                       <div>${arrowOnlySvg}</div>
-                      <div style="margin-top: -5px;">${textOnlySvg}</div>
+                      <div style="margin-top: -4px;">${textOnlySvg}</div>
                     </div>`,
-              iconSize: [30, 45],
-              iconAnchor: [15, 15],
+              iconSize: [26, 38], // Reduced from [30, 45]
+              iconAnchor: [13, 13], // Reduced from [15, 15]
             });
 
             // Create the marker.
