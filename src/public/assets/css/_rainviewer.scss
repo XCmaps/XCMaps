@@ -24,6 +24,7 @@
 /* Reduce the width of the time slider */
 .leaflet-bar-timecontrol .timecontrol-dateslider .slider {
     width: 60px !important;
+    background-color: white;
 }
 
 /* Force TimeDimension control into a single row using flexbox */
@@ -68,4 +69,9 @@
     width: auto !important;
     flex-shrink: 0; /* Prevent shrinking */
 
+}
+
+/* Override :before pseudo-element styles from live.css for the time control slider */
+.leaflet-bar-timecontrol .timecontrol-dateslider .slider:before {
+    content: none !important; /* Prevent live.css styles from applying */
 }
