@@ -203,3 +203,49 @@ input:checked + .slider:before {
 .leaflet-popup:has(.aircraft-popup) .leaflet-popup-tip-container {
     display: none !important;
 }
+/* Altitude Chart Styles */
+#altitudeChartContainer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 12vh; /* Max 20% of screen height */
+    min-height: 110px; /* Ensure a minimum height when shown */
+    background-color: rgba(255, 255, 255, 0.9); /* Semi-transparent white */
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 1001; /* Above map, below popups if necessary */
+    display: flex;
+    flex-direction: column;
+    transition: max-height 0.3s ease-in-out, min-height 0.3s ease-in-out; /* Transition both */
+    overflow: hidden; /* Hide overflow during transition */
+}
+
+#altitudeChartContainer.hidden {
+    max-height: 0;
+    min-height: 0; /* Transition min-height to 0 when hidden */
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+    border: none; /* Hide potential borders when hidden */
+}
+
+#altitudeChart {
+    flex-grow: 1; /* Allow canvas to grow */
+    width: 100%;
+    /* height: 100%; Let flexbox manage height based on container */
+    min-height: 0; /* Prevent flexbox issues in some browsers */
+}
+
+.chart-close-button {
+    position: absolute;
+    top: 0; /* Align to top */
+    right: 0px; /* Align to right */
+    padding-right: 2px; /* Add padding */
+    padding-top: 0px; /* Add padding */
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #333;
+    z-index: 1002; /* Ensure it's above the chart canvas */
+}

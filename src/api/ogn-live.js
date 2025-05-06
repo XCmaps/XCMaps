@@ -103,7 +103,7 @@ function createOgnLiveRouter(pool, ognClient) {
   router.get('/track/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      const minutes = parseInt(req.query.minutes || '60', 10);
+      const minutes = parseInt(req.query.minutes || '720', 10);
       
       // Validate parameters
       if (!id) {
