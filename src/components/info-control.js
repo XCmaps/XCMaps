@@ -400,7 +400,7 @@ const InfoControl = L.Control.extend({
                     </ul>
 
                     <h3>Sponsors</h3>
-                    <p><a href="https://www.jawg.io/"><img src="/assets/images/logo_jawgmaps.png" style="height:50px;"></a></p>
+                    <p><a href="https://www.jawg.io/"><img src="/assets/images/logo_jawgmaps.png" style="height:40px;"></a></p>
                     <p>JawgMaps provides their vector map tiles service to XCMaps for free, i.e. the Terrain Base Map.</p>
 
                     <h3>Credits</h3>

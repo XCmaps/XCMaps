@@ -86,37 +86,80 @@ export function initSpotPG() {
 
                     L.geoJSON(data, {
                         pointToLayer: function (feature, latlng) {
+                            // Helper function to convert polar coordinates to Cartesian for SVG paths
+                            function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+                                var angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0; // Adjust for 0 degrees = North
+                                return {
+                                    x: centerX + (radius * Math.cos(angleInRadians)),
+                                    y: centerY + (radius * Math.sin(angleInRadians))
+                                };
+                            }
+
+                            // Helper function to describe an SVG arc path (pie slice)
+                            function describeArc(x, y, radius, startAngle, endAngle) {
+                                // Handle full circle or near full circle
+                                if (Math.abs(endAngle - startAngle) >= 359.99) {
+                                    endAngle = startAngle + 359.99; // Avoid start === end for arc calculation
+                                }
+
+                                var start = polarToCartesian(x, y, radius, endAngle); // Note: SVG arcs draw clockwise with sweep-flag 1
+                                var end = polarToCartesian(x, y, radius, startAngle);
+
+                                var largeArcFlag = Math.abs(endAngle - startAngle) <= 180 ? "0" : "1";
+
+                                // Path definition: Move to center, Line to arc start, Arc to arc end, Close path
+                                var d = [
+                                    "M", x, y,
+                                    "L", start.x, start.y,
+                                    "A", radius, radius, 0, largeArcFlag, 1, end.x, end.y,
+                                    "Z"
+                                ].join(" ");
+
+                                return d;
+                            }
+
+                            const iconSize = 30; // Adjusted icon size
+                            const center = iconSize / 2;
+                            const radius = center - 1; // Leave 1px padding
+                            let direction = feature.properties.direction || "";
+                            let angleRanges = getAngleRange(direction); // Imported from spots-helper.js
+
+                            let pathData = angleRanges.map(([start, end]) => {
+                                // Handle ranges crossing 360 degrees (e.g., NNE: 348.75 to 11.25)
+                                if (start > end) {
+                                    // Draw two arcs: start to 360 and 0 to end
+                                    let path1 = describeArc(center, center, radius, start, 359.999);
+                                    let path2 = describeArc(center, center, radius, 0, end);
+                                    return path1 + " " + path2;
+                                } else {
+                                    return describeArc(center, center, radius, start, end);
+                                }
+                            }).join(" ");
+
+                            // Default path if no direction specified (e.g., draw nothing or a full circle)
+                            if (!pathData && angleRanges.length === 0) {
+                                // pathData = describeArc(center, center, radius, 0, 359.999); // Optional: Draw full circle if no direction
+                            }
+
+                            // Construct the SVG content string
+                            const svgContent = `
+<svg xmlns="http://www.w3.org/2000/svg" width="${iconSize}" height="${iconSize}" viewBox="0 0 ${iconSize} ${iconSize}">
+  <path d="${pathData}" fill="orange" stroke="darkorange" stroke-width="0.5" />
+  <circle cx="${center}" cy="${center}" r="${radius / 4}" fill="green" stroke="darkgreen" stroke-width="0.5" />
+</svg>`;
+
+                            // Encode the SVG string using Base64 for use as a data URI
+                            const svgCleaned = svgContent.replace(/[\r\n]+/g, ''); // Remove only newlines
+                            const svgBase64 = btoa(svgCleaned); // Base64 encode
+                            const svgDataUri = `data:image/svg+xml;base64,${svgBase64}`;
+
+
+                            // Return the marker with the new SVG icon
                             return L.marker(latlng, {
-                                icon: L.canvasIcon({
-                                    iconSize: [50, 50],
-                                    iconAnchor: [15, 15],
-                                    drawIcon: function (icon, type) {
-                                        if (type === 'icon') {
-                                            var ctx = icon.getContext('2d');
-                                            var size = L.point(this.options.iconSize);
-                                            var center = L.point(size.x / 2, size.y / 2);
-                                            ctx.clearRect(0, 0, size.x, size.y);
-
-                                            let direction = feature.properties.direction || "";
-                                            let angleRanges = getAngleRange(direction);
-
-                                            ctx.beginPath();
-                                            angleRanges.forEach(([start, end]) => {
-                                                ctx.moveTo(center.x, center.y);
-                                                ctx.arc(center.x, center.y, center.x, (start - 90) * Math.PI / 180, (end - 90) * Math.PI / 180, false);
-                                                ctx.lineTo(center.x, center.y);
-                                            });
-                                            ctx.fillStyle = 'orange';
-                                            ctx.fill();
-                                            ctx.closePath();
-
-                                            ctx.beginPath();
-                                            ctx.arc(center.x, center.y, center.x / 4, 0, Math.PI * 2);
-                                            ctx.fillStyle = 'green';
-                                            ctx.fill();
-                                            ctx.closePath();
-                                        }
-                                    }
+                                icon: L.icon({
+                                    iconUrl: svgDataUri,
+                                    iconSize: [iconSize, iconSize],
+                                    iconAnchor: [center, center] // Anchor at the center
                                 })
                             });
                         },

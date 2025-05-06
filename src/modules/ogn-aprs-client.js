@@ -18,7 +18,8 @@ const { Pool } = pkg;
 // Constants
 const OGN_HOST = 'aprs.glidernet.org';
 const OGN_PORT = 14580;
-const OGN_FILTER = 'r/48.0/6.0/1500 t/o';  // 500km radius around Luxembourg, only aircraft
+// const OGN_FILTER = 'r/48.0/6.0/1500 t/o';  // 1500km radius around Luxembourg, only aircraft
+const OGN_FILTER = 'r/48.0/6.0/1500';  // 1500km radius around Luxembourg, only aircraft
 const OGN_USER_AGENT = 'XCmaps v1.0';
 const CLEANUP_INTERVAL = 3600000; // 1 hour in milliseconds
 const DATA_RETENTION_HOURS = 12; // Keep data for 12 hours
@@ -30,7 +31,7 @@ const PURETRACK_URL = 'https://puretrack.io/api/labels.json';
 const PURETRACK_REFRESH_INTERVAL = 86400000; // 24 hours in milliseconds
 
 // --- Pilot Status Calculation Constants ---
-const AGL_GROUND_MAX = 15; // Max AGL considered 'on ground' (meters)
+const AGL_GROUND_MAX = 20; // Max AGL considered 'on ground' (meters)
 const AGL_FLYING_MIN = 30; // Min AGL considered 'flying' (meters)
 const SPEED_RESTING_MAX_MS = 1.0; // m/s
 const SPEED_HIKING_MAX_MS = 3.0; // m/s
@@ -1287,7 +1288,7 @@ class OgnAprsClient extends EventEmitter {
               console.log(`Skipping store/update for device ${parsedData.deviceId} due to invalid aircraftType: ${parsedData.aircraftType}`);
           }
           if (!hasPilotName) {
-              console.log(`Skipping store/update for device ${parsedData.deviceId} (Name: ${parsedData.name}) because pilotName is null.`);
+              // console.log(`Skipping store/update for device ${parsedData.deviceId} (Name: ${parsedData.name}) because pilotName is null.`);
           }
       }
     } catch (err) { // End of try, start of catch for processAprsData

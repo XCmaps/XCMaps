@@ -132,7 +132,7 @@ class MapboxElevation {
    * @param {number} zoom - Zoom level (higher = more detailed, 14-15 recommended)
    * @returns {Promise<number|null>} - Elevation in meters or null if not found
    */
-  async getElevation(lat, lon, zoom = 14) {
+  async getElevation(lat, lon, zoom = 15) {
     try {
       if (!MAPBOX_ACCESS_TOKEN) {
         console.error('Cannot get elevation: MAPBOX_ACCESS_TOKEN is not defined');

@@ -103,9 +103,10 @@ function initMap() {
       center: [50, 6],
       zoom: 9,
       zoomControl: false,
-      layers: [esriTopo], // Revert to esriTopo as the default layer initially
+      layers: [jawgTerrain], // Revert to esriTopo as the default layer initially
       dragging: true, // Keep dragging explicitly enabled
-      timeDimension: true
+      timeDimension: true,
+      maxZoom: 22 // Add maxZoom to the map options
   });
 
   // Explicitly add jawgTerrain after map initialization

@@ -272,6 +272,12 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilot
                     status VARCHAR(20)
                 );
             `);
+
+            // Add status column if it doesn't exist (for existing tables)
+            await pool.query(`
+                ALTER TABLE aircraft_tracks
+                ADD COLUMN IF NOT EXISTS status VARCHAR(20);
+            `);
             
             // Create indexes for faster queries
             await pool.query(`
@@ -337,7 +343,7 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilot
             
             // Handle client updating their view bounds
             socket.on('update-bounds', (bounds) => {
-                console.log(`Client ${socket.id} updated bounds:`, bounds);
+                // console.log(`Client ${socket.id} updated bounds:`, bounds);
                 socket.bounds = bounds;
             });
             
