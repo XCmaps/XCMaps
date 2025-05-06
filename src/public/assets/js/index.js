@@ -2,7 +2,9 @@ import L from 'leaflet'; // Explicitly import L first
 import 'leaflet/dist/leaflet.css'; // Import Leaflet CSS
 import { LocateControl } from 'leaflet.locatecontrol'; // Use named import
 import 'leaflet.locatecontrol/dist/L.Control.Locate.min.css'; // Import locate control CSS
-import 'mapbox-gl-leaflet'; // Keep GL plugin side-effect import for now
+import maplibregl from 'maplibre-gl'; // Import maplibre-gl explicitly
+import '@maplibre/maplibre-gl-leaflet'; // Use MapLibre GL Leaflet plugin (side-effect import)
+window.maplibregl = maplibregl; // Make it global before plugin import (diagnostic step)
 import 'leaflet.markercluster'; // Import MarkerCluster JS for side effects
 import 'leaflet.markercluster/dist/MarkerCluster.css'; // Import MarkerCluster CSS
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'; // Import MarkerCluster Default CSS
@@ -81,13 +83,21 @@ function initMap() {
   });
 
   // Revert to L.mapboxGL (assuming mapbox-gl-leaflet is installed)
-  var jawgTerrain = L.mapboxGL({
-    accessToken: 'not-needed', // Add dummy token to satisfy Mapbox GL JS
-    style: 'https://api.jawg.io/styles/jawg-terrain.json?access-token=qBDXRu1KSlZGhx4ROlceBD9hcxmrumL34oj29tUkzDVkafqx08tFWPeRNb0KSoKa&lang=&extrude=&worldview=&draft=',
-    attribution: '<a href="https://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank" class="jawg-attrib">&copy; <b>Jawg</b>Maps</a> | <a href="https://www.openstreetmap.org/copyright" title="OpenStreetMap is open data licensed under ODbL" target="_blank" class="osm-attrib">&copy; OSM contributors</a>',
+  // var jawgTerrain = L.mapboxGL({
+  //   accessToken: 'not-needed', // Add dummy token to satisfy Mapbox GL JS
+  //   style: 'https://api.jawg.io/styles/jawg-terrain.json?access-token=qBDXRu1KSlZGhx4ROlceBD9hcxmrumL34oj29tUkzDVkafqx08tFWPeRNb0KSoKa&lang=&extrude=&worldview=&draft=',
+  //   attribution: '<a href="https://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank" class="jawg-attrib">&copy; <b>Jawg</b>Maps</a> | <a href="https://www.openstreetmap.org/copyright" title="OpenStreetMap is open data licensed under ODbL" target="_blank" class="osm-attrib">&copy; OSM contributors</a>',
     // center: [0, 0], // Remove unnecessary center option here
-    maxZoom: 22 // Keep maxZoom matching the working example
-  });
+  //   maxZoom: 22 // Keep maxZoom matching the working example
+  // });
+
+    // Revert to L.mapboxGL (assuming mapbox-gl-leaflet is installed)
+    var jawgTerrain = L.maplibreGL({
+      style: 'https://api.jawg.io/styles/jawg-terrain.json?access-token=qBDXRu1KSlZGhx4ROlceBD9hcxmrumL34oj29tUkzDVkafqx08tFWPeRNb0KSoKa&lang=&extrude=&worldview=&draft=',
+      attribution: '<a href="https://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank" class="jawg-attrib">&copy; <b>Jawg</b>Maps</a> | <a href="https://www.openstreetmap.org/copyright" title="OpenStreetMap is open data licensed under ODbL" target="_blank" class="osm-attrib">&copy; OSM contributors</a>',
+      // center: [0, 0], // Remove unnecessary center option here
+      maxZoom: 22 // Keep maxZoom matching the working example
+    });
 
   // Create the map object and make it globally accessible
   window.map = L.map('map', {
@@ -241,12 +251,12 @@ function initMap() {
   };
 
   // MapLibre GL layer
-  var mapTilerTerrain = L.mapboxGL({
-      style: '/assets/maps/maptiler_terrain_wob_testxc.json',
-      apiKey: "c49iG8J3xvAkgCSZ8M8v",
-      className: 'xcmap-layer',
-      attribution: 'MapTiler Terrain'
-  });
+   // var mapTilerTerrain = L.mapboxGL({
+   //     style: '/assets/maps/maptiler_terrain_wob_testxc.json',
+   //     apiKey: "c49iG8J3xvAkgCSZ8M8v",
+   //     className: 'xcmap-layer',
+    //    attribution: 'MapTiler Terrain'
+   // });
 
   var sat = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{
       attribution: 'Map data: Google',
@@ -259,12 +269,12 @@ function initMap() {
     id: 'MapID',
   });
 
-  var mapTilerTerrainOverlay = L.mapboxGL({
-    style: '/assets/maps/maptiler_terrain_wob_testxc.json',
-    apiKey: "c49iG8J3xvAkgCSZ8M8v",
-    className: 'xcmap-layer satellite-overlay',
-    attribution: 'MapTiler Terrain'
-  });
+  //var mapTilerTerrainOverlay = L.mapboxGL({
+  //  style: '/assets/maps/maptiler_terrain_wob_testxc.json',
+  //  apiKey: "c49iG8J3xvAkgCSZ8M8v",
+  //  className: 'xcmap-layer satellite-overlay',
+  //  attribution: 'MapTiler Terrain'
+  //});
 
   // Use the local proxy for kk7 thermals to avoid CORS issues
   var kk7thermals = L.tileLayer('/api/kk7thermals/{z}/{x}/{y}.png', {
