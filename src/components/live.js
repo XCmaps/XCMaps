@@ -143,7 +143,7 @@ const LiveControl = L.Control.extend({
             if (originalTrackData) {
                 const groundLevelPoints = originalTrackData.map(point => {
                     const alt_msl = point.last_alt_msl ?? point.alt_msl;
-                    const alt_agl = point.alt_agl; // Altitude Above Ground Level
+                    const alt_agl = point.alt_agl ?? point.agl; // Altitude Above Ground Level - Added fallback to point.agl
 
                     if (typeof alt_msl === 'number' && !isNaN(alt_msl) &&
                         typeof alt_agl === 'number' && !isNaN(alt_agl)) {
@@ -1277,9 +1277,9 @@ const LiveControl = L.Control.extend({
             originalId: aircraft.id,
             last_lat: aircraft.lat ?? aircraft.last_lat,
             last_lon: aircraft.lon ?? aircraft.last_lon,
-            last_alt_msl: aircraft.last_alt_msl ?? aircraft.altMsl, // REMOVED ?? 0 default
-            last_alt_agl: aircraft.last_alt_agl ?? aircraft.altAgl ?? 0, // Keep AGL default for filtering
-            last_speed_kmh: aircraft.last_speed_kmh ?? aircraft.speedKmh ?? 0, // Keep speed default
+            last_alt_msl: aircraft.last_alt_msl ?? aircraft.altMsl,
+            last_alt_agl: aircraft.last_alt_agl ?? aircraft.altAgl, // No default to 0, let it be undefined if not present
+            last_speed_kmh: aircraft.last_speed_kmh ?? aircraft.speedKmh ?? 0,
             last_course: aircraft.last_course ?? aircraft.course ?? 0,
             last_vs: aircraft.last_vs ?? aircraft.vs ?? 0,
             type: aircraft.type ?? aircraft.aircraftType ?? 0,
@@ -1335,26 +1335,35 @@ const LiveControl = L.Control.extend({
                     const rawAlt = processedAircraft.last_alt_msl;
                     const numericAlt = typeof rawAlt === 'string' ? parseFloat(rawAlt.replace(/,/g, '')) : rawAlt;
 
-                    const newPoint = {
+                    const newPointForChartCache = { // Renamed to avoid confusion with visual chart points
                         timestamp: processedAircraft.timestamp,
+                        last_fix_epoch: processedAircraft.last_fix_epoch, // Include for time sorting consistency
                         last_lat: processedAircraft.last_lat,
                         last_lon: processedAircraft.last_lon,
                         last_alt_msl: numericAlt, // Store parsed numeric altitude
+                        alt_msl: numericAlt, // For consistency with historical data structure in _createOrUpdateAltitudeChart
+                        alt_agl: processedAircraft.last_alt_agl, // Crucially add this for ground level calculation
+                        // Ensure last_alt_agl from processedAircraft is used (which already checks .alt_agl fallback)
                     };
 
-                    // Only add point to cache if it has valid (parsed) altitude
-                    if (typeof newPoint.last_alt_msl === 'number' && !isNaN(newPoint.last_alt_msl)) {
+                    // Only add point to cache if it has valid (parsed) MSL altitude
+                    if (typeof newPointForChartCache.last_alt_msl === 'number' && !isNaN(newPointForChartCache.last_alt_msl)) {
                         if (!Array.isArray(this.pilotTracksForChart[normalizedId])) {
                              this.pilotTracksForChart[normalizedId] = [];
                         }
-                        this.pilotTracksForChart[normalizedId].push(newPoint);
-                        this.pilotTracksForChart[normalizedId].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+                        this.pilotTracksForChart[normalizedId].push(newPointForChartCache);
+                        // Sort the raw track data by time to ensure correct processing order
+                        this.pilotTracksForChart[normalizedId].sort((a, b) => (a.timestamp || (a.last_fix_epoch * 1000)) - (b.timestamp || (b.last_fix_epoch * 1000)));
 
+                        // Now, when _addPilotDataToChart is called, or _createOrUpdateAltitudeChart is called,
+                        // it will use this updated pilotTracksForChart[normalizedId] which includes alt_agl.
                         if (this.chartVisible) {
+                             // _addPilotDataToChart will itself call _createOrUpdateAltitudeChart
+                             // It will use the full this.pilotTracksForChart[normalizedId] which now has the new point with AGL
                              this._addPilotDataToChart(normalizedId, this.pilotTracksForChart[normalizedId], this.activePopupColors[normalizedId] || this.options.trackColor);
                         }
                     } else {
-                         console.warn(`[UpdateSingle] Skipping adding point for ${normalizedId} due to invalid or unparsable altitude:`, rawAlt);
+                         console.warn(`[UpdateSingle] Skipping adding point to chart cache for ${normalizedId} due to invalid or unparsable MSL altitude:`, rawAlt);
                     }
                 }
             } else {
