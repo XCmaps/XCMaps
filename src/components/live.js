@@ -160,7 +160,9 @@ const LiveControl = L.Control.extend({
                             time: {
                                 unit: 'minute',
                                 tooltipFormat: 'HH:mm:ss',
-                                displayFormats: { minute: 'HH:mm' }
+                                displayFormats: { minute: 'HH:mm' },
+                                stepSize: 5,
+                                round: 'minute'
                             },
                             title: { display: false }, // Remove X-axis title
                             ticks: { source: 'auto', maxRotation: 0, autoSkip: true },
@@ -214,16 +216,10 @@ const LiveControl = L.Control.extend({
         return datasets.length > 0 ? Math.ceil((maxAlt + 200) / 500) * 500 : 1000;
     },
 
-    _calculateChartXMax: function(datasets) {
-        let maxTime = 0;
-         datasets.forEach(dataset => {
-            if (dataset.data.length > 0) {
-                const lastTime = dataset.data[dataset.data.length - 1].x;
-                if (lastTime > maxTime) maxTime = lastTime;
-            }
-        });
-        // Add 15 minutes padding to the right of the last data point
-        return maxTime > 0 ? maxTime + 15 * 60 * 1000 : Date.now() + 15 * 60 * 1000;
+    _calculateChartXMax: function(/* datasets */) {
+        // The right border of the chart should be 1o minutes after the current time.
+        // This ensures that 'now' (the current time) is 10 minutes from the right edge.
+        return Date.now() + 10 * 60 * 1000;
     },
 
     _showAltitudeChart: function() {
