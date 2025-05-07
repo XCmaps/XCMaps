@@ -124,15 +124,59 @@ const LiveControl = L.Control.extend({
     _createOrUpdateAltitudeChart: function() {
         if (!this.altitudeChartCanvas) return;
 
-        // Filter datasets to include only those currently selected (in activePopupOrder)
-        // and for which we have track data.
-        const datasets = this.chartData.datasets.filter(ds =>
+        // 1. Filter pilot datasets to include only those currently selected and with data
+        const pilotDatasetsToShow = this.chartData.datasets.filter(ds =>
+            ds.label !== 'groundLevel' && // Exclude any previous groundLevel dataset
             this.activePopupOrder.includes(ds.label) &&
             this.pilotTracksForChart[ds.label] &&
             this.pilotTracksForChart[ds.label].length > 0
         );
 
-        if (datasets.length === 0) {
+        let finalDatasets = [...pilotDatasetsToShow];
+
+        // 2. If exactly one pilot is selected, prepare and add ground level data
+        if (pilotDatasetsToShow.length === 1) {
+            const pilotDataset = pilotDatasetsToShow[0];
+            const aircraftId = pilotDataset.label;
+            const originalTrackData = this.pilotTracksForChart[aircraftId];
+
+            if (originalTrackData) {
+                const groundLevelPoints = originalTrackData.map(point => {
+                    const alt_msl = point.last_alt_msl ?? point.alt_msl;
+                    const alt_agl = point.alt_agl; // Altitude Above Ground Level
+
+                    if (typeof alt_msl === 'number' && !isNaN(alt_msl) &&
+                        typeof alt_agl === 'number' && !isNaN(alt_agl)) {
+                        const num_alt_msl = Number(alt_msl);
+                        const num_alt_agl = Number(alt_agl);
+                        return {
+                            x: new Date(point.timestamp || point.last_fix_epoch * 1000),
+                            y: num_alt_msl - num_alt_agl
+                        };
+                    }
+                    return null;
+                }).filter(p => p !== null && typeof p.y === 'number' && !isNaN(p.y))
+                  .sort((a, b) => a.x - b.x);
+
+                if (groundLevelPoints.length > 0) {
+                    const groundLevelDataset = {
+                        label: 'groundLevel',
+                        data: groundLevelPoints,
+                        borderColor: 'transparent', // No border for the fill area
+                        backgroundColor: '#ddb88b', // Specified fill color
+                        fill: 'origin', // Fill from y=0 up to the data points
+                        tension: 0.1, // Match pilot data for curve style
+                        pointRadius: 0, // No points on the ground line
+                        order: 1 // Draw ground fill first
+                    };
+                    finalDatasets.push(groundLevelDataset);
+                }
+            }
+        }
+
+        // If no datasets with actual data points remain, hide the chart
+        const hasDataPoints = finalDatasets.some(ds => ds.data && ds.data.length > 0);
+        if (!hasDataPoints) {
             this._hideAltitudeChart();
             if (this.altitudeChart) {
                 this.altitudeChart.destroy();
@@ -141,16 +185,19 @@ const LiveControl = L.Control.extend({
             return;
         }
 
+        // Sort datasets by 'order' to ensure correct drawing sequence (lower order drawn first)
+        finalDatasets.sort((a, b) => (a.order || 0) - (b.order || 0));
+
         if (this.altitudeChart) {
-            this.altitudeChart.data.datasets = datasets;
-            this.altitudeChart.options.scales.y.suggestedMin = this._calculateChartYMin(datasets);
-            this.altitudeChart.options.scales.y.suggestedMax = this._calculateChartYMax(datasets);
-            this.altitudeChart.options.scales.x.max = this._calculateChartXMax(datasets);
+            this.altitudeChart.data.datasets = finalDatasets;
+            this.altitudeChart.options.scales.y.suggestedMin = this._calculateChartYMin(finalDatasets);
+            this.altitudeChart.options.scales.y.suggestedMax = this._calculateChartYMax(finalDatasets);
+            this.altitudeChart.options.scales.x.max = this._calculateChartXMax(finalDatasets);
             this.altitudeChart.update();
         } else {
             const config = {
                 type: 'line',
-                data: { datasets: datasets },
+                data: { datasets: finalDatasets },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -164,27 +211,25 @@ const LiveControl = L.Control.extend({
                                 stepSize: 5,
                                 round: 'minute'
                             },
-                            title: { display: false }, // Remove X-axis title
+                            title: { display: false },
                             ticks: { source: 'auto', maxRotation: 0, autoSkip: true },
-                            max: this._calculateChartXMax(datasets)
+                            max: this._calculateChartXMax(finalDatasets)
                         },
                         y: {
-                            title: { display: false }, // Remove Y-axis title
-                            beginAtZero: false,
-                            suggestedMin: this._calculateChartYMin(datasets),
-                            suggestedMax: this._calculateChartYMax(datasets),
+                            title: { display: false },
+                            beginAtZero: false, // Ground level might be negative in some terrains
+                            suggestedMin: this._calculateChartYMin(finalDatasets),
+                            suggestedMax: this._calculateChartYMax(finalDatasets),
                             ticks: {
                                 stepSize: 500,
-                                // Use a callback to format the tick labels
                                 callback: function(value, index, ticks) {
-                                    // Add 'm' suffix and format with comma for thousands
                                     return value.toLocaleString() + 'm';
                                 }
                             }
                         }
                     },
                     plugins: {
-                        legend: { display: false }, // Disable legend
+                        legend: { display: false },
                         tooltip: { mode: 'index', intersect: false }
                     },
                     elements: { point: { radius: 0 } }
@@ -376,9 +421,10 @@ const LiveControl = L.Control.extend({
                 label: aircraftId,
                 data: newPoints,
                 borderColor: color,
-                backgroundColor: color + '33',
-                fill: false,
-                tension: 0.1
+                backgroundColor: color + '33', // For pilot's line, if fill was true
+                fill: false, // Pilot line itself is not filled by default
+                tension: 0.1,
+                order: 2 // Draw pilot line on top of ground fill (ground is order 1)
             });
         }
         // Ensure the raw track data is also stored/updated
