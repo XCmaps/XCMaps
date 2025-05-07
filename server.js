@@ -59,6 +59,23 @@ cron.schedule('0 3 * * *', async () => {
     }
 });
 
+// Schedule hourly cleanup of old aircraft tracks
+cron.schedule('0 * * * *', async () => {
+    console.log('Running scheduled cleanup of aircraft_tracks...');
+    if (pool) {
+        try {
+            const result = await pool.query(
+                "DELETE FROM aircraft_tracks WHERE timestamp < NOW() - INTERVAL '24 hours'"
+            );
+            console.log(`Scheduled cleanup of aircraft_tracks completed. ${result.rowCount} rows deleted.`);
+        } catch (err) {
+            console.error('Scheduled cleanup of aircraft_tracks failed:', err);
+        }
+    } else {
+        console.error('Scheduled cleanup of aircraft_tracks skipped: DB pool not initialized.');
+    }
+});
+
 // --- Configuration Loading ---
 const configPath = path.join(process.cwd(), 'src', 'config.json');
 let currentConfig = {};
