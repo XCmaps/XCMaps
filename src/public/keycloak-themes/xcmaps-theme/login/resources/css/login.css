@@ -57,10 +57,21 @@
     display: none !important;
 }
 
+/* Ensure social login list (ul) stacks its items (li) */
+.pf-c-login__main-footer-links.kc-social-links {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch; /* Ensure li items can stretch to full width */
+    padding-left: 0; /* Remove default ul padding that might affect width */
+    list-style-type: none; /* Remove bullet points */
+    width: 100%; /* Ensure the ul itself takes full available width */
+}
+
 /* Ensure social login list item takes full width */
 .pf-c-login__main-footer-links.kc-social-links > li {
     width: 100%; /* Make the list item take full width */
     margin-bottom: 5px; /* Add space between multiple social buttons if they exist */
+    display: block; /* Ensure li itself is a block to contain the 'a' tag correctly */
 }
 
 /* Ensure the button (a tag) inside is also full width */
@@ -68,4 +79,5 @@
     width: 100%; /* Explicitly set button width to 100% */
     display: block; /* Ensure it behaves as a block element */
     box-sizing: border-box; /* Include padding/border in width calculation */
+    text-align: center; /* Center text within the button */
 }

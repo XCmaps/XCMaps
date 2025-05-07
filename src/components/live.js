@@ -1560,7 +1560,7 @@ const LiveControl = L.Control.extend({
 
         const headerRow = L.DomUtil.create('div', 'live-config-row live-config-header', this._configContainer);
         const headerSpan = L.DomUtil.create('span', '', headerRow);
-        headerSpan.textContent = 'Live Tracking';
+        headerSpan.textContent = 'LIVE! Tracking';
         const mainToggleLabel = L.DomUtil.create('label', 'switch', headerRow);
         const mainToggleInput = L.DomUtil.create('input', '', mainToggleLabel);
         mainToggleInput.type = 'checkbox';
