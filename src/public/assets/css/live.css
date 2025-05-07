@@ -67,6 +67,7 @@
     right: 55px; /* Place it left of the live control (adjust as needed) */
     top: 0;      /* Align top with the live control */
     width: 200px; /* Same width as profile-badge */
+    height: 125px; /* Same height as profile-badge */
     background-color: white; /* Same background */
     border-radius: 4px; /* Same border-radius */
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); /* Same shadow as profile-badge */
@@ -94,7 +95,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    /*  border-bottom: 1px solid #eee; */
+    background-color: white; /* Ensure all rows have a white background */
+    border-bottom: none; /* Explicitly remove any bottom border/separator */
 }
 
 .live-config-row:last-child {
@@ -115,6 +117,9 @@
     font-weight: 700; /* Bold for the header */
 }
 
+.live-config-separator {
+    display: none; /* Hide the hr separator */
+}
 
 /* --- Toggle Switch Styles (Commonly used style) --- */
 .switch {
@@ -245,6 +250,7 @@ input:checked + .slider:before {
     background: none;
     border: none;
     font-size: 20px;
+    font-weight: bold;
     cursor: pointer;
     color: #333;
     z-index: 1002; /* Ensure it's above the chart canvas */
