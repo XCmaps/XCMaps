@@ -193,7 +193,7 @@ const LiveControl = L.Control.extend({
             this.altitudeChart.options.scales.y.suggestedMin = this._calculateChartYMin(finalDatasets);
             this.altitudeChart.options.scales.y.suggestedMax = this._calculateChartYMax(finalDatasets);
             this.altitudeChart.options.scales.x.max = this._calculateChartXMax(finalDatasets);
-            this.altitudeChart.update();
+            this.altitudeChart.update('none'); // Disable animations for a direct update
         } else {
             const config = {
                 type: 'line',
@@ -246,8 +246,9 @@ const LiveControl = L.Control.extend({
                 if (point.y < minAlt) minAlt = point.y;
             });
         });
-        // Add 100m padding below, then round down to nearest 500
-        return datasets.length > 0 ? Math.floor((minAlt - 100) / 500) * 500 : 0;
+        // Add 100m padding below, then round down to nearest 500, ensuring it's not negative.
+        const yMinCalc = Math.floor((minAlt - 100) / 500) * 500;
+        return datasets.length > 0 ? Math.max(0, yMinCalc) : 0;
     },
 
     _calculateChartYMax: function(datasets) {
@@ -257,8 +258,20 @@ const LiveControl = L.Control.extend({
                 if (point.y > maxAlt) maxAlt = point.y;
             });
         });
-        // Add 200m padding above, then round up to nearest 500
-        return datasets.length > 0 ? Math.ceil((maxAlt + 200) / 500) * 500 : 1000;
+        // Add 200m padding above, then round up to nearest 500, ensuring it's at least 500.
+        const yMaxCalc = Math.ceil((maxAlt + 200) / 500) * 500;
+        // Ensure that if there's data, the max is at least 500. If no data, default to 500.
+        // Also, ensure yMax is greater than yMin (which is handled by Chart.js if min > max, but good to be logical)
+        // The primary goal is that yMax itself is at least 500.
+        let resultYMax = datasets.length > 0 ? Math.max(500, yMaxCalc) : 500;
+
+        // Ensure there's at least a 500m span if yMin is calculated and is close to yMax
+        const yMin = this._calculateChartYMin(datasets); // Recalculate yMin to compare
+        if (resultYMax < yMin + 500 && datasets.length > 0) { // only adjust if there's data
+            resultYMax = yMin + 500;
+        }
+        // Final check to ensure it's at least 500, especially if yMin + 500 was still less (e.g. yMin = -200 after some error)
+        return Math.max(500, resultYMax);
     },
 
     _calculateChartXMax: function(/* datasets */) {
