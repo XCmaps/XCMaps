@@ -32,6 +32,7 @@ import OgnAprsClient from './src/modules/ogn-aprs-client.js'; // Import OGN APRS
 import createOgnLiveRouter from './src/api/ogn-live.js'; // Import OGN Live API router
 import createLookupRouter from './src/api/lookup.js'; // Import the new lookup router factory
 import SrtmElevation from './src/modules/srtm-elevation.js'; // Import SRTM elevation module
+import { initXContestLive } from './src/api/xcontest-live.js'; // Import XContest Live data initializer
 
 
 const { Pool } = pkg;
@@ -205,6 +206,11 @@ async function startServer() {
         ognClient.setSocketIO(io);
         await ognClient.initializeAndStart(); // Use the new combined initialization method
         console.log('OGN APRS Client started successfully.');
+
+        // Initialize XContest Live data fetching
+        console.log('Initializing XContest Live data fetching...');
+        initXContestLive(io); // Call the initializer function, passing the Socket.IO instance
+        console.log('XContest Live data fetching initialized.');
 
         // --- Ensure xcm_pilots table exists (Added) ---
         try {
