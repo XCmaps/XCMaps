@@ -93,6 +93,84 @@ function createOgnLiveRouter(pool, ognClient) {
   });
 
   /**
+   * Get recent aircraft
+   * GET /api/ogn/aircraft/recent
+   * Query parameters:
+   * - minutes: Number of minutes of history to retrieve (default: 15)
+   */
+  router.get('/aircraft/recent', async (req, res) => {
+    try {
+      const minutes = parseInt(req.query.minutes || '15', 10);
+      const since = new Date(Date.now() - minutes * 60 * 1000);
+
+      // Get all aircraft seen since the specified time
+      // This might require a new method in ognClient or direct DB query
+      // For now, let's assume ognClient.getRecentAircraft(since) exists
+      // or adapt the logic from getAircraftInBounds if it fetches from a live cache
+      // that can be filtered by time.
+      // If ognClient primarily deals with live data in bounds, we might need
+      // to query the database directly for historical "last seen" data.
+
+      // Assuming a similar structure to getAircraftInBounds but filtered by time
+      // This is a placeholder for actual implementation based on ognClient capabilities
+      // or direct DB access.
+      // For demonstration, let's adapt the DB query logic if that's where persistent data resides.
+      // This example assumes 'aircraft' table has 'last_seen' and 'device_id'
+      const client = await pool.connect();
+      let recentAircraftData;
+      try {
+        const result = await client.query(
+          'SELECT * FROM aircraft WHERE last_seen >= $1',
+          [since]
+        );
+        recentAircraftData = result.rows;
+      } finally {
+        client.release();
+      }
+
+      // Filter out duplicates, keeping only the latest entry per device_id
+      const latestAircraft = {};
+      for (const ac of recentAircraftData) {
+        if (!latestAircraft[ac.device_id] || new Date(ac.last_seen) > new Date(latestAircraft[ac.device_id].last_seen)) {
+          latestAircraft[ac.device_id] = ac;
+        }
+      }
+      const filteredAircraft = Object.values(latestAircraft);
+
+      // --- Prioritize Custom Pilot Names (Copied from /aircraft endpoint) ---
+      if (filteredAircraft.length > 0) {
+          const deviceIds = filteredAircraft.map(ac => ac.device_id);
+          try {
+              const customNamesResult = await pool.query(
+                  'SELECT device_id, pilot_name FROM xcm_pilots WHERE device_id = ANY($1::text[])',
+                  [deviceIds]
+              );
+
+              const customNamesMap = new Map();
+              customNamesResult.rows.forEach(row => {
+                  customNamesMap.set(row.device_id, row.pilot_name);
+              });
+
+              filteredAircraft.forEach(ac => {
+                  if (customNamesMap.has(ac.device_id)) {
+                      const customName = customNamesMap.get(ac.device_id);
+                      ac.pilot_name = customName;
+                  }
+              });
+          } catch (dbError) {
+              console.error('Error fetching custom pilot names for recent aircraft:', dbError);
+          }
+      }
+      // --- End Prioritize Custom Pilot Names ---
+
+      res.json(filteredAircraft);
+    } catch (err) {
+      console.error('Error getting recent aircraft data:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  /**
    * Get track for a specific aircraft
    * GET /api/ogn/track/:id
    * Path parameters:

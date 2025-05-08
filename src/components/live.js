@@ -647,8 +647,17 @@ const LiveControl = L.Control.extend({
         this.pilotTracksForChart = {}; // Clear cached tracks
         if (this.chartVisible) this._hideAltitudeChart(); // Hide chart if open
 
-        this._connectWebSocket();
-        this._map.on('moveend', this._updateBounds, this);
+        // Fetch recent aircraft data first
+        this._fetchRecentAircraftData().then(() => {
+            // Connect to WebSocket after recent data is processed
+            this._connectWebSocket();
+            this._map.on('moveend', this._updateBounds, this);
+        }).catch(error => {
+            console.error("Failed to load recent aircraft, proceeding with WebSocket:", error);
+            // Still connect to WebSocket even if recent data fails
+            this._connectWebSocket();
+            this._map.on('moveend', this._updateBounds, this);
+        });
 
         if (this._configBadgeOpen && this._configContainer) {
             const mainToggle = this._configContainer.querySelector('#live-toggle-main');
@@ -856,6 +865,28 @@ const LiveControl = L.Control.extend({
             // Trigger REST fetch if using fallback
             this._fetchAircraftDataREST();
         }
+    },
+
+    _fetchRecentAircraftData: function() {
+        console.log("Fetching recent aircraft data (last 15 minutes)");
+        const url = `/api/ogn/aircraft/recent?minutes=15`; // Assuming this endpoint exists
+
+        return fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Received recent aircraft data:", data.length);
+                this._updateAircraft(data); // Process the recent aircraft
+            })
+            .catch(error => {
+                console.error('Error fetching recent aircraft data:', error);
+                // Optionally, re-throw or handle as needed if you want to stop _activateLive
+                throw error; // Re-throw to be caught by the caller in _activateLive
+            });
     },
 
     _fetchAircraftDataREST: function() {
