@@ -170,7 +170,7 @@ const LiveControl = L.Control.extend({
                         borderColor: 'transparent', // No border for the fill area
                         backgroundColor: '#ddb88b', // Specified fill color
                         fill: 'origin', // Fill from y=0 up to the data points
-                        tension: 0.1, // Match pilot data for curve style
+                        tension: 0.1, // Reverted for more natural ground fill
                         pointRadius: 0, // No points on the ground line
                         order: 1 // Draw ground fill first
                     };
@@ -460,7 +460,8 @@ const LiveControl = L.Control.extend({
                 borderColor: color,
                 backgroundColor: color + '33', // For pilot's line, if fill was true
                 fill: false, // Pilot line itself is not filled by default
-                tension: 0.1,
+                tension: 0.4, // Keep increased for smoother curve
+                cubicInterpolationMode: 'monotone', // Added for smoother line drawing
                 order: 2 // Draw pilot line on top of ground fill (ground is order 1)
             });
         }
