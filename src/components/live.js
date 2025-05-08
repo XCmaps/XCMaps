@@ -170,7 +170,7 @@ const LiveControl = L.Control.extend({
                         borderColor: 'transparent', // No border for the fill area
                         backgroundColor: '#ddb88b', // Specified fill color
                         fill: 'origin', // Fill from y=0 up to the data points
-                        tension: 0.1, // Reverted for more natural ground fill
+                        tension: 0.4, // Increased for smoother ground fill
                         pointRadius: 0, // No points on the ground line
                         order: 1 // Draw ground fill first
                     };

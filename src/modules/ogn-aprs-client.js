@@ -1743,27 +1743,31 @@ class OgnAprsClient extends EventEmitter {
       );
  
       if (distance >= SKYTRAXX_FILTER_RADIUS_M) {
-        // Only insert into tracks table if outside the filter radius
-        await client.query(`
-          INSERT INTO aircraft_tracks (
-            aircraft_id, timestamp, lat, lon,
-            alt_msl, alt_agl, course, speed_kmh, vs, turn_rate, status -- Added status column
-          ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11 -- Added $11 for status
-          )
-        `, [
-          deviceId,         // $1 - Use deviceId as aircraft_id
-          data.timestamp,   // $2
-          data.lat,         // $3
-          data.lon,         // $4
-          data.altMsl,      // $5
-          altAgl,           // $6 - Use calculated AGL
-          data.course,      // $7
-          data.speedKmh,    // $8
-          data.vs,          // $9
-          data.turnRate,    // $10
-          data.status       // $11 - Pass the calculated status
-        ]);
+        // Only insert into tracks table if outside the filter radius AND alt_msl is not 0
+        if (data.altMsl !== 0) {
+          await client.query(`
+            INSERT INTO aircraft_tracks (
+              aircraft_id, timestamp, lat, lon,
+              alt_msl, alt_agl, course, speed_kmh, vs, turn_rate, status -- Added status column
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11 -- Added $11 for status
+            )
+          `, [
+            deviceId,         // $1 - Use deviceId as aircraft_id
+            data.timestamp,   // $2
+            data.lat,         // $3
+            data.lon,         // $4
+            data.altMsl,      // $5
+            altAgl,           // $6 - Use calculated AGL
+            data.course,      // $7
+            data.speedKmh,    // $8
+            data.vs,          // $9
+            data.turnRate,    // $10
+            data.status       // $11 - Pass the calculated status
+          ]);
+        } else {
+          console.log(`Skipping track update for ${deviceId} because alt_msl is 0.`);
+        }
       } else {
         console.log(`Filtered track point for ${deviceId} near Skytraxx default location (Distance: ${distance.toFixed(1)}m)`);
       }
