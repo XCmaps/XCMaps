@@ -210,11 +210,14 @@ const LiveControl = L.Control.extend({
                         x: {
                             type: 'time',
                             time: {
-                                unit: 'minute',
-                                tooltipFormat: 'HH:mm:ss',
-                                displayFormats: { minute: 'HH:mm' },
-                                stepSize: 5,
-                                round: 'minute'
+                                unit: 'second',
+                                tooltipFormat: 'HH:mm:ss', // Keep detailed time in tooltip
+                                displayFormats: {
+                                    second: 'HH:mm', // Only show HH:mm on axis labels
+                                    minute: 'HH:mm'
+                                },
+                                stepSize: 5
+                                // Using 'second' as the unit for data points but only showing HH:mm on axis
                             },
                             title: { display: false },
                             ticks: { source: 'auto', maxRotation: 0, autoSkip: true },
