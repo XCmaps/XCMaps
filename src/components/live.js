@@ -230,7 +230,24 @@ const LiveControl = L.Control.extend({
                     },
                     plugins: {
                         legend: { display: false },
-                        tooltip: { mode: 'index', intersect: false }
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(tooltipItem) {
+                                    const dataset = tooltipItem.chart.data.datasets[tooltipItem.datasetIndex];
+                                    const displayName = dataset.displayName || dataset.label;
+                                    let label = displayName || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (tooltipItem.parsed.y !== null) {
+                                        label += tooltipItem.parsed.y.toLocaleString() + 'm';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
                     },
                     elements: { point: { radius: 0 } }
                 }
@@ -364,9 +381,9 @@ const LiveControl = L.Control.extend({
         this._map.invalidateSize({ animate: true }); // Animate map resize
     },
 
-    _addPilotDataToChart: function(aircraftId, trackData, color) {
+    _addPilotDataToChart: function(aircraftId, trackData, color, displayName) {
         if (!trackData || trackData.length === 0) {
-            console.log(`No track data for ${aircraftId} to add to chart.`);
+            console.log(`No track data for ${displayName || aircraftId} to add to chart.`);
             return;
         }
 
@@ -380,15 +397,15 @@ const LiveControl = L.Control.extend({
         });
 
         if (validAltitudePoints.length === 0) {
-             console.log(`[Chart Data] No points with valid 'last_alt_msl' or 'alt_msl' found for ${aircraftId}.`);
+             console.log(`[Chart Data] No points with valid 'last_alt_msl' or 'alt_msl' found for ${displayName || aircraftId}.`);
              if (existingDatasetIndex > -1) {
                  this.chartData.datasets.splice(existingDatasetIndex, 1);
-                 console.log(`[Chart Data] Removed dataset for ${aircraftId} due to lack of valid points.`);
+                 console.log(`[Chart Data] Removed dataset for ${displayName || aircraftId} due to lack of valid points.`);
                  if (this.chartVisible) this._createOrUpdateAltitudeChart();
              }
              return;
         } else {
-             console.log(`[Chart Data] Found ${validAltitudePoints.length} points with valid altitude for ${aircraftId}.`);
+             console.log(`[Chart Data] Found ${validAltitudePoints.length} points with valid altitude for ${displayName || aircraftId}.`);
         }
 
         // Further filter to ensure we have a range, and not just 0s if those are not desired.
@@ -417,7 +434,7 @@ const LiveControl = L.Control.extend({
 
         // Check again if we still have points after potential parsing failures
         if (newPoints.length === 0) {
-             console.log(`[Chart Data] No valid numeric altitude points found for ${aircraftId} after parsing.`);
+             console.log(`[Chart Data] No valid numeric altitude points found for ${displayName || aircraftId} after parsing.`);
              if (existingDatasetIndex > -1) {
                  this.chartData.datasets.splice(existingDatasetIndex, 1);
                  if (this.chartVisible) this._createOrUpdateAltitudeChart();
@@ -429,9 +446,11 @@ const LiveControl = L.Control.extend({
             this.chartData.datasets[existingDatasetIndex].data = newPoints;
             this.chartData.datasets[existingDatasetIndex].borderColor = color;
             this.chartData.datasets[existingDatasetIndex].backgroundColor = color + '33';
+            this.chartData.datasets[existingDatasetIndex].displayName = displayName || aircraftId;
         } else {
             this.chartData.datasets.push({
-                label: aircraftId,
+                label: aircraftId, // Keep original ID for internal tracking
+                displayName: displayName || aircraftId, // For display in tooltip
                 data: newPoints,
                 borderColor: color,
                 backgroundColor: color + '33', // For pilot's line, if fill was true
@@ -1373,10 +1392,11 @@ const LiveControl = L.Control.extend({
                         if (this.chartVisible) {
                              // _addPilotDataToChart will itself call _createOrUpdateAltitudeChart
                              // It will use the full this.pilotTracksForChart[normalizedId] which now has the new point with AGL
-                             this._addPilotDataToChart(normalizedId, this.pilotTracksForChart[normalizedId], this.activePopupColors[normalizedId] || this.options.trackColor);
+                             const pilotDisplayName = processedAircraft.name || normalizedId;
+                             this._addPilotDataToChart(normalizedId, this.pilotTracksForChart[normalizedId], this.activePopupColors[normalizedId] || this.options.trackColor, pilotDisplayName);
                         }
                     } else {
-                         console.warn(`[UpdateSingle] Skipping adding point to chart cache for ${normalizedId} due to invalid or unparsable MSL altitude:`, rawAlt);
+                         console.warn(`[UpdateSingle] Skipping adding point to chart cache for ${processedAircraft.name || normalizedId} due to invalid or unparsable MSL altitude:`, rawAlt);
                     }
                 }
             } else {
@@ -1411,10 +1431,11 @@ const LiveControl = L.Control.extend({
         const assignedColor = color || this.activePopupColors[normalizedId] || this.options.trackColor;
 
         if (this.pilotTracksForChart[normalizedId] && this.pilotTracksForChart[normalizedId].length > 0) {
-            console.log(`Using cached full track data for ${normalizedId}`);
+            console.log(`Using cached full track data for ${marker.options.aircraftData.name || normalizedId}`);
             const cachedTrackData = this.pilotTracksForChart[normalizedId];
+            const pilotDisplayName = marker.options.aircraftData.name || normalizedId;
             this._displayAircraftTrack(normalizedId, cachedTrackData, assignedColor);
-            this._addPilotDataToChart(normalizedId, cachedTrackData, assignedColor);
+            this._addPilotDataToChart(normalizedId, cachedTrackData, assignedColor, pilotDisplayName);
             if (this.chartData.datasets.length > 0) this._showAltitudeChart();
             return;
         }
@@ -1452,11 +1473,12 @@ const LiveControl = L.Control.extend({
                 }).filter(p => p.last_lat !== undefined && p.last_lon !== undefined);
 
                 if (processedTrackData.length > 0) {
-                    console.log(`[Track Fetch] Processed ${processedTrackData.length} valid points for ${normalizedId}`);
+                    const pilotDisplayName = marker.options.aircraftData.name || normalizedId;
+                    console.log(`[Track Fetch] Processed ${processedTrackData.length} valid points for ${pilotDisplayName}`);
                     this.pilotTracksForChart[normalizedId] = processedTrackData;
                     this._displayAircraftTrack(normalizedId, processedTrackData, assignedColor);
-                    this._addPilotDataToChart(normalizedId, processedTrackData, assignedColor);
-                    console.log(`[Track Fetch] Datasets count after adding ${normalizedId}: ${this.chartData.datasets.length}`);
+                    this._addPilotDataToChart(normalizedId, processedTrackData, assignedColor, pilotDisplayName);
+                    console.log(`[Track Fetch] Datasets count after adding ${pilotDisplayName}: ${this.chartData.datasets.length}`);
                     if (this.chartData.datasets.length > 0) {
                          console.log("[Track Fetch] Attempting to show altitude chart...");
                          this._showAltitudeChart();
@@ -1464,11 +1486,11 @@ const LiveControl = L.Control.extend({
                          console.log("[Track Fetch] No datasets available, not showing chart.");
                     }
                 } else {
-                     console.log(`[Track Fetch] No valid track points after processing for ${normalizedId} (API ID: ${apiId})`);
+                     console.log(`[Track Fetch] No valid track points after processing for ${marker.options.aircraftData.name || normalizedId} (API ID: ${apiId})`);
                      this._removePilotDataFromChart(normalizedId);
                 }
             } else {
-                console.log(`[Track Fetch] No track data received for ${normalizedId} (API ID: ${apiId})`);
+                console.log(`[Track Fetch] No track data received for ${marker.options.aircraftData.name || normalizedId} (API ID: ${apiId})`);
                 this._removePilotDataFromChart(normalizedId);
             }
         };
