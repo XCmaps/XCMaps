@@ -1,4 +1,5 @@
 // spotsHelper.js - Common functionality for loading and displaying spots on a map
+import { keycloak, isUserAuthenticated } from './keycloak-auth.js';
 
 // Module-scoped variable to track Dropzone instance
 let feedbackDropzone = null;
@@ -142,9 +143,14 @@ async function loadPlaceDetails(layer, placeId) {
         window.currentStrPlacemarkId = data.properties.strPlacemarkId;
 
         // --- Apply fullSpotsPopoup configuration ---
-        if (window.appConfig && window.appConfig.fullSpotsPopoup === true) {
+        const userHasRole = keycloak && isUserAuthenticated() && keycloak.hasRealmRole('fullSpotsPopoup');
+        if (window.appConfig && (window.appConfig.fullSpotsPopoup === true || userHasRole)) {
             // --- FULL POPUP LOGIC ---
-            console.log("Generating full spot popup (config enabled)");
+            if (userHasRole && window.appConfig.fullSpotsPopoup === false) {
+                console.log("Generating full spot popup (user role override)");
+            } else {
+                console.log("Generating full spot popup (config enabled)");
+            }
 
             let popupContent = `<span style="color: #0087F7;"><h5>${data.properties.name}</h5></span>
                                 <table style="border-collapse: collapse; width: 70%;">
@@ -294,7 +300,7 @@ async function loadPlaceDetails(layer, placeId) {
 
         } else {
             // --- SIMPLIFIED POPUP LOGIC ---
-            console.log("Generating simplified spot popup (config disabled)");
+            console.log("Generating simplified spot popup (config disabled and no role override)");
 
             // Add the 'simplified-spot-popup' class here
             const simplifiedPopupContent = `
