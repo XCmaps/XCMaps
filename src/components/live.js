@@ -14,6 +14,8 @@ const LiveControl = L.Control.extend({
         inactiveIcon: 'assets/images/live-inactive.svg',
         title: 'Toggle live pilots',
         refreshInterval: 30000, // 30 seconds
+        reconnectInterval: 5000, // 5 seconds for WebSocket reconnection
+        subscriptionRetryInterval: 3000, // 3 seconds for subscription retry
         trackColor: '#FF5500',
         trackWeight: 3,
         trackOpacity: 0.8,
@@ -45,6 +47,7 @@ const LiveControl = L.Control.extend({
         this.aircraftLayer = L.layerGroup();
         this.trackLayer = L.layerGroup();
         this.refreshTimer = null;
+        this.reconnectTimer = null; // Timer for WebSocket reconnection
         this.socket = null; // WebSocket connection
         this.lastUpdateTimestamps = {}; // Track last update timestamp for each aircraft
         this.canopySvgContent = null;
@@ -57,6 +60,8 @@ const LiveControl = L.Control.extend({
         this.hangGliderInactiveSvgContent = null; // Added property for inactive HG SVG
         this._svgsLoading = false;
         this._configBadgeOpen = false; // Track if config badge is open
+        this._boundsSubscribed = false; // Flag to track if subscribed to bounds updates
+        this.subscriptionRetryTimer = null; // Timer for retrying subscription
 
         // --- NEW: Live Settings State ---
         this._liveSettings = {
@@ -651,12 +656,12 @@ const LiveControl = L.Control.extend({
         this._fetchRecentAircraftData().then(() => {
             // Connect to WebSocket after recent data is processed
             this._connectWebSocket();
-            this._map.on('moveend', this._updateBounds, this);
+            // Note: 'moveend' listener is now attached within _connectWebSocket upon successful connection
         }).catch(error => {
             console.error("Failed to load recent aircraft, proceeding with WebSocket:", error);
             // Still connect to WebSocket even if recent data fails
             this._connectWebSocket();
-            this._map.on('moveend', this._updateBounds, this);
+            // Note: 'moveend' listener is now attached within _connectWebSocket upon successful connection
         });
 
         if (this._configBadgeOpen && this._configContainer) {
@@ -676,7 +681,7 @@ const LiveControl = L.Control.extend({
 
         if (this._configBadgeOpen) this._closeConfigBadge();
         this._clearAllPopupTimers();
-        this._disconnectWebSocket();
+        this._disconnectWebSocket(); // This will also clear reconnectTimer and subscriptionRetryTimer
         this._map.off('moveend', this._updateBounds, this);
 
         // Clear state and layers
@@ -702,43 +707,74 @@ const LiveControl = L.Control.extend({
     },
 
     _connectWebSocket: function() {
-        if (this.socket) {
-            console.log("WebSocket already connected or connecting");
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+        // More robust check for existing socket
+        if (this.socket && (this.socket.connected || this.socket.connecting)) {
+            console.log(`WebSocket already exists and is ${this.socket.connected ? 'connected' : 'connecting'}. Socket ID: ${this.socket.id}`);
             return;
+        } else if (this.socket) {
+            console.log(`Stale WebSocket instance found (ID: ${this.socket.id}, connected: ${this.socket.connected}). Disconnecting before creating a new one.`);
+            this.socket.disconnect();
+            this.socket = null;
         }
 
-        console.log("Connecting to WebSocket server...");
+        console.log("Attempting to establish a new WebSocket connection...");
         this.usingWebSocket = false;
         this.usingRESTFallback = false;
 
         this.socket = io('/ogn'); // Connect to OGN namespace
 
         this.socket.on('connect', () => {
-            console.log("Connected to WebSocket server");
-            if (this.refreshTimer) {
+            console.log(`WebSocket 'connect' event. Socket ID: ${this.socket.id}, Connected: ${this.socket.connected}`);
+            this._boundsSubscribed = false; // Ensure re-subscription on any new connection
+            if (this.reconnectTimer) {
+                clearTimeout(this.reconnectTimer);
+                this.reconnectTimer = null;
+            }
+            if (this.usingRESTFallback) {
+                console.log("WebSocket reconnected, stopping REST fallback.");
+                this.usingRESTFallback = false;
+                if (this.refreshTimer) {
+                    clearInterval(this.refreshTimer);
+                    this.refreshTimer = null;
+                }
+                // Clear existing markers from REST and request full update from WebSocket
+                this.aircraftLayer.clearLayers();
+                this.markers = {};
+                // Tracks and chart data are typically re-fetched on popup, but consider clearing if necessary
+            } else if (this.refreshTimer) { // If not in REST fallback but somehow refreshTimer is active
                 clearInterval(this.refreshTimer);
                 this.refreshTimer = null;
             }
+
             this.usingWebSocket = true;
-            this.usingRESTFallback = false;
-            this._updateBounds(); // Send initial bounds
+            this._attemptSubscriptionAndDataRequest(); // Start attempting to subscribe
         });
 
-        this.socket.on('disconnect', () => {
-            console.log("Disconnected from WebSocket server");
+        this.socket.on('disconnect', (reason) => {
+            console.log("Disconnected from WebSocket server. Reason:", reason);
             this.usingWebSocket = false;
-            if (this.active && !this.usingRESTFallback) {
-                console.log("Switching to REST API fallback after WebSocket disconnect");
-                this._startRESTFallback();
+            this.socket = null; // Ensure socket is nullified
+            this._boundsSubscribed = false; // Reset subscription flag
+            if (this.active) {
+                // Always try to reconnect if active, regardless of REST fallback status
+                console.log(`Attempting to reconnect WebSocket in ${this.options.reconnectInterval / 1000} seconds...`);
+                this._tryReconnect();
             }
         });
 
         this.socket.on('connect_error', (error) => {
             console.error("WebSocket connection error:", error);
             this.usingWebSocket = false;
-            if (this.active && !this.usingRESTFallback) {
-                console.log("Falling back to REST API due to connection error");
-                this._startRESTFallback();
+            this.socket = null; // Ensure socket is nullified
+            this._boundsSubscribed = false; // Reset subscription flag
+            if (this.active) {
+                // Always try to reconnect if active, regardless of REST fallback status
+                console.log(`Attempting to reconnect WebSocket due to connection error in ${this.options.reconnectInterval / 1000} seconds...`);
+                this._tryReconnect();
             }
         });
 
@@ -838,8 +874,82 @@ const LiveControl = L.Control.extend({
             clearInterval(this.refreshTimer);
             this.refreshTimer = null;
         }
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+        if (this.subscriptionRetryTimer) {
+            clearTimeout(this.subscriptionRetryTimer);
+            this.subscriptionRetryTimer = null;
+        }
         this.usingWebSocket = false;
         this.usingRESTFallback = false;
+    },
+
+    _attemptSubscriptionAndDataRequest: function() {
+        if (this.subscriptionRetryTimer) {
+            clearTimeout(this.subscriptionRetryTimer);
+            this.subscriptionRetryTimer = null;
+        }
+
+        const socketId = this.socket ? this.socket.id : 'null';
+        const socketConnected = this.socket ? this.socket.connected : 'N/A';
+        const mapReady = !!this._map;
+        console.log(`_attemptSubscriptionAndDataRequest: Socket ID: ${socketId}, Connected: ${socketConnected}, Map Ready: ${mapReady}, Live Active: ${this.active}`);
+
+        if (this.socket && this.socket.connected && this._map && this.active) {
+            console.log(`Conditions met for subscription. Socket ID: ${this.socket.id}`);
+            const bounds = this._map.getBounds();
+            const boundsData = {
+                nwLat: bounds.getNorthWest().lat,
+                nwLng: bounds.getNorthWest().lng,
+                seLat: bounds.getSouthEast().lat,
+                seLng: bounds.getSouthEast().lng
+            };
+            this.socket.emit('subscribe', boundsData);
+            this._boundsSubscribed = true; // Mark as subscribed
+            console.log("Emitted 'subscribe' with current bounds.");
+
+            this.socket.emit('request-full-update');
+            console.log("Requested full aircraft update.");
+
+            // Attach moveend listener now that initial connection and subscription are done
+            this._map.off('moveend', this._updateBounds, this); // Remove if already attached
+            this._map.on('moveend', this._updateBounds, this);
+            console.log("Attached 'moveend' listener for map bounds updates.");
+        } else {
+            console.warn(`Subscription attempt failed: Socket ID: ${socketId}, Connected: ${socketConnected}, Map Ready: ${mapReady}, Live Active: ${this.active}. Retrying in ${this.options.subscriptionRetryInterval / 1000}s.`);
+            if (this.active) { // Only retry if live mode is still active
+                this.subscriptionRetryTimer = setTimeout(() => {
+                    this._attemptSubscriptionAndDataRequest();
+                }, this.options.subscriptionRetryInterval);
+            }
+        }
+    },
+
+    _tryReconnect: function() {
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+        // Try to reconnect if live mode is active and there's no current socket connection.
+        // This will now also run if REST fallback is active, allowing WebSocket to take over.
+        if (this.active && (!this.socket || !this.socket.connected)) {
+            console.log("Scheduling WebSocket reconnection attempt...");
+            this.reconnectTimer = setTimeout(() => {
+                // Double check conditions before actually connecting
+                if (this.active && (!this.socket || !this.socket.connected)) {
+                    console.log("Executing scheduled WebSocket reconnection attempt.");
+                    this._connectWebSocket();
+                } else {
+                    console.log("Scheduled WebSocket reconnection cancelled (conditions no longer met).");
+                }
+            }, this.options.reconnectInterval);
+        } else if (!this.active) {
+            console.log("Reconnect attempt skipped: Live mode is not active.");
+        } else if (this.socket && this.socket.connected) {
+            console.log("Reconnect attempt skipped: WebSocket is already connected.");
+        }
     },
 
     _updateBounds: function() {
@@ -860,6 +970,7 @@ const LiveControl = L.Control.extend({
             if (!this._boundsSubscribed) {
                  this.socket.emit('subscribe', boundsData);
                  this._boundsSubscribed = true; // Assume subscription succeeds
+                 console.log("Emitted 'subscribe' with current bounds upon re(connection).");
             }
         } else if (this.usingRESTFallback) {
             // Trigger REST fetch if using fallback
