@@ -220,7 +220,12 @@ const LiveControl = L.Control.extend({
                                 // Using 'second' as the unit for data points but only showing HH:mm on axis
                             },
                             title: { display: false },
-                            ticks: { source: 'auto', maxRotation: 0, autoSkip: true },
+                            ticks: {
+                                source: 'auto',
+                                maxRotation: 0,
+                                autoSkip: true,
+                                maxTicksLimit: 6 // Limit to 6 total time labels for better mobile readability
+                            },
                             max: this._calculateChartXMax(finalDatasets)
                         },
                         y: {
