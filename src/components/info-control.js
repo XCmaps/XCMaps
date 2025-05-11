@@ -144,100 +144,100 @@ const InfoControl = L.Control.extend({
                 </ul>
             `,
             live: `
-                                    <h3>LIVE! - Real-Time Flight Tracking</h3>
-                                    <p>The LIVE! feature provides real-time tracking of free gliders, integrating data from OGN and XContest to display pilots on the map. This allows users to see live flight activities, enhancing situational awareness and community engagement.</p>
-            
-                                    <h4>Pilot Name Display & Configuration</h4>
-                                    <p>The pilot name displayed on the map can be configured in the profile badge. This name is primarily sourced from several databases and tracking systems. If you have a registered device with any of these services, your chosen identifier or callsign will typically be used. To customize or ensure your preferred name is displayed, check your registration details with the respective service (e.g., your OGN registration, FlarmNet profile, or XContest account settings).</p>
-                                    <p>If you don\`t see a name for your device or want to use a different name for XCMaps, you can also configure it in the profile badge. Just enter your device-ID and the name that should show in the map.</p>
-            
-                                    <h4>Sources for Pilot Names and Tracking Data</h4>
-                                    <p>We aggregate pilot information and tracking data from the following sources:</p>
-                                    <ul>
-                                        <li><strong>OGN Database:</strong> The Open Glider Network (OGN) is a community-driven project providing live tracking for gliders and other light aircraft. Pilot names are often based on device registration details within the OGN system.</li>
-                                        <li><strong>Flarmnet Database:</strong> Flarmnet is a database associated with FLARM anti-collision devices. If a pilot is registered on Flarmnet, their aircraft details and callsign can be displayed.</li>
-                                        <li><strong>Puretrack:</strong> Puretrack provides tracking solutions, and data from devices using this service are integrated.</li>
-                                        <li><strong>OGN Status Packages:</strong> Some OGN devices transmit status packages which can include pilot or aircraft identifiers.</li>
-                                    </ul>
-            
-                                    <h4>XContest & XCTrack Integration</h4>
-                                    <p>XCMaps integrates with XContest, a popular platform for flight logging and contests. If you are using XCTrack (the live tracking application for XContest) and have live tracking enabled, your flights can be visible on XCMaps. This integration allows for a broader view of ongoing flights, including those participating in XContest events or simply using XCTrack for personal live tracking.</p>
-                                    <p>If you want to show your XCTrack flights in XCMaps, please enter your UUID in the profile badge. A link to receive your UUID is included in the profile badge as well.</p>
-            
-                                    <h4>Glider Color Coding (Vertical Speed & Status)</h4>
-                                    <p>Glider icons are color-coded to provide a quick visual indication of their current vertical speed (climb/sink rate) and status. This helps in assessing flight conditions at a glance.</p>
-                                    <table class="table table-sm table-striped table-bordered">
-                                      <thead class="thead-light">
-                                        <tr>
-                                          <th style="width: 60px; text-align: center;">Color</th>
-                                          <th style="text-align: center;">Vertical Speed (m/s)</th>
-                                          <th>Description</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        <tr>
-                                          <td style="background-color: #0D400D; border: 1px solid #0D400D;"></td>
-                                          <td style="text-align: center;">≥ +5.0</td>
-                                          <td>Strong climb</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="background-color: #289628; border: 1px solid #289628;"></td>
-                                          <td style="text-align: center;">+3.5 to +4.9</td>
-                                          <td>Good climb</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="background-color: #5CCD5C; border: 1px solid #5CCD5C;"></td>
-                                          <td style="text-align: center;">+2.5 to +3.4</td>
-                                          <td>Moderate climb</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="background-color: #99E699; border: 1px solid #99E699;"></td>
-                                          <td style="text-align: center;">+1.5 to +2.4</td>
-                                          <td>Light climb</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="background-color: #CFF2CF; border: 1px solid #CFF2CF;"></td>
-                                          <td style="text-align: center;">+0.5 to +1.4</td>
-                                          <td>Weak climb</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="background-color: #FFFFFF; border: 1px solid #CCCCCC;"></td>
-                                          <td style="text-align: center;">-0.4 to +0.4</td>
-                                          <td>Neutral (minimal sink/climb)</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="background-color: #FFD700; border: 1px solid #FFD700;"></td>
-                                          <td style="text-align: center;">-0.5 to -1.4</td>
-                                          <td>Weak sink</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="background-color: #FFA500; border: 1px solid #FFA500;"></td>
-                                          <td style="text-align: center;">-1.5 to -2.4</td>
-                                          <td>Light sink</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="background-color: #FF4500; border: 1px solid #FF4500;"></td>
-                                          <td style="text-align: center;">-2.5 to -3.4</td>
-                                          <td>Moderate sink</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="background-color: #FF0000; border: 1px solid #FF0000;"></td>
-                                          <td style="text-align: center;">-3.5 to -4.9</td>
-                                          <td>Strong sink</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="background-color: #8B0000; border: 1px solid #8B0000;"></td>
-                                          <td style="text-align: center;">≤ -5.0</td>
-                                          <td>Very strong sink</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="background-color: #898989; border: 1px solid #898989;"></td>
-                                          <td style="text-align: center;">N/A</td>
-                                          <td>Inactive (no recent position update)</td>
-                                        </tr>
-                                      </tbody>
-                                    </table>
-                                    `,
+                <h3>LIVE! - Real-Time Flight Viewer</h3>
+                <p>The LIVE! feature provides real-time viewing of free gliders, integrating data from OGN and XContest to display pilots on the map. This allows users to see live flight activities, enhancing situational awareness and community engagement.</p>
+
+                <h4>Pilot Name Display & Configuration</h4>
+                <p>The pilot name displayed on the map can be configured in the profile badge. This name is primarily sourced from several databases and tracking systems. If you have a registered device with any of these services, your chosen identifier or callsign will typically be used. To customize or ensure your preferred name is displayed, check your registration details with the respective service (e.g., your OGN registration, FlarmNet profile, or XContest account settings).</p>
+                <p>If your device doesn't have a name or you'd like to use a different one for XCMaps, you can set it in the profile badge. Simply enter your device ID and the name you'd like to display on the map. If we've already received a pilot name from one of the sources below, it will appear automatically after you enter the device ID and click the name field.</p>
+
+                <h4>Sources for Pilot Names and Tracking Data</h4>
+                <p>We aggregate pilot information and tracking data from the following sources:</p>
+                <ul>
+                    <li><strong>OGN Database:</strong> Pilot names are often based on device registration details within the <a href="http://wiki.glidernet.org/ddb" target="_blank">OGN Devices DataBase</a>.</li>
+                    <li><strong>Flarmnet Database:</strong> If a pilot is registered on <a href="https://www.flarmnet.org/accounts/login/" target="_blank">Flarmnet</a>, their aircraft details and callsign can be displayed.</li>
+                    <li><strong>Puretrack:</strong> Puretrack provides tracking solutions, and data from devices using this service are integrated.</li>
+                    <li><strong>OGN Status Packages:</strong> Some OGN devices transmit status packages which can include pilot or aircraft identifiers.</li>
+                </ul>
+
+                <h4>XContest & XCTrack Integration</h4>
+                <p>XCMaps integrates with XContest, a popular platform for flight logging and contests. If you are using XCTrack (the live tracking application for XContest) and have live tracking enabled, your flights can be visible on XCMaps. This integration allows for a broader view of ongoing flights, including those participating in XContest events or simply using XCTrack for personal live tracking.</p>
+                <p>If you want to show your XCTrack flights in XCMaps, please enter your UUID in the profile badge. A link to receive your UUID is included in the profile badge as well.</p>
+
+                <h4>Glider Color Coding (Vertical Speed & Status)</h4>
+                <p>Glider icons are color-coded to provide a quick visual indication of their current vertical speed (climb/sink rate) and status. This helps in assessing flight conditions at a glance.</p>
+                <table class="table table-sm table-striped table-bordered">
+                  <thead class="thead-light">
+                    <tr>
+                      <th style="width: 60px; text-align: center;">Color</th>
+                      <th style="text-align: center;">Vertical Speed (m/s)</th>
+                      <th>Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="background-color: #0D400D; border: 1px solid #0D400D;"></td>
+                      <td style="text-align: center;">≥ +5.0</td>
+                      <td>Strong climb</td>
+                    </tr>
+                    <tr>
+                      <td style="background-color: #289628; border: 1px solid #289628;"></td>
+                      <td style="text-align: center;">+3.5 to +4.9</td>
+                      <td>Good climb</td>
+                    </tr>
+                    <tr>
+                      <td style="background-color: #5CCD5C; border: 1px solid #5CCD5C;"></td>
+                      <td style="text-align: center;">+2.5 to +3.4</td>
+                      <td>Moderate climb</td>
+                    </tr>
+                    <tr>
+                      <td style="background-color: #99E699; border: 1px solid #99E699;"></td>
+                      <td style="text-align: center;">+1.5 to +2.4</td>
+                      <td>Light climb</td>
+                    </tr>
+                    <tr>
+                      <td style="background-color: #CFF2CF; border: 1px solid #CFF2CF;"></td>
+                      <td style="text-align: center;">+0.5 to +1.4</td>
+                      <td>Weak climb</td>
+                    </tr>
+                    <tr>
+                      <td style="background-color: #FFFFFF; border: 1px solid #CCCCCC;"></td>
+                      <td style="text-align: center;">-0.4 to +0.4</td>
+                      <td>Neutral (minimal sink/climb)</td>
+                    </tr>
+                    <tr>
+                      <td style="background-color: #FFD700; border: 1px solid #FFD700;"></td>
+                      <td style="text-align: center;">-0.5 to -1.4</td>
+                      <td>Weak sink</td>
+                    </tr>
+                    <tr>
+                      <td style="background-color: #FFA500; border: 1px solid #FFA500;"></td>
+                      <td style="text-align: center;">-1.5 to -2.4</td>
+                      <td>Light sink</td>
+                    </tr>
+                    <tr>
+                      <td style="background-color: #FF4500; border: 1px solid #FF4500;"></td>
+                      <td style="text-align: center;">-2.5 to -3.4</td>
+                      <td>Moderate sink</td>
+                    </tr>
+                    <tr>
+                      <td style="background-color: #FF0000; border: 1px solid #FF0000;"></td>
+                      <td style="text-align: center;">-3.5 to -4.9</td>
+                      <td>Strong sink</td>
+                    </tr>
+                    <tr>
+                      <td style="background-color: #8B0000; border: 1px solid #8B0000;"></td>
+                      <td style="text-align: center;">≤ -5.0</td>
+                      <td>Very strong sink</td>
+                    </tr>
+                    <tr>
+                      <td style="background-color: #898989; border: 1px solid #898989;"></td>
+                      <td style="text-align: center;">N/A</td>
+                      <td>Inactive (no recent position update)</td>
+                    </tr>
+                  </tbody>
+                </table>
+                `,
             airspaces: `
                 <h3>Airspaces</h3>
                 <p>The Airspaces layer displays various types of airspaces relevant to free flight activities. Understanding these airspaces is crucial for safe and legal flying.</p>
@@ -478,7 +478,7 @@ const InfoControl = L.Control.extend({
 
                     <h3>Features</h3>
                     <ul>
-                      ${showLiveFeature ? '<li><strong><a href="#" data-section="live">LIVE!:</a></strong> OGN & XContest/XCTrack Live Tracking</li>' : ''}
+                      ${showLiveFeature ? '<li><strong><a href="#" data-section="live">LIVE!:</a></strong> OGN & XContest/XCTrack Live Viewer</li>' : ''}
                       <li><strong><a href="#" data-section="weather-stations">Weather Stations:</a></strong> Wind, Gusts, Direction, Temp and Camera if available. Marker refresh every 1 minute.</li>
                       <li><strong>Rain Viewer:</strong> Radar and Satellite, past 2 hours + 20 min forecast</li>
                       <li><strong>Thermals:</strong> kk7 thermal and skyways map</li>
