@@ -1189,6 +1189,35 @@ document.addEventListener('DOMContentLoaded', async () => { // Use arrow functio
       // Code that should run regardless of success or failure
       console.log("Initial setup sequence complete (Keycloak attempted).");
       addLiveControlIfNeeded(); // Add the live control check AFTER Keycloak attempt
+      
+      // Reorder controls in the top-right corner
+      setTimeout(() => {
+        try {
+          // Find the top-right container
+          const topRightContainer = document.querySelector('.leaflet-top.leaflet-right');
+          if (topRightContainer) {
+            // Find the user control and layers control
+            const userControl = topRightContainer.querySelector('.leaflet-control-user');
+            const layersControl = topRightContainer.querySelector('.leaflet-control-layers');
+            
+            if (userControl && layersControl) {
+              console.log('Found both controls, reordering...');
+              // Move the user control to be the first child of the container
+              topRightContainer.insertBefore(userControl, topRightContainer.firstChild);
+              console.log('Controls reordered successfully');
+            } else {
+              console.log('Could not find both controls', {
+                userControl: !!userControl,
+                layersControl: !!layersControl
+              });
+            }
+          } else {
+            console.log('Could not find top-right container');
+          }
+        } catch (error) {
+          console.error('Error reordering controls:', error);
+        }
+      }, 1000); // Wait for 1 second to ensure all controls are added
       // Initialize geolocation after map and potentially Keycloak init attempt
       if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(position => {
