@@ -116,7 +116,37 @@ const LiveControl = L.Control.extend({
             closeButton.innerHTML = '&times;';
             L.DomEvent.on(closeButton, 'click', (e) => {
                 L.DomEvent.stop(e);
-                this._hideAltitudeChart();
+                this._hideAltitudeChart(); // Visually hide the chart container
+
+                // Close all aircraft popups
+                Object.values(this.markers).forEach(marker => {
+                    if (marker.isPopupOpen()) {
+                        marker.closePopup();
+                    }
+                });
+
+                // Clear all tracks from the map and internal state
+                if (this.trackLayer) {
+                    this.trackLayer.clearLayers();
+                }
+                this.tracks = {};
+
+                // Clear pilot-specific data from the chart's data model
+                this.chartData.datasets = []; // Remove all datasets (pilot lines and ground level)
+                this.pilotTracksForChart = {}; // Clear cached track data used for chart
+
+                // If the chart instance exists, update it to reflect the cleared data
+                if (this.altitudeChart) {
+                    this.altitudeChart.data.datasets = [];
+                    this.altitudeChart.update('none'); // Update without animation
+                }
+
+                // Reset active popup tracking
+                this.activePopupOrder = [];
+                this.activePopupColors = {};
+
+                // Reset selected aircraft
+                this.selectedAircraft = null;
             }, this);
             this._hideAltitudeChart(); // Initially hidden
         } else {
