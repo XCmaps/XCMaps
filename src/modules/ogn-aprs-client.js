@@ -987,15 +987,23 @@ class OgnAprsClient extends EventEmitter {
             else if (currentSpeedMS < SPEED_HIKING_MAX_MS) nextStatus = 'hiking';
             else nextStatus = 'driving';
         } else {
-            // AGL > GROUND_MAX but takeoff conditions not met.
-            // This means the aircraft is airborne.
-            // If the previous state was a ground state or unknown, transition to flying.
-            // If it was already flying or started, keep that status.
-            if (state.currentStatus === 'unknown' || state.currentStatus === 'resting' || state.currentStatus === 'hiking' || state.currentStatus === 'driving') {
-                nextStatus = 'flying'; // Now airborne, regardless of takeoff detection
+            // This block is entered if:
+            // 1. Current status is 'unknown', 'resting', 'hiking', or 'driving'.
+            // 2. Explicit takeoff conditions (speed & alt change trend) were NOT met.
+            // 3. Current AGL is >= AGL_GROUND_MAX.
+
+            // User requirement: only transition from ground to flying if AGL is above ground max
+            // AND speed_kmh > 5 (which is 5/3.6 m/s).
+            const MIN_SPEED_FOR_GROUND_TO_FLYING_MS = 5 / 3.6; // 5 km/h
+
+            if (currentSpeedMS > MIN_SPEED_FOR_GROUND_TO_FLYING_MS) {
+                // AGL is already >= AGL_GROUND_MAX (due to how we entered this block)
+                // and speed condition is met.
+                nextStatus = 'flying';
             } else {
-                // Already 'flying' or 'started', maintain current status
-                nextStatus = state.currentStatus;
+                // AGL is >= AGL_GROUND_MAX, but speed is too low to transition to flying from a ground state.
+                // Remain in the current ground/unknown state.
+                nextStatus = state.currentStatus; // This correctly refers to the ground/unknown state
             }
         }
     }
