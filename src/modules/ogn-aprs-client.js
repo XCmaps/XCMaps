@@ -1008,6 +1008,32 @@ class OgnAprsClient extends EventEmitter {
         }
     }
 
+    // --- 5.5 Check for status transition and delete old tracks ---
+    const previousStatus = state.currentStatus; // Capture status before it's updated to nextStatus
+
+    if (
+      (previousStatus === 'resting' || previousStatus === 'hiking' || previousStatus === 'driving') &&
+      nextStatus === 'flying'
+    ) {
+      console.log(`Aircraft ${aircraftId} transitioned from ${previousStatus} to flying. Attempting to delete old ground tracks.`);
+      let deleteClient;
+      try {
+        deleteClient = await this.dbPool.connect();
+        const deleteQuery = `
+          DELETE FROM aircraft_tracks
+          WHERE aircraft_id = $1
+            AND status IN ('resting', 'hiking', 'driving')
+            AND timestamp < NOW() - INTERVAL '10 minutes';
+        `;
+        const deleteResult = await deleteClient.query(deleteQuery, [aircraftId]);
+        console.log(`Deleted ${deleteResult.rowCount} old ground tracks for ${aircraftId} (status: ${previousStatus} -> flying).`);
+      } catch (deleteError) {
+        console.error(`Error deleting old ground tracks for ${aircraftId} (status: ${previousStatus} -> flying):`, deleteError);
+      } finally {
+        if (deleteClient) deleteClient.release();
+      }
+    }
+
     // --- 6. Update Cache and Return Status ---
     state.currentStatus = nextStatus;
     this.pilotStatusCache.set(aircraftId, state); // Save updated state back to cache
