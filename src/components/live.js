@@ -161,7 +161,7 @@ const LiveControl = L.Control.extend({
 
         // 1. Filter pilot datasets to include only those currently selected and with data
         const pilotDatasetsToShow = this.chartData.datasets.filter(ds =>
-            ds.label !== 'groundLevel' && // Exclude any previous groundLevel dataset
+            ds.label !== 'Ground' && // Exclude any previous groundLevel dataset
             this.activePopupOrder.includes(ds.label) &&
             this.pilotTracksForChart[ds.label] &&
             this.pilotTracksForChart[ds.label].length > 0
