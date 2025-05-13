@@ -1198,6 +1198,13 @@ class OgnAprsClient extends EventEmitter {
         return; // Skip invalid packets
       }
 
+      // Check for RND prefix in callsign (device ID); random ID devices are not eligible
+      // The 'callsign' field from parseAprsPacket holds the sender ID.
+      if (parsedData.callsign && parsedData.callsign.startsWith('RND')) {
+        console.log(`OGN: Dropping packet from RND device: ${parsedData.callsign}`);
+        return; // Skip processing this packet
+      }
+
       // --- New Eligibility Check ---
       let storeData = false;
       if (parsedData.deviceId) {
