@@ -83,6 +83,7 @@ const LiveControl = L.Control.extend({
         };
         this.pilotTracksForChart = {}; // Store full track data { normalizedId: [trackPoints] } for pilots in chart
         this.selectedAircraft = null; // Track the last clicked aircraft ID
+        this.chartHoverMarkers = {}; // Markers to show on map when hovering chart, keyed by aircraftId
     },
 
     onAdd: function(map) {
@@ -147,6 +148,9 @@ const LiveControl = L.Control.extend({
 
                 // Reset selected aircraft
                 this.selectedAircraft = null;
+
+                Object.values(this.chartHoverMarkers).forEach(marker => marker.remove());
+                this.chartHoverMarkers = {};
             }, this);
             this._hideAltitudeChart(); // Initially hidden
         } else {
@@ -195,7 +199,7 @@ const LiveControl = L.Control.extend({
 
                 if (groundLevelPoints.length > 0) {
                     const groundLevelDataset = {
-                        label: 'groundLevel',
+                        label: 'Ground',
                         data: groundLevelPoints,
                         borderColor: 'transparent', // No border for the fill area
                         backgroundColor: '#ddb88b', // Specified fill color
@@ -236,6 +240,11 @@ const LiveControl = L.Control.extend({
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    hover: { // Added to make Chart.js apply hoverRadius based on index
+                        mode: 'index',
+                        intersect: false,
+                        animationDuration: 0 // Disable animation for faster hover response
+                    },
                     scales: {
                         x: {
                             type: 'time',
@@ -274,8 +283,10 @@ const LiveControl = L.Control.extend({
                     plugins: {
                         legend: { display: false },
                         tooltip: {
+                            enabled: true,
                             mode: 'index',
                             intersect: false,
+                            position: 'nearest',
                             callbacks: {
                                 label: function(tooltipItem) {
                                     const dataset = tooltipItem.chart.data.datasets[tooltipItem.datasetIndex];
@@ -292,9 +303,239 @@ const LiveControl = L.Control.extend({
                             }
                         }
                     },
-                    elements: { point: { radius: 0 } }
-                }
-            };
+                    elements: {
+                        point: {
+                            radius: function(context) {
+                                // Only show points when hovered
+                                return context.active ? 5 : 0;
+                            },
+                            hoverRadius: 6, // Larger hover radius for better visibility
+                            hitRadius: 15, // Even larger hit area for easier hover
+                            hoverBackgroundColor: '#FFFFFF',
+                            borderWidth: 2
+                        },
+                        line: {
+                            tension: 0.4
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    onHover: (event, activeElements, chart) => {
+                        if (!this._map) {
+                            return;
+                        }
+
+                        const newHoveredAircraftIds = new Set();
+                        let dataPointIndex = -1;
+                        let isPointerInCanvas = false; // Initialize to false by default
+
+                        // Determine the dataPointIndex from the event, using Chart.js's utility
+                        if (event.native) {
+                            if (!chart.canvas) {
+                                return;
+                            }
+                            const canvasRect = chart.canvas.getBoundingClientRect();
+                            if (!canvasRect) {
+                                return;
+                            }
+                            
+                            // Handle both mouse and touch events
+                            let clientX, clientY;
+                            
+                            if (event.native.type.startsWith('touch')) {
+                                // For touch events, get coordinates from changedTouches
+                                if (event.native.changedTouches && event.native.changedTouches.length > 0) {
+                                    clientX = event.native.changedTouches[0].clientX;
+                                    clientY = event.native.changedTouches[0].clientY;
+                                } else if (event.native.touches && event.native.touches.length > 0) {
+                                    clientX = event.native.touches[0].clientX;
+                                    clientY = event.native.touches[0].clientY;
+                                } else {
+                                    console.error("[Chart Hover] Touch event without valid touch coordinates");
+                                    return;
+                                }
+                            } else {
+                                // For mouse events, use clientX/Y directly
+                                clientX = event.native.clientX;
+                                clientY = event.native.clientY;
+                            }
+                            
+                            // Ensure we have valid numbers
+                            clientX = Number(clientX);
+                            clientY = Number(clientY);
+
+                            if (isNaN(clientX) || isNaN(clientY)) {
+                                return;
+                            }
+
+                            // Update the outer scope variable
+                            isPointerInCanvas = clientX >= canvasRect.left &&
+                                              clientX <= canvasRect.right &&
+                                              clientY >= canvasRect.top &&
+                                              clientY <= canvasRect.bottom;
+
+                            if (isPointerInCanvas) {
+                                try {
+                                    // Create a synthetic event with the correct properties for Chart.js
+                                    const syntheticEvent = {
+                                        type: 'mousemove', // Use mousemove type for consistent behavior
+                                        clientX: clientX,
+                                        clientY: clientY,
+                                        target: chart.canvas
+                                    };
+                                    
+                                    const elementsAtEvent = chart.getElementsAtEventForMode(
+                                        syntheticEvent,
+                                        'index',
+                                        { intersect: false },
+                                        true
+                                    );
+                                    
+                                    if (elementsAtEvent && elementsAtEvent.length > 0) {
+                                        dataPointIndex = elementsAtEvent[0].index;
+                                    }
+                                } catch (e) {
+                                    // Silent error handling
+                                }
+                            }
+                        }
+
+                        if (dataPointIndex !== -1) {
+                            // First, activate points on ALL datasets at the same index
+                            // This ensures all elevation lines show points at the same x-position
+                            chart.data.datasets.forEach((dataset) => {
+                                // Include all datasets except Ground
+                                if (dataset.label === 'Ground' || !dataset.data) {
+                                    return;
+                                }
+                                
+                                // Make sure we have data at this index
+                                if (dataset.data[dataPointIndex]) {
+                                    try {
+                                        // For Chart.js v3, we need to manually set the active state
+                                        const meta = dataset._meta;
+                                        if (meta && chart.id && meta[chart.id] && meta[chart.id].data &&
+                                            meta[chart.id].data[dataPointIndex]) {
+                                            meta[chart.id].data[dataPointIndex].hidden = false;
+                                            meta[chart.id].data[dataPointIndex].active = true;
+                                        }
+                                    } catch (e) {
+                                        // Silent error handling
+                                    }
+                                }
+                            });
+                            
+                            // Now handle map markers for datasets that have lat/lon data
+                            chart.data.datasets.forEach((dataset) => {
+                                // Skip the 'Ground' dataset and any dataset that doesn't have data at this specific index
+                                if (dataset.label === 'Ground' || !dataset.data || !dataset.data[dataPointIndex]) {
+                                    return;
+                                }
+
+                                const aircraftId = dataset.label; // This is the normalizedId
+                                const chartPoint = dataset.data[dataPointIndex];
+
+                                // Ensure the point has lat/lon before creating/updating a marker
+                                if (chartPoint && typeof chartPoint.lat === 'number' && typeof chartPoint.lon === 'number') {
+                                    newHoveredAircraftIds.add(aircraftId);
+                                    const latLng = L.latLng(chartPoint.lat, chartPoint.lon);
+
+                                    if (this.chartHoverMarkers[aircraftId]) {
+                                        this.chartHoverMarkers[aircraftId].setLatLng(latLng);
+                                        if (!this._map.hasLayer(this.chartHoverMarkers[aircraftId])) {
+                                            this.chartHoverMarkers[aircraftId].addTo(this._map);
+                                        }
+                                    } else {
+                                        this.chartHoverMarkers[aircraftId] = L.circleMarker(latLng, {
+                                            radius: 7,
+                                            color: dataset.borderColor || '#FF5500',
+                                            weight: 4,
+                                            fillColor: '#FFFFFF',
+                                            fillOpacity: 0.9, // User's preference
+                                            pane: 'markerPane'
+                                        }).addTo(this._map);
+                                    }
+                                }
+                            });
+                        }
+
+                        // Remove markers for aircraft that are no longer at the current hover index
+                        // (i.e., their ID is not in newHoveredAircraftIds after processing the current index)
+                        Object.keys(this.chartHoverMarkers).forEach(aircraftId => {
+                            if (!newHoveredAircraftIds.has(aircraftId)) {
+                                this.chartHoverMarkers[aircraftId].remove();
+                                delete this.chartHoverMarkers[aircraftId];
+                            }
+                        });
+
+                        // If pointer is out of chart canvas, ensure all markers are cleared
+                        if (!isPointerInCanvas) {
+                            if (Object.keys(this.chartHoverMarkers).length > 0) {
+                                Object.values(this.chartHoverMarkers).forEach(marker => marker.remove());
+                                this.chartHoverMarkers = {};
+                            }
+                            // Also hide tooltip when pointer leaves chart
+                            if (chart.tooltip) {
+                                try {
+                                    chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+                                    chart.update('none');
+                                } catch (e) {
+                                    // Silent error handling
+                                }
+                            }
+                        } else {
+                            // If pointer is inside, but no valid dataPointIndex was found (e.g., hover over empty chart area)
+                            if (dataPointIndex === -1 && Object.keys(this.chartHoverMarkers).length > 0) {
+                                Object.values(this.chartHoverMarkers).forEach(marker => marker.remove());
+                                this.chartHoverMarkers = {};
+                            } else if (dataPointIndex !== -1) {
+                                // Force chart to redraw with active points
+                                chart.update('none');
+                                try {
+                                    // Explicitly show tooltip at the current index position
+                                    const activeElements = [];
+                                    chart.data.datasets.forEach((dataset, datasetIndex) => {
+                                        if (dataset.label !== 'Ground' && dataset.data && dataset.data[dataPointIndex]) {
+                                            activeElements.push({
+                                                datasetIndex: datasetIndex,
+                                                index: dataPointIndex
+                                            });
+                                        }
+                                    });
+                                    
+                                    if (activeElements.length > 0 && chart.tooltip) {
+                                        // First try the standard Chart.js v3 approach
+                                        try {
+                                            chart.tooltip.setActiveElements(activeElements, {
+                                                x: clientX,
+                                                y: clientY
+                                            });
+                                        } catch (e) {
+                                            
+                                            // Alternative approach - manually trigger tooltip
+                                            const evt = new MouseEvent('mousemove', {
+                                                clientX: clientX,
+                                                clientY: clientY,
+                                                bubbles: true,
+                                                cancelable: true,
+                                                view: window
+                                            });
+                                            chart.canvas.dispatchEvent(evt);
+                                        }
+                                        
+                                        // Force update with no animation
+                                        chart.update('none');
+                                    }
+                                } catch (e) {
+                                    // Silent error handling
+                                }
+                            }
+                        }
+                    } // This closes the onHover function body
+            } // This closes options
+            }; // This closes config
             this.altitudeChart = new Chart(this.altitudeChartCanvas, config);
         }
     },
@@ -422,6 +663,9 @@ const LiveControl = L.Control.extend({
         // Reset map position smoothly
         this._map.getContainer().style.paddingBottom = '0px';
         this._map.invalidateSize({ animate: true }); // Animate map resize
+
+        Object.values(this.chartHoverMarkers).forEach(marker => marker.remove());
+        this.chartHoverMarkers = {};
     },
 
     _addPilotDataToChart: function(aircraftId, trackData, color, displayName) {
@@ -468,11 +712,23 @@ const LiveControl = L.Control.extend({
                  return null; // Skip points that can't be parsed to a valid number
             }
 
+            const lat = point.lat ?? point.last_lat;
+            const lon = point.lon ?? point.last_lon;
+
+            // Skip point if essential data (lat, lon, alt, time) is missing
+            if (typeof lat !== 'number' || typeof lon !== 'number' ||
+                isNaN(numericAlt) || !(point.timestamp || point.last_fix_epoch)) {
+                 console.warn(`[Chart Data] Skipping point due to missing essential data (lat/lon/alt/time):`, point);
+                 return null;
+            }
+
             return {
                 x: new Date(point.timestamp || point.last_fix_epoch * 1000),
-                y: numericAlt
+                y: numericAlt,
+                lat: lat,
+                lon: lon
             };
-        }).filter(p => p !== null) // Remove any points that failed parsing
+        }).filter(p => p !== null) // Remove any points that failed parsing or missing essential data
           .sort((a, b) => a.x - b.x);
 
         // Check again if we still have points after potential parsing failures
@@ -656,6 +912,9 @@ const LiveControl = L.Control.extend({
         }
         this._map.getContainer().style.paddingBottom = '0px';
         this._map.invalidateSize();
+
+        Object.values(this.chartHoverMarkers).forEach(marker => marker.remove());
+        this.chartHoverMarkers = {};
     },
 
     _handleControlClick: function(e) {
