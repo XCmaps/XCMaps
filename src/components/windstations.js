@@ -86,8 +86,8 @@ function getFillColor(speed) {
     if (speed >= 7 && speed < 15) return "LimeGreen";
     if (speed >= 15 && speed < 25) return "yellow";
     if (speed >= 25 && speed < 31) return "orange";
-    if (speed >= 31 && speed < 36) return "red";
-    if (speed >= 36) return "black";
+    if (speed >= 31 && speed <= 36) return "red";
+    if (speed > 36) return "black";
     return "Aquamarine";
 }
 
@@ -95,8 +95,8 @@ function getStrokeColor(speed) {
     if (speed >= 15 && speed < 25) return "LimeGreen";
     if (speed >= 25 && speed < 33) return "yellow";
     if (speed >= 33 && speed < 39) return "orange";
-    if (speed >= 39 && speed < 44) return "red";
-    if (speed >= 44) return "black";
+    if (speed >= 39 && speed <= 44) return "red";
+    if (speed > 44) return "black";
     return "Aquamarine";
 }
 

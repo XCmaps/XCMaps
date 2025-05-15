@@ -1198,6 +1198,30 @@ class OgnAprsClient extends EventEmitter {
         return; // Skip invalid packets
       }
 
+      // --- Blacklist Check ---
+      if (parsedData.deviceId) {
+        let client;
+        try {
+          client = await this.dbPool.connect();
+          const blacklistCheck = await client.query(
+            'SELECT 1 FROM aprs_blacklist WHERE device_id = $1',
+            [parsedData.deviceId]
+          );
+          if (blacklistCheck.rows.length > 0) {
+            console.log(`Device ${parsedData.deviceId} is blacklisted, skipping processing.`);
+            return; // Device is blacklisted, stop processing
+          }
+        } catch (err) {
+          console.error(`Error checking blacklist for device ${parsedData.deviceId}:`, err);
+          // Continue processing even if blacklist check fails, to avoid dropping valid data on DB error
+        } finally {
+          if (client) {
+            client.release();
+          }
+        }
+      }
+      // --- End Blacklist Check ---
+
       // Check for RND prefix in callsign (device ID); random ID devices are not eligible
       // The 'callsign' field from parseAprsPacket holds the sender ID.
       if (parsedData.callsign && parsedData.callsign.startsWith('RND')) {
@@ -1255,24 +1279,24 @@ class OgnAprsClient extends EventEmitter {
           vs: parsedData.vs
         });
         parsedData.status = pilotStatus; // Add status to the data object
- 
+
         // Store in database (now includes status)
         await this.storeAircraftData(parsedData);
- 
+
         // Update cache (ensure parsedData includes status if needed here)
         this.aircraftCache.set(parsedData.id, parsedData); // Cache now includes status
 
         // Emit event for real-time updates (local event)
         this.emit('aircraft-update', parsedData);
-        
+
         // Emit WebSocket event if Socket.IO is available
         if (this.io) {
           try {
             const ognNamespace = this.io.of('/ogn');
-            
+
             // Get all clients in the aircraft-updates room
             const sockets = await ognNamespace.in('aircraft-updates').fetchSockets();
-            
+
             // RE-ADDED: Fetch the current name from the database to ensure we send the correct one
             let currentDbName = parsedData.name; // Default to parsed name in case DB lookup fails
             const client = await this.dbPool.connect();
@@ -1312,7 +1336,7 @@ class OgnAprsClient extends EventEmitter {
             	// Add a unique timestamp to help client identify duplicates
             	update_timestamp: Date.now()
             };
-            
+
             // Send updates only to clients whose bounds contain this aircraft
             for (const socket of sockets) {
               if (socket.bounds && this._isAircraftInBounds(parsedData, socket.bounds)) {

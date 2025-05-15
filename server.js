@@ -316,6 +316,21 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilot
         }
         // --- End Ensure aircraft and aircraft_tracks tables ---
 
+// --- Ensure aprs_blacklist table exists ---
+        try {
+            console.log('Ensuring aprs_blacklist table exists...');
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS aprs_blacklist (
+                    device_id TEXT PRIMARY KEY
+                );
+            `);
+            console.log('aprs_blacklist table check/creation complete.');
+        } catch (tableError) {
+            console.error('Error ensuring aprs_blacklist table exists:', tableError);
+            // Decide if this is a fatal error - probably should be?
+            // For now, just log and continue
+        }
+        // --- End Ensure aprs_blacklist table ---
         // --- Manual Trigger ---
         console.log('MANUALLY TRIGGERING PILOT DB REFRESH...');
         try {
