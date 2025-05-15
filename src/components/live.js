@@ -449,9 +449,9 @@ const LiveControl = L.Control.extend({
                                         }
                                     } else {
                                         this.chartHoverMarkers[aircraftId] = L.circleMarker(latLng, {
-                                            radius: 7,
+                                            radius: 6,
                                             color: dataset.borderColor || '#FF5500',
-                                            weight: 4,
+                                            weight: 2,
                                             fillColor: '#FFFFFF',
                                             fillOpacity: 0.9, // User's preference
                                             pane: 'markerPane'
