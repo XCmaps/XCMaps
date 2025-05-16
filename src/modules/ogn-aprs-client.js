@@ -18,6 +18,7 @@ const { Pool } = pkg;
 // Constants
 const OGN_HOST = 'aprs.glidernet.org';
 const OGN_PORT = 14580;
+const OGN_PORT_FULL_FEED = 10152;
 // const OGN_FILTER = 'r/48.0/6.0/1500 t/o';  // 1500km radius around Luxembourg, only aircraft
 const OGN_FILTER = 'r/48.0/6.0/1500';  // 1500km radius around Luxembourg, only aircraft
 const OGN_USER_AGENT = 'XCmaps v1.0';
@@ -700,8 +701,10 @@ class OgnAprsClient extends EventEmitter {
    */
   connect() {
     if (this.connected) return;
-
-    console.log(`Connecting to OGN APRS server ${OGN_HOST}:${OGN_PORT}...`);
+    // consoloe.log with filter 
+    // console.log(`Connecting to OGN APRS server ${OGN_HOST}:${OGN_PORT}...`);
+    // consoloe.log without filter 
+    console.log(`Connecting to OGN APRS server ${OGN_HOST}:${OGN_PORT_FULL_FEED}...`);
 
     this.socket = new net.Socket();
 
@@ -709,8 +712,10 @@ class OgnAprsClient extends EventEmitter {
       console.log('Connected to OGN APRS server');
       this.connected = true;
 
-      // Send login command
-      const loginCommand = `user XCmaps pass -1 vers ${OGN_USER_AGENT} filter ${OGN_FILTER}\r\n`;
+      // Send login command with filter
+      // const loginCommand = `user XCmaps pass -1 vers ${OGN_USER_AGENT} filter ${OGN_FILTER}\r\n`;
+      // Send login command without filter
+      const loginCommand = `user XCmaps pass -1 vers ${OGN_USER_AGENT}\n`;
       this.socket.write(loginCommand);
 
       // Start cleanup timer
@@ -738,7 +743,7 @@ class OgnAprsClient extends EventEmitter {
       this.scheduleReconnect();
     });
 
-    this.socket.connect(OGN_PORT, OGN_HOST);
+    this.socket.connect(OGN_PORT_FULL_FEED, OGN_HOST);
   }
 
   /**
