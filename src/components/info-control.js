@@ -98,11 +98,25 @@ const InfoControl = L.Control.extend({
             `,
             changelog: `
                 <h3>Change Log</h3>
+                <p><strong>2025-MAY-16 version 1.1.0</strong></p>
+                <p><strong>new feature: LIVE! OGN & XContest/XCTrack Viewer</strong></p>
+                <ul>
+                <li>marker icons for flying (PG), flying (HG), helicopter, resting, hiking, driving</li>
+                <li>marker colors based on vertical speed </li>
+                <li>on-click: </br>
+                  - popup with pilot name (or device ID), last update, altitude, AGL, vertical speed </br>
+                  - flight tracks in different colors </br>
+                  - chart with elevation line and ground level (for one active marker) </li>
+                <li>LIVE! control: activate/deactivate LIVE! Viewer, resting, hiking or driving pilots </li>
+                <li>XCMaps users: edit your XCMaps pilot name using your device IDs</li>
+                <li>XCMaps users: connect your XContest account to be visible on the XCMaps map</li>
+                </ul>
                 <p><strong>2025-MAY-06 version 1.0.4</strong></p>
                 <ul>
                 <li>JawgMaps provides their vector map tiles service to XCMaps for free as a sponsor.</br>
                     New default terrain layer is now again Terrain - JawgMaps. </li>
-                <li>Rain Viewer: fixed a refresh issue in control-timecontrol.</li>
+                <li>Rain Viewer: fixed a refresh is
+                sue in control-timecontrol.</li>
                 <li>Weather Stations: reduced the size of the arrow markers by 15%.</li>
                 </ul>
                 <p><strong>2025-APR-21 version 1.0.3</strong></p>
@@ -156,8 +170,8 @@ const InfoControl = L.Control.extend({
                 <ul>
                     <li><strong>OGN Database:</strong> Pilot names are often based on device registration details within the <a href="http://wiki.glidernet.org/ddb" target="_blank">OGN Devices DataBase</a>.</li>
                     <li><strong>Flarmnet Database:</strong> If a pilot is registered on <a href="https://www.flarmnet.org/accounts/login/" target="_blank">Flarmnet</a>, their aircraft details and callsign can be displayed.</li>
-                    <li><strong>Puretrack:</strong> Puretrack provides tracking solutions, and data from devices using this service are integrated.</li>
                     <li><strong>OGN Status Packages:</strong> Some OGN devices transmit status packages which can include pilot or aircraft identifiers.</li>
+                    <li><strong>Puretrack:</strong> Puretrack provides tracking solutions, and data from devices using this service are integrated.</li>
                 </ul>
 
                 <h4>XContest & XCTrack Integration</h4>
@@ -487,7 +501,7 @@ const InfoControl = L.Control.extend({
                       <li><strong>Obstacles:</strong> OSM based obstacles from Xcontest</li>
                       <li><strong>Locate and Track:</strong> Locate and Track your position using the Locate Control</li>
                       <li><strong>XCMaps User Account:</strong> By using your account, your can save your preferred map layers in the profile-badge—so every time you log in, you'll return to your personalized view.</li>
-                      <li><strong>Current Release:</strong> v1.0.4 <a href="#" data-section="changelog">Change Log</a></li>
+                      <li><strong>Current Release:</strong> v1.1.0 <a href="#" data-section="changelog">Change Log</a></li>
                     </ul>
 
                     <h3>Sponsors</h3>
