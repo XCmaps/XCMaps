@@ -45,6 +45,7 @@ const LiveControl = L.Control.extend({
         this.activePopupOrder = []; // Track order of opened popups
         this.activePopupColors = {}; // Store assigned color per aircraft
         this.aircraftLayer = L.layerGroup();
+        this.availableColors = [...this.options.trackHighlightColors]; // Initialize available colors
         this.trackLayer = L.layerGroup();
         this.refreshTimer = null;
         this.reconnectTimer = null; // Timer for WebSocket reconnection
@@ -1539,11 +1540,33 @@ const LiveControl = L.Control.extend({
             const normalizedId = currentAircraftData.id;
             this.selectedAircraft = normalizedId;
 
+            // Assign a unique color if not already assigned
+            // Assign a unique color if not already assigned, prioritizing the defined order
+            if (!this.activePopupColors[normalizedId]) {
+                let assignedColor = null;
+                for (const preferredColor of this.options.trackHighlightColors) {
+                    const availableIndex = this.availableColors.indexOf(preferredColor);
+                    if (availableIndex > -1) {
+                        // Found a preferred color that is available
+                        assignedColor = this.availableColors.splice(availableIndex, 1)[0];
+                        this.activePopupColors[normalizedId] = assignedColor;
+                        console.log(`Assigned preferred color ${assignedColor} to ${normalizedId}. Available colors left: ${this.availableColors.length}`);
+                        break; // Stop searching once a color is assigned
+                    }
+                }
+
+                if (!assignedColor) {
+                    // Fallback to default color if no preferred unique colors are available
+                    this.activePopupColors[normalizedId] = this.options.trackColor;
+                    console.warn(`No preferred unique colors available. Assigned default color ${this.options.trackColor} to ${normalizedId}.`);
+                }
+            }
+
+            // Add to activePopupOrder if not already present (used for chart data filtering)
             if (!this.activePopupOrder.includes(normalizedId)) {
                 this.activePopupOrder.push(normalizedId);
-                const colorIndex = (this.activePopupOrder.length - 1) % this.options.trackHighlightColors.length;
-                this.activePopupColors[normalizedId] = this.options.trackHighlightColors[colorIndex];
             }
+
             const color = this.activePopupColors[normalizedId];
 
             // Fetch track data for chart and polyline
@@ -1607,7 +1630,13 @@ const LiveControl = L.Control.extend({
             // Remove pilot data from chart
             this._removePilotDataFromChart(normalizedId);
 
-            // Clean up color and active order
+            // Return color to pool and clean up color/active order
+            const assignedColor = this.activePopupColors[normalizedId];
+            if (assignedColor) {
+                this.availableColors.push(assignedColor); // Return color to the pool
+                console.log(`Returned color ${assignedColor} for ${normalizedId} to pool. Available colors: ${this.availableColors.length}`);
+            }
+
             const index = this.activePopupOrder.indexOf(normalizedId);
             if (index > -1) {
                 this.activePopupOrder.splice(index, 1);
