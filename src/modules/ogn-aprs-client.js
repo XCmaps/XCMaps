@@ -13,6 +13,7 @@ import path from 'path'; // Added for CSV path construction
 import SrtmElevation from './srtm-elevation.js';
 import MapboxElevation from './mapbox-elevation.js';
 import * as FlarmnetParser from './flarmnet-parser.js';
+import { TrackFilter } from './track-filter.js'; // Import TrackFilter
 const { Pool } = pkg;
 
 // Constants
@@ -71,6 +72,7 @@ class OgnAprsClient extends EventEmitter {
     this.aircraftCache = new Map(); // Cache for current aircraft positions (keep this one)
     this.pilotStatusCache = new Map(); // Cache for pilot status calculation state
     this.flarmnetCache = new Map(); // Cache for Flarmnet data
+    this.lastValidTrackCache = new Map(); // Cache for the last valid track point for each aircraft
     this.io = null; // Socket.IO instance (will be set externally)
 
     // Initialize elevation modules
