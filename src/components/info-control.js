@@ -477,7 +477,7 @@ const InfoControl = L.Control.extend({
             cancelFeedback(false);
             if (sectionName === 'home') {
                 // Generate home content dynamically
-                const showLiveFeature = keycloak && keycloak.authenticated && keycloak.hasRealmRole('live');
+              
                 contentAreaDiv.innerHTML = `
                     <h3>About XCMaps</h3>
                     <p>XCMaps is a non-commercial, free and open-source project that brings together various data sources for para- and hang-gliders, providing valuable insights for the community.</p>
@@ -492,7 +492,7 @@ const InfoControl = L.Control.extend({
 
                     <h3>Features</h3>
                     <ul>
-                      ${showLiveFeature ? '<li><strong><a href="#" data-section="live">LIVE!:</a></strong> OGN & XContest/XCTrack Live Viewer</li>' : ''}
+                      <li><strong><a href="#" data-section="live">LIVE!:</a></strong> OGN & XContest/XCTrack Live Viewer</li>
                       <li><strong><a href="#" data-section="weather-stations">Weather Stations:</a></strong> Wind, Gusts, Direction, Temp and Camera if available. Marker refresh every 1 minute.</li>
                       <li><strong>Rain Viewer:</strong> Radar and Satellite, past 2 hours + 20 min forecast</li>
                       <li><strong>Thermals:</strong> kk7 thermal and skyways map</li>
