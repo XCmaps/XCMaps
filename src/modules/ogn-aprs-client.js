@@ -11,7 +11,7 @@ import iconv from 'iconv-lite'; // Added import
 import fs from 'fs'; // Added for CSV logging
 import path from 'path'; // Added for CSV path construction
 import SrtmElevation from './srtm-elevation.js';
-import MapboxElevation from './mapbox-elevation.js';
+import TerrainRgbElevation from './terrain-rgb-elevation.js';
 import * as FlarmnetParser from './flarmnet-parser.js';
 import { TrackFilter } from './track-filter.js'; // Import TrackFilter
 const { Pool } = pkg;
@@ -77,7 +77,7 @@ class OgnAprsClient extends EventEmitter {
 
     // Initialize elevation modules
     this.srtmElevation = new SrtmElevation(dbPool);
-    this.mapboxElevation = new MapboxElevation(dbPool);
+    this.terrainElevation = new TerrainRgbElevation(dbPool);
 
     // Database initialization and initial data load will be handled separately
   }
@@ -1717,8 +1717,8 @@ class OgnAprsClient extends EventEmitter {
    */
   async calculateAGL(lat, lon, altMsl) {
     try {
-      // Get elevation from Mapbox
-      let elevation = await this.mapboxElevation.getElevation(lat, lon);
+      // Get elevation from Terrain-RGB tiles
+      let elevation = await this.terrainElevation.getElevation(lat, lon);
 
       // SRTM fallback code kept but disabled as per request
       // if (elevation === null) {

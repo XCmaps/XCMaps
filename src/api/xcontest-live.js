@@ -1,7 +1,7 @@
 import fetch from 'node-fetch';
 import pkg from 'pg';
 import dotenv from 'dotenv';
-import MapboxElevation from '../modules/mapbox-elevation.js'; // Assuming mapbox-elevation.js is in modules
+import TerrainRgbElevation from '../modules/terrain-rgb-elevation.js'; // Using Terrain-RGB elevation service
 
 dotenv.config();
 const { Pool } = pkg;
@@ -27,7 +27,7 @@ const STATUS_HISTORY_SIZE = 10; // Number of recent points for status calculatio
 // --- End Pilot Status Constants ---
 
 const pool = new Pool({ connectionString: DB_CONNECTION_STRING });
-const mapboxElevation = new MapboxElevation(pool); // Initialize MapboxElevation
+const terrainElevation = new TerrainRgbElevation(pool); // Initialize Terrain-RGB Elevation service
 const pilotStatusCache = new Map(); // Cache for pilot status calculation state
 let SIO_INSTANCE = null; // To store the Socket.IO instance
 
@@ -36,7 +36,7 @@ let SIO_INSTANCE = null; // To store the Socket.IO instance
  */
 async function calculateAGL(lat, lon, altMsl) {
     try {
-        let elevation = await mapboxElevation.getElevation(lat, lon);
+        let elevation = await terrainElevation.getElevation(lat, lon);
         if (elevation !== null) {
             const tolerance = 5;
             const agl = Math.max(0, Math.round(altMsl - elevation + tolerance));
