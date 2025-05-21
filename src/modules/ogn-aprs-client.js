@@ -1817,26 +1817,77 @@ class OgnAprsClient extends EventEmitter {
       if (distance >= SKYTRAXX_FILTER_RADIUS_M) {
         // Only insert into tracks table if outside the filter radius AND alt_msl is not 0
         if (data.altMsl !== 0) {
-          await client.query(`
-            INSERT INTO aircraft_tracks (
-              aircraft_id, timestamp, lat, lon,
-              alt_msl, alt_agl, course, speed_kmh, vs, turn_rate, status -- Added status column
-            ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11 -- Added $11 for status
-            )
-          `, [
-            deviceId,         // $1 - Use deviceId as aircraft_id
-            data.timestamp,   // $2
-            data.lat,         // $3
-            data.lon,         // $4
-            data.altMsl,      // $5
-            altAgl,           // $6 - Use calculated AGL
-            data.course,      // $7
-            data.speedKmh,    // $8
-            data.vs,          // $9
-            data.turnRate,    // $10
-            data.status       // $11 - Pass the calculated status
-          ]);
+          // Check if we need to apply track filtering for this aircraft
+          let shouldInsertTrack = true;
+          
+          // Get recent tracks for this aircraft to check for anomalies
+          const recentTracksQuery = await client.query(`
+            SELECT id, aircraft_id, timestamp, lat, lon, alt_msl, alt_agl, course, speed_kmh, vs, turn_rate, status
+            FROM aircraft_tracks
+            WHERE aircraft_id = $1
+            ORDER BY timestamp DESC
+            LIMIT 10
+          `, [deviceId]);
+          
+          if (recentTracksQuery.rows.length > 0) {
+            // We have previous tracks, apply filtering using the more efficient isPointAnomaly method
+            const newPoint = {
+              aircraft_id: deviceId,
+              timestamp: data.timestamp,
+              lat: data.lat,
+              lon: data.lon,
+              alt_msl: data.altMsl,
+              alt_agl: altAgl,
+              course: data.course,
+              speed_kmh: data.speedKmh,
+              vs: data.vs,
+              turn_rate: data.turnRate,
+              status: data.status
+            };
+            
+            // Create a TrackFilter instance and check if the new point is an anomaly
+            const trackFilter = new TrackFilter([]);
+            const { isAnomaly, anomalyDetails } = trackFilter.isPointAnomaly(newPoint, recentTracksQuery.rows);
+            
+            if (isAnomaly) {
+              console.log(`Filtered out anomalous track point for ${deviceId} at ${data.timestamp}: lat=${data.lat}, lon=${data.lon}`);
+              shouldInsertTrack = false;
+              
+              // Log the anomaly details if available
+              if (anomalyDetails && anomalyDetails.length > 0) {
+                const firstAnomaly = anomalyDetails[0];
+                console.log(`Anomaly type: ${firstAnomaly.type}, Previous point: lat=${firstAnomaly.previous?.lat}, lon=${firstAnomaly.previous?.lon}`);
+                
+                if (firstAnomaly.details) {
+                  console.log(`Anomaly details:`, JSON.stringify(firstAnomaly.details));
+                }
+              }
+            }
+          }
+          
+          // Only insert if the point passed all filters
+          if (shouldInsertTrack) {
+            await client.query(`
+              INSERT INTO aircraft_tracks (
+                aircraft_id, timestamp, lat, lon,
+                alt_msl, alt_agl, course, speed_kmh, vs, turn_rate, status -- Added status column
+              ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11 -- Added $11 for status
+              )
+            `, [
+              deviceId,         // $1 - Use deviceId as aircraft_id
+              data.timestamp,   // $2
+              data.lat,         // $3
+              data.lon,         // $4
+              data.altMsl,      // $5
+              altAgl,           // $6 - Use calculated AGL
+              data.course,      // $7
+              data.speedKmh,    // $8
+              data.vs,          // $9
+              data.turnRate,    // $10
+              data.status       // $11 - Pass the calculated status
+            ]);
+          }
         } else {
           console.log(`Skipping track update for ${deviceId} because alt_msl is 0.`);
         }
