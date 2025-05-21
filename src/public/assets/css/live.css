@@ -12,8 +12,21 @@
 
 /* Aircraft Popup Styles */
 .aircraft-popup {
-    /* padding: 5px; /* Removed padding */
     max-width: 250px;
+    padding: 2px 4px 2px 4px !important;
+    background-color: white !important;
+    border-radius: 4px !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+}
+
+/* Container for aircraft popups */
+.aircraft-popup-container {
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
 }
 
 .aircraft-popup h3 {
@@ -24,7 +37,7 @@
 }
 
 .aircraft-popup p {
-    margin: 1px 0;
+    margin: 0 0;
     font-size: 10px;
 }
 
@@ -187,26 +200,61 @@ input:checked + .slider:before {
 }
 /* Override Leaflet default styles for aircraft-popup */
 /* Override Leaflet styles when .aircraft-popup is present inside */
-.leaflet-popup-content-wrapper:has(.aircraft-popup) {
+.leaflet-popup-content-wrapper:has(.aircraft-popup),
+.aircraft-popup-container .leaflet-popup-content-wrapper {
     border-radius: 4px !important;
-    padding-left: 5px !important; /* Added padding */
-    padding-right: 5px !important; /* Added padding */
-    /* Note: Default Leaflet padding is 1px top/bottom. Keep that? */
-    /* padding-top: 1px; */
-    /* padding-bottom: 1px; */
+    padding: 0 !important; /* Remove padding to let our div control it */
+    background-color: transparent !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
 }
 
-.leaflet-popup-content:has(.aircraft-popup) {
+.leaflet-popup-content:has(.aircraft-popup),
+.aircraft-popup-container .leaflet-popup-content {
     margin: 0 !important;
+    padding: 0 !important;
+    width: auto !important;
+    min-width: 150px !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
 }
 
 /* Hide close button and tip for aircraft popups */
-.leaflet-popup:has(.aircraft-popup) .leaflet-popup-close-button {
+.leaflet-popup:has(.aircraft-popup) .leaflet-popup-close-button,
+.aircraft-popup-container .leaflet-popup-close-button {
     display: none !important;
 }
 
-.leaflet-popup:has(.aircraft-popup) .leaflet-popup-tip-container {
+.leaflet-popup:has(.aircraft-popup) .leaflet-popup-tip-container,
+.aircraft-popup-container .leaflet-popup-tip-container {
     display: none !important;
+}
+
+/* Ensure popups are visible */
+.leaflet-popup {
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+    z-index: 1000 !important;
+}
+
+/* Custom close button */
+.close-popup-btn {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 5px;
+    margin-top: 5px;
+}
+
+.close-popup-btn:hover {
+    color: #333;
+    text-decoration: underline;
 }
 /* Altitude Chart Styles */
 #altitudeChartContainer {

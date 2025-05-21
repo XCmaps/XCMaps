@@ -1364,18 +1364,43 @@ const LiveControl = L.Control.extend({
 
 
                 if (this.markers[normalizedId]) {
+                    // Save popup state before updating
+                    const wasPopupOpen = this.markers[normalizedId].isPopupOpen();
+                    const shouldShowPopup = this.markers[normalizedId]._shouldShowPopup || false;
+                    
                     // Update existing marker
                     this.markers[normalizedId].setLatLng([aircraftWithNormalizedId.last_lat, aircraftWithNormalizedId.last_lon]);
                     this._updateMarkerIcon(this.markers[normalizedId], aircraftWithNormalizedId);
+                    
                     // Update stored data
                     this.markers[normalizedId].options.aircraftData = JSON.parse(JSON.stringify(aircraftWithNormalizedId));
+                    
+                    // Preserve popup state
+                    this.markers[normalizedId]._shouldShowPopup = shouldShowPopup;
+                    
                     // Update popup if open
-                    if (this.markers[normalizedId].isPopupOpen()) {
+                    if (wasPopupOpen) {
                         this._updatePopupContent(this.markers[normalizedId], aircraftWithNormalizedId, normalizedId);
+                        
+                        // Ensure popup stays open if it was open before
+                        if (!this.markers[normalizedId].isPopupOpen() && shouldShowPopup) {
+                            this.markers[normalizedId]._manuallyOpening = true;
+                            this.markers[normalizedId].openPopup();
+                            delete this.markers[normalizedId]._manuallyOpening;
+                        }
                     }
                 } else {
                     // Create new marker
-                    this._createAircraftMarker(aircraftWithNormalizedId);
+                    const newMarker = this._createAircraftMarker(aircraftWithNormalizedId);
+                    
+                    // Check if this aircraft had an open popup before (e.g., if it temporarily disappeared and reappeared)
+                    if (this.activePopupOrder.includes(normalizedId) && newMarker) {
+                        console.log(`Reopening popup for reappeared aircraft ${normalizedId}`);
+                        newMarker._shouldShowPopup = true;
+                        newMarker._manuallyOpening = true;
+                        newMarker.openPopup();
+                        delete newMarker._manuallyOpening;
+                    }
                 }
             }
         });
@@ -1526,22 +1551,67 @@ const LiveControl = L.Control.extend({
         // Use deep copy to prevent issues if original aircraft object is modified elsewhere
         marker.options.aircraftData = JSON.parse(JSON.stringify(aircraft));
 
-        const popupContent = this._createPopupContent(aircraft);
-        marker.bindPopup(popupContent, {
-            offset: [50, 35], // Original value from provided code
-            autoClose: false,
-            closeOnClick: false
-        });
+        // Store a flag on the marker to track if we want the popup to be shown
+        marker._shouldShowPopup = false;
 
+        // Use a custom div for the popup instead of Leaflet's popup system
         marker.on('click', (e) => {
+            e.originalEvent.stopPropagation(); // Stop event propagation
+            
             const clickedMarker = e.target;
-            // Get potentially updated data stored on the marker
             const currentAircraftData = clickedMarker.options.aircraftData;
             const normalizedId = currentAircraftData.id;
-            this.selectedAircraft = normalizedId;
-
+            
+            console.log(`Marker clicked for ${normalizedId}`);
+            
+            // Check if we already have a custom popup for this aircraft
+            let customPopup = document.getElementById(`custom-popup-${normalizedId}`);
+            
+            if (customPopup) {
+                // If popup exists, remove it (toggle off)
+                console.log(`Removing existing custom popup for ${normalizedId}`);
+                document.body.removeChild(customPopup);
+                
+                // Clean up state
+                this.selectedAircraft = null;
+                
+                // Remove from active popup order
+                const index = this.activePopupOrder.indexOf(normalizedId);
+                if (index > -1) {
+                    this.activePopupOrder.splice(index, 1);
+                }
+                
+                // Return color to pool
+                const assignedColor = this.activePopupColors[normalizedId];
+                if (assignedColor) {
+                    this.availableColors.push(assignedColor);
+                    delete this.activePopupColors[normalizedId];
+                }
+                
+                // Remove track polyline
+                if (this.tracks[normalizedId] && this.tracks[normalizedId].layer) {
+                    this.trackLayer.removeLayer(this.tracks[normalizedId].layer);
+                }
+                delete this.tracks[normalizedId];
+                
+                // Remove pilot data from chart
+                this._removePilotDataFromChart(normalizedId);
+                
+                // If this was the last active popup, hide the chart
+                if (this.activePopupOrder.length === 0 && this.chartVisible) {
+                    this._hideAltitudeChart();
+                } else if (this.chartVisible) {
+                    // Otherwise, update the chart to reflect the removed pilot
+                    this._createOrUpdateAltitudeChart();
+                }
+                
+                return;
+            }
+            
+            // Create new custom popup
+            console.log(`Creating new custom popup for ${normalizedId}`);
+            
             // Assign a unique color if not already assigned
-            // Assign a unique color if not already assigned, prioritizing the defined order
             if (!this.activePopupColors[normalizedId]) {
                 let assignedColor = null;
                 for (const preferredColor of this.options.trackHighlightColors) {
@@ -1562,94 +1632,142 @@ const LiveControl = L.Control.extend({
                 }
             }
 
-            // Add to activePopupOrder if not already present (used for chart data filtering)
+            // Add to activePopupOrder if not already present
             if (!this.activePopupOrder.includes(normalizedId)) {
                 this.activePopupOrder.push(normalizedId);
             }
 
             const color = this.activePopupColors[normalizedId];
+            this.selectedAircraft = normalizedId;
 
             // Fetch track data for chart and polyline
             this._fetchAircraftTrack(normalizedId, color);
-
-            if (!clickedMarker.isPopupOpen()) {
-                clickedMarker.openPopup(); // Triggers 'popupopen'
-            } else {
-                // If popup already open, ensure chart reflects current state
-                if (this.chartData.datasets.some(ds => ds.label === normalizedId) && this.pilotTracksForChart[normalizedId]?.length > 0) {
-                    this._showAltitudeChart(); // Ensure visible and updated
-                } else if (this.chartData.datasets.length === 0 && this.chartVisible) {
-                    this._hideAltitudeChart();
+            
+            // Create custom popup element
+            customPopup = document.createElement('div');
+            customPopup.id = `custom-popup-${normalizedId}`;
+            
+            // Get marker position on screen
+            const markerPoint = this._map.latLngToContainerPoint(clickedMarker.getLatLng());
+            
+            // Position popup relative to marker
+            customPopup.style.position = 'absolute';
+            customPopup.style.left = `${markerPoint.x + 15}px`;
+            customPopup.style.top = `${markerPoint.y - 18}px`;
+            
+            // Create popup content
+            const lastSeenTimestamp = new Date(currentAircraftData.last_seen).getTime();
+            const timeAgo = this._formatTimeAgo(lastSeenTimestamp);
+            const vs = currentAircraftData.last_vs ?? 0;
+            const vsColor = vs === 0 ? 'black' : (vs < 0 ? 'red' : 'green');
+            const altMsl = currentAircraftData.last_alt_msl ?? 'N/A';
+            const altAgl = currentAircraftData.last_alt_agl ?? 'N/A';
+            
+            customPopup.className = "aircraft-popup";
+            customPopup.setAttribute("data-aircraft-id", normalizedId);
+            customPopup.innerHTML = `
+                <p style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="flex-grow: 1;"><strong style="color:${color};">${currentAircraftData.name}</strong></span>
+                    <span class="live-time-ago" data-timestamp="${lastSeenTimestamp}" style="margin-left: 10px; white-space: nowrap;">${timeAgo}</span>
+                </p>
+                <p><strong>${altMsl}${altMsl !== 'N/A' ? ' m' : ''} </strong>[${altAgl}${altAgl !== 'N/A' ? ' AGL' : ''}]</strong> <strong style="color: ${vsColor};">${vs.toFixed(1)} m/s</strong></p>
+            `;
+            
+            // Add to DOM
+            document.body.appendChild(customPopup);
+            
+            // Add click handler to the entire popup
+            customPopup.addEventListener('click', () => {
+                console.log(`Popup clicked for ${normalizedId}`);
+                if (customPopup.parentNode) {
+                    customPopup.parentNode.removeChild(customPopup);
                 }
-            }
-        });
-
-        marker.on('popupopen', (e) => {
-            const openedMarker = e.target;
-            // Get potentially updated data stored on the marker
-            const aircraftData = openedMarker.options.aircraftData;
-            const normalizedId = aircraftData.id;
-            console.log(`Popup opened for ${normalizedId}`);
-
-            // Update popup content with current data and color
-            this._updatePopupContent(openedMarker, aircraftData, normalizedId);
-
-            this._startPopupTimer(e.popup, normalizedId);
-
-            // Add click listener to popup container for closing
-            const popupContainer = e.popup.getElement();
-            if (popupContainer) {
-                let justOpened = true;
-                setTimeout(() => { justOpened = false; }, 0);
-                L.DomEvent.on(popupContainer, 'click', (ev) => {
-                    if (justOpened) return;
-                    if (ev.target && L.DomUtil.hasClass(ev.target, 'leaflet-popup-close-button')) {
-                        return; // Allow leaflet's default close button
-                    }
-                    if (!ev.target.closest('button, a, input')) { // Don't close if clicking interactive elements
-                        openedMarker.closePopup(); // Triggers 'popupclose'
-                        L.DomEvent.stop(ev);
-                    }
-                }, this);
-            }
-        });
-
-        marker.on('popupclose', (e) => {
-            const closedMarker = e.target;
-            const aircraftData = closedMarker.options.aircraftData;
-            const normalizedId = aircraftData.id;
-            console.log(`Popup closed for ${normalizedId}`);
-
-            // Remove track polyline
-            if (this.tracks[normalizedId] && this.tracks[normalizedId].layer) {
-                this.trackLayer.removeLayer(this.tracks[normalizedId].layer);
-            }
-            delete this.tracks[normalizedId]; // Remove track entry
-            console.log(`Removed track polyline for ${normalizedId}`);
-
-            // Remove pilot data from chart
-            this._removePilotDataFromChart(normalizedId);
-
-            // Return color to pool and clean up color/active order
-            const assignedColor = this.activePopupColors[normalizedId];
-            if (assignedColor) {
-                this.availableColors.push(assignedColor); // Return color to the pool
-                console.log(`Returned color ${assignedColor} for ${normalizedId} to pool. Available colors: ${this.availableColors.length}`);
-            }
-
-            const index = this.activePopupOrder.indexOf(normalizedId);
-            if (index > -1) {
-                this.activePopupOrder.splice(index, 1);
-            }
-            delete this.activePopupColors[normalizedId];
-            console.log(`Unassigned color and removed ${normalizedId} from active order. New order:`, this.activePopupOrder);
-
-            this._stopPopupTimer(normalizedId);
-
-            if (this.selectedAircraft === normalizedId) {
+                
+                // Clean up state
                 this.selectedAircraft = null;
+                
+                // Remove from active popup order
+                const index = this.activePopupOrder.indexOf(normalizedId);
+                if (index > -1) {
+                    this.activePopupOrder.splice(index, 1);
+                }
+                
+                // Return color to pool
+                const assignedColor = this.activePopupColors[normalizedId];
+                if (assignedColor) {
+                    this.availableColors.push(assignedColor);
+                    delete this.activePopupColors[normalizedId];
+                }
+                
+                // Remove track polyline
+                if (this.tracks[normalizedId] && this.tracks[normalizedId].layer) {
+                    this.trackLayer.removeLayer(this.tracks[normalizedId].layer);
+                }
+                delete this.tracks[normalizedId];
+                
+                // Remove pilot data from chart
+                this._removePilotDataFromChart(normalizedId);
+                
+                // If this was the last active popup, hide the chart
+                if (this.activePopupOrder.length === 0 && this.chartVisible) {
+                    this._hideAltitudeChart();
+                } else if (this.chartVisible) {
+                    // Otherwise, update the chart to reflect the removed pilot
+                    this._createOrUpdateAltitudeChart();
+                }
+            });
+            
+            // Start timer to update time ago
+            const timeElement = customPopup.querySelector('.live-time-ago');
+            if (timeElement) {
+                const updateTimer = setInterval(() => {
+                    if (!document.getElementById(`custom-popup-${normalizedId}`)) {
+                        clearInterval(updateTimer);
+                        return;
+                    }
+                    timeElement.textContent = this._formatTimeAgo(lastSeenTimestamp);
+                }, 1000);
+                
+                // Store timer reference for cleanup
+                this.popupTimers[normalizedId] = updateTimer;
             }
+            
+            // Update popup position when map moves
+            const updatePosition = () => {
+                const popup = document.getElementById(`custom-popup-${normalizedId}`);
+                if (!popup) return;
+                
+                const marker = this.markers[normalizedId];
+                if (!marker) return;
+                
+                const point = this._map.latLngToContainerPoint(marker.getLatLng());
+                popup.style.left = `${point.x + 30}px`;
+                popup.style.top = `${point.y - 30}px`;
+            };
+            
+            this._map.on('move', updatePosition);
+            this._map.on('zoom', updatePosition);
+            
+            // Clean up event listeners when popup is closed
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'childList' && mutation.removedNodes.length) {
+                        for (let i = 0; i < mutation.removedNodes.length; i++) {
+                            if (mutation.removedNodes[i].id === `custom-popup-${normalizedId}`) {
+                                this._map.off('move', updatePosition);
+                                this._map.off('zoom', updatePosition);
+                                observer.disconnect();
+                                break;
+                            }
+                        }
+                    }
+                });
+            });
+            
+            observer.observe(document.body, { childList: true });
         });
+
+        // We're using custom DOM popups instead of Leaflet's popup system
 
         this.aircraftLayer.addLayer(marker);
         this.markers[aircraft.id] = marker; // Store marker reference
@@ -1745,12 +1863,15 @@ const LiveControl = L.Control.extend({
         const altAgl = aircraft.last_alt_agl ?? 'N/A'; // Handle potentially missing AGL
 
         return `
-            <div class="aircraft-popup" data-aircraft-id="${aircraft.id}">
-                <p style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="flex-grow: 1;"><strong style="color:${assignedColor};">${aircraft.name}</strong></span>
-                    <span class="live-time-ago" data-timestamp="${lastSeenTimestamp}" style="margin-left: 10px; white-space: nowrap;">${initialFormattedTimeAgo}</span>
+            <div class="aircraft-popup" data-aircraft-id="${aircraft.id}" style="min-width: 150px; padding: 8px; background-color: white; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                <p style="display: flex; justify-content: space-between; align-items: center; margin: 0 0 5px 0;">
+                    <span style="flex-grow: 1;"><strong style="color:${assignedColor}; font-size: 14px;">${aircraft.name}</strong></span>
+                    <span class="live-time-ago" data-timestamp="${lastSeenTimestamp}" style="margin-left: 10px; white-space: nowrap; font-size: 12px;">${initialFormattedTimeAgo}</span>
                 </p>
-                <p><strong>${altMsl}${altMsl !== 'N/A' ? ' m' : ''} </strong>[${altAgl}${altAgl !== 'N/A' ? ' AGL' : ''}]</strong> <strong style="color: ${vsColor};">${vs.toFixed(1)} m/s</strong></p>
+                <p style="margin: 0; font-size: 13px;"><strong>${altMsl}${altMsl !== 'N/A' ? ' m' : ''} </strong>[${altAgl}${altAgl !== 'N/A' ? ' AGL' : ''}]</strong> <strong style="color: ${vsColor};">${vs.toFixed(1)} m/s</strong></p>
+                <div style="text-align: right; margin-top: 5px;">
+                    <button class="close-popup-btn" style="background: none; border: none; color: #666; cursor: pointer; font-size: 12px;">Close</button>
+                </div>
             </div>
         `;
     },
@@ -1760,9 +1881,22 @@ const LiveControl = L.Control.extend({
         if (popup) {
             const newContent = this._createPopupContent(aircraft);
             popup.setContent(newContent);
-            // If the popup is currently open, restart its timer with the potentially updated timestamp
+            
+            // Force the popup to update its layout
             if (popup.isOpen()) {
-                 this._startPopupTimer(popup, normalizedId);
+                // Restart the timer with the potentially updated timestamp
+                this._startPopupTimer(popup, normalizedId);
+                
+                // Force the popup to update its position and layout
+                popup.update();
+                
+                // Make sure the popup container is visible
+                const popupContainer = popup.getElement();
+                if (popupContainer) {
+                    popupContainer.style.display = 'block';
+                    popupContainer.style.visibility = 'visible';
+                    popupContainer.style.opacity = '1';
+                }
             }
         }
     },

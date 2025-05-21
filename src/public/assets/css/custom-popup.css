@@ -1,0 +1,40 @@
+/* Custom Aircraft Popup Styles */
+.custom-aircraft-popup {
+    position: absolute;
+    z-index: 1000;
+    background-color: white;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    max-width: 250px;
+    pointer-events: auto;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.custom-aircraft-popup h3 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 5px;
+}
+
+.custom-aircraft-popup p {
+    font-size: 12px;
+}
+
+.custom-close-btn {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 5px;
+    margin-top: 5px;
+    float: right;
+}
+
+.custom-close-btn:hover {
+    color: #333;
+    text-decoration: underline;
+}
