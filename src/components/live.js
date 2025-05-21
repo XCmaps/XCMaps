@@ -1674,7 +1674,7 @@ const LiveControl = L.Control.extend({
                     <span style="flex-grow: 1;"><strong style="color:${color};">${currentAircraftData.name}</strong></span>
                     <span class="live-time-ago" data-timestamp="${lastSeenTimestamp}" style="margin-left: 10px; white-space: nowrap;">${timeAgo}</span>
                 </p>
-                <p><strong>${altMsl}${altMsl !== 'N/A' ? ' m' : ''} </strong>[${altAgl}${altAgl !== 'N/A' ? ' AGL' : ''}]</strong> <strong style="color: ${vsColor};">${vs.toFixed(1)} m/s</strong></p>
+                <p><strong>${altMsl}${altMsl !== 'N/A' ? ' m' : ''} </strong>[${altAgl}${altAgl !== 'N/A' ? ' AGL' : ''}]</strong> ${currentAircraftData.last_speed_kmh !== 'N/A' ? currentAircraftData.last_speed_kmh.toFixed(0) + ' km/h' : ''} <strong style="color: ${vsColor};">${vs.toFixed(1)} m/s</strong></p>
             `;
             
             // Add to DOM
@@ -1889,7 +1889,7 @@ const LiveControl = L.Control.extend({
                     <span style="flex-grow: 1;"><strong style="color:${assignedColor}; font-size: 14px;">${aircraft.name}</strong></span>
                     <span class="live-time-ago" data-timestamp="${lastSeenTimestamp}" style="margin-left: 10px; white-space: nowrap; font-size: 12px;">${initialFormattedTimeAgo}</span>
                 </p>
-                <p style="margin: 0; font-size: 13px;"><strong>${altMsl}${altMsl !== 'N/A' ? ' m' : ''} </strong>[${altAgl}${altAgl !== 'N/A' ? ' AGL' : ''}]</strong> <strong style="color: ${vsColor};">${vs.toFixed(1)} m/s</strong></p>
+                <p style="margin: 0; font-size: 13px;"><strong>${altMsl}${altMsl !== 'N/A' ? ' m' : ''} </strong>[${altAgl}${altAgl !== 'N/A' ? ' AGL' : ''}]</strong> ${aircraft.last_speed_kmh !== 'N/A' ? aircraft.last_speed_kmh.toFixed(0) + ' km/h' : ''} <strong style="color: ${vsColor};">${vs.toFixed(1)} m/s</strong></p>
                 <div style="text-align: right; margin-top: 5px;">
                     <button class="close-popup-btn" style="background: none; border: none; color: #666; cursor: pointer; font-size: 12px;">Close</button>
                 </div>
@@ -2003,7 +2003,7 @@ const LiveControl = L.Control.extend({
                     // Find and update the altitude/vs paragraph
                     const altParagraph = customPopup.querySelector('p:nth-child(2)');
                     if (altParagraph) {
-                        altParagraph.innerHTML = `<strong>${altMsl}${altMsl !== 'N/A' ? ' m' : ''} </strong>[${altAgl}${altAgl !== 'N/A' ? ' AGL' : ''}]</strong> <strong style="color: ${vsColor};">${vs.toFixed(1)} m/s</strong>`;
+                        altParagraph.innerHTML = `<strong>${altMsl}${altMsl !== 'N/A' ? ' m' : ''} </strong>[${altAgl}${altAgl !== 'N/A' ? ' AGL' : ''}]</strong> ${processedAircraft.last_speed_kmh !== 'N/A' ? processedAircraft.last_speed_kmh.toFixed(0) + ' km/h' : ''} <strong style="color: ${vsColor};">${vs.toFixed(1)} m/s</strong>`;
                     }
                     
                     // Update popup position to follow the marker
