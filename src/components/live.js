@@ -1655,6 +1655,10 @@ const LiveControl = L.Control.extend({
             customPopup.style.left = `${markerPoint.x + 15}px`;
             customPopup.style.top = `${markerPoint.y - 18}px`;
             
+            // Store the offsets as data attributes for consistent positioning during updates
+            customPopup.dataset.leftOffset = '15';
+            customPopup.dataset.topOffset = '-18';
+            
             // Create popup content
             const lastSeenTimestamp = new Date(currentAircraftData.last_seen).getTime();
             const timeAgo = this._formatTimeAgo(lastSeenTimestamp);
@@ -1753,8 +1757,10 @@ const LiveControl = L.Control.extend({
                 if (!marker) return;
                 
                 const point = this._map.latLngToContainerPoint(marker.getLatLng());
-                popup.style.left = `${point.x + 30}px`;
-                popup.style.top = `${point.y - 30}px`;
+                const leftOffset = parseInt(popup.dataset.leftOffset || '15', 10);
+                const topOffset = parseInt(popup.dataset.topOffset || '-18', 10);
+                popup.style.left = `${point.x + leftOffset}px`;
+                popup.style.top = `${point.y + topOffset}px`;
             };
             
             this._map.on('move', updatePosition);
@@ -1999,6 +2005,13 @@ const LiveControl = L.Control.extend({
                     if (altParagraph) {
                         altParagraph.innerHTML = `<strong>${altMsl}${altMsl !== 'N/A' ? ' m' : ''} </strong>[${altAgl}${altAgl !== 'N/A' ? ' AGL' : ''}]</strong> <strong style="color: ${vsColor};">${vs.toFixed(1)} m/s</strong>`;
                     }
+                    
+                    // Update popup position to follow the marker
+                    const markerPoint = this._map.latLngToContainerPoint(existingMarker.getLatLng());
+                    const leftOffset = parseInt(customPopup.dataset.leftOffset || '15', 10);
+                    const topOffset = parseInt(customPopup.dataset.topOffset || '-18', 10);
+                    customPopup.style.left = `${markerPoint.x + leftOffset}px`;
+                    customPopup.style.top = `${markerPoint.y + topOffset}px`;
                 }
                 
                 // Also update Leaflet popup if it exists
