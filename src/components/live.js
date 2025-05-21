@@ -1721,11 +1721,23 @@ const LiveControl = L.Control.extend({
             const timeElement = customPopup.querySelector('.live-time-ago');
             if (timeElement) {
                 const updateTimer = setInterval(() => {
-                    if (!document.getElementById(`custom-popup-${normalizedId}`)) {
+                    const popup = document.getElementById(`custom-popup-${normalizedId}`);
+                    if (!popup) {
                         clearInterval(updateTimer);
                         return;
                     }
-                    timeElement.textContent = this._formatTimeAgo(lastSeenTimestamp);
+                    
+                    // Get the current timestamp from the data attribute, which may have been updated
+                    const currentTimeElement = popup.querySelector('.live-time-ago');
+                    if (currentTimeElement) {
+                        const currentTimestamp = parseInt(currentTimeElement.getAttribute('data-timestamp'), 10);
+                        if (!isNaN(currentTimestamp)) {
+                            currentTimeElement.textContent = this._formatTimeAgo(currentTimestamp);
+                        } else {
+                            // Fallback to original timestamp if data attribute is missing or invalid
+                            currentTimeElement.textContent = this._formatTimeAgo(lastSeenTimestamp);
+                        }
+                    }
                 }, 1000);
                 
                 // Store timer reference for cleanup
@@ -1825,14 +1837,17 @@ const LiveControl = L.Control.extend({
         // Update immediately
         timeElement.textContent = this._formatTimeAgo(timestamp);
 
-        // Start interval using the initial timestamp
-        const initialTimestamp = timestamp;
+        // Start interval using the current aircraft data timestamp
         this.popupTimers[normalizedId] = setInterval(() => {
             // Re-fetch element inside interval for robustness
             const currentPopupElement = popup.getElement();
             const currentTimeElement = currentPopupElement?.querySelector('.live-time-ago');
             if (popup.isOpen() && currentTimeElement) {
-                currentTimeElement.textContent = this._formatTimeAgo(initialTimestamp);
+                // Get the current timestamp from the data attribute, which may have been updated
+                const currentTimestamp = parseInt(currentTimeElement.getAttribute('data-timestamp'), 10);
+                if (!isNaN(currentTimestamp)) {
+                    currentTimeElement.textContent = this._formatTimeAgo(currentTimestamp);
+                }
             } else {
                 this._stopPopupTimer(normalizedId); // Stop if popup closed or element gone
             }
@@ -1884,7 +1899,7 @@ const LiveControl = L.Control.extend({
             
             // Force the popup to update its layout
             if (popup.isOpen()) {
-                // Restart the timer with the potentially updated timestamp
+                // Restart the timer with the updated timestamp
                 this._startPopupTimer(popup, normalizedId);
                 
                 // Force the popup to update its position and layout
@@ -1896,6 +1911,13 @@ const LiveControl = L.Control.extend({
                     popupContainer.style.display = 'block';
                     popupContainer.style.visibility = 'visible';
                     popupContainer.style.opacity = '1';
+                    
+                    // Ensure the timestamp in the data attribute is updated
+                    const timeElement = popupContainer.querySelector('.live-time-ago');
+                    if (timeElement && aircraft.last_seen) {
+                        const lastSeenTimestamp = new Date(aircraft.last_seen).getTime();
+                        timeElement.setAttribute('data-timestamp', lastSeenTimestamp);
+                    }
                 }
             }
         }
@@ -1956,6 +1978,30 @@ const LiveControl = L.Control.extend({
                 this._updateMarkerIcon(existingMarker, processedAircraft);
                 existingMarker.options.aircraftData = JSON.parse(JSON.stringify(processedAircraft)); // Update stored data
 
+                // Check for and update custom DOM popup
+                const customPopup = document.getElementById(`custom-popup-${normalizedId}`);
+                if (customPopup) {
+                    // Update custom popup content
+                    const lastSeenTimestamp = new Date(processedAircraft.last_seen).getTime();
+                    const timeElement = customPopup.querySelector('.live-time-ago');
+                    if (timeElement) {
+                        timeElement.setAttribute('data-timestamp', lastSeenTimestamp);
+                    }
+                    
+                    // Update altitude and vertical speed display
+                    const vs = processedAircraft.last_vs ?? 0;
+                    const vsColor = vs === 0 ? 'black' : (vs < 0 ? 'red' : 'green');
+                    const altMsl = processedAircraft.last_alt_msl ?? 'N/A';
+                    const altAgl = processedAircraft.last_alt_agl ?? 'N/A';
+                    
+                    // Find and update the altitude/vs paragraph
+                    const altParagraph = customPopup.querySelector('p:nth-child(2)');
+                    if (altParagraph) {
+                        altParagraph.innerHTML = `<strong>${altMsl}${altMsl !== 'N/A' ? ' m' : ''} </strong>[${altAgl}${altAgl !== 'N/A' ? ' AGL' : ''}]</strong> <strong style="color: ${vsColor};">${vs.toFixed(1)} m/s</strong>`;
+                    }
+                }
+                
+                // Also update Leaflet popup if it exists
                 if (existingMarker.isPopupOpen()) {
                     this._updatePopupContent(existingMarker, processedAircraft, normalizedId);
                 }
