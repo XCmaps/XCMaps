@@ -36,7 +36,7 @@ server {
     ssl_session_tickets off;
 
     # Enable debug logging
-    error_log /var/log/nginx/xcmaps-error.log debug;
+    error_log /var/log/nginx/xcmaps-error.log error;
     access_log /var/log/nginx/xcmaps-access.log;
 
     # Internal rewrite for /auth/admin to the admin console

@@ -98,6 +98,14 @@ const InfoControl = L.Control.extend({
             `,
             changelog: `
                 <h3>Change Log</h3>
+                <p><strong>2025-MAY-22 version 1.1.1</strong></p>
+                <ul>
+                <li>#44 Remove obviously wrong points in live viewer</br>
+                 - (track-filter module to filter wrong packets)</li>
+                <li>#45 Show ground speed in the live viewer popup </li>
+                <li>#48 Second click on a marker also closes popup, track and chart </br>
+                  - (previously it worked only on click of popup) </li>
+                </ul>
                 <p><strong>2025-MAY-16 version 1.1.0</strong></p>
                 <p><strong>new feature: LIVE! OGN & XContest/XCTrack Viewer</strong></p>
                 <ul>
@@ -501,7 +509,7 @@ const InfoControl = L.Control.extend({
                       <li><strong>Obstacles:</strong> OSM based obstacles from Xcontest</li>
                       <li><strong>Locate and Track:</strong> Locate and Track your position using the Locate Control</li>
                       <li><strong>XCMaps User Account:</strong> By using your account, your can save your preferred map layers in the profile-badge—so every time you log in, you'll return to your personalized view.</li>
-                      <li><strong>Current Release:</strong> v1.1.0 <a href="#" data-section="changelog">Change Log</a></li>
+                      <li><strong>Current Release:</strong> v1.1.1 <a href="#" data-section="changelog">Change Log</a></li>
                     </ul>
 
                     <h3>Sponsors</h3>
