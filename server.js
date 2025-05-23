@@ -43,7 +43,7 @@ config();
 const app = express();
 
 // Schedule daily airspace updates at 3 AM
-cron.schedule('0 3 * * *', async () => {
+cron.schedule('0 4 * * *', async () => {
     console.log('Running scheduled airspace update...');
     try {
         // Need to ensure pool is available here or passed differently
