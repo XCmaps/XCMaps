@@ -52,6 +52,10 @@ const SKYTRAXX_DEFAULT_LON = 8.186;
 const SKYTRAXX_FILTER_RADIUS_M = 300; // Meters
 // --- End Skytraxx Filter Constants ---
 
+// --- Track Filtering Constants ---
+const DISTANCE_THRESHOLD_KM = 30; // Threshold for filtering out erroneous first packets
+// --- End Track Filtering Constants ---
+
 // --- Name Logging Constants ---
 const NAME_MATCH_LOG_FILE = 'ogn_name_matches.csv';
 const nameMatchLogPath = path.resolve(process.cwd(), NAME_MATCH_LOG_FILE);
@@ -73,6 +77,7 @@ class OgnAprsClient extends EventEmitter {
     this.pilotStatusCache = new Map(); // Cache for pilot status calculation state
     this.flarmnetCache = new Map(); // Cache for Flarmnet data
     this.lastValidTrackCache = new Map(); // Cache for the last valid track point for each aircraft
+    this.firstPacketCandidates = new Map(); // Cache for potential first packets awaiting validation
     this.io = null; // Socket.IO instance (will be set externally)
 
     // Initialize elevation modules
@@ -1070,7 +1075,7 @@ class OgnAprsClient extends EventEmitter {
 
       if (ognResult.rows.length > 0) {
         const model = ognResult.rows[0].aircraft_model;
-        if (model && (model.toLowerCase() === 'paraglider' || model.toLowerCase() === 'hangglider')) {
+        if (model && (model.toLowerCase() === 'paraglider' || model.toLowerCase() === 'hangglider' || model.toLowerCase() === 'towplane')) {
           // console.log(`Device ${deviceId} ELIGIBLE via OGN DDB (Model: ${model})`);
           return 'ELIGIBLE';
         } else {
@@ -1089,7 +1094,7 @@ class OgnAprsClient extends EventEmitter {
 
       if (flarmResult.rows.length > 0) {
         const type = flarmResult.rows[0].aircraft_type;
-        if (type && (type.toLowerCase().includes('hang') || type.toLowerCase().includes('paraglider') || type.toLowerCase().includes('gleitschirm'))) {
+        if (type && (type.toLowerCase().includes('hang') || type.toLowerCase().includes('paraglider') || type.toLowerCase().includes('gleitschirm') || type.toLowerCase().includes('tow') || type.toLowerCase().includes('schlepp'))) {
           // console.log(`Device ${deviceId} ELIGIBLE via Flarmnet (Type: ${type})`);
           return 'ELIGIBLE';
         } else {
@@ -1249,7 +1254,7 @@ class OgnAprsClient extends EventEmitter {
         } else { // eligibility === 'UNKNOWN'
           // console.log(`Device ${parsedData.deviceId} is UNKNOWN, checking aircraft type.`);
           // Not found in DB, fall back to checking aircraft type from packet (now improved with sFx check)
-          const allowedTypes = [3, 6, 7]; // Helicopter, Hang-Glider, Para-glider
+          const allowedTypes = [2, 3, 6, 7]; // Tow/tug plane, Helicopter, Hang-Glider, Para-glider
           if (allowedTypes.includes(parsedData.aircraftType)) {
             // console.log(`Unknown device ${parsedData.deviceId} has allowed type ${parsedData.aircraftType}, storing.`);
             storeData = true;
@@ -1261,7 +1266,7 @@ class OgnAprsClient extends EventEmitter {
       } else {
         // No deviceId in packet, fall back to checking aircraft type
         // console.log(`No deviceId in packet, checking aircraft type.`);
-        const allowedTypes = [3, 6, 7]; // Helicopter, Hang-Glider, Para-glider
+        const allowedTypes = [2, 3, 6, 7]; // Tow/tug plane, Helicopter, Hang-Glider, Para-glider
         if (allowedTypes.includes(parsedData.aircraftType)) {
           // console.log(`No deviceId, allowed type ${parsedData.aircraftType}, storing.`);
           storeData = true;
@@ -1277,96 +1282,152 @@ class OgnAprsClient extends EventEmitter {
       const isValidType = typeof parsedData.aircraftType === 'number' && !isNaN(parsedData.aircraftType);
       const hasPilotName = parsedData.pilotName !== null;
 
-      if (storeData && isValidType && hasPilotName) { // Only proceed if storeData is true, type is valid, AND pilotName exists
-        // Calculate pilot status BEFORE storing/emitting
-        const pilotStatus = await this._calculatePilotStatus(parsedData.deviceId, {
+      if (!storeData || !isValidType || !hasPilotName) {
+          if (!storeData) {
+              // console.log(`Skipping processing for device ${parsedData.deviceId} due to eligibility check.`);
+          }
+          if (!isValidType) {
+              console.log(`Skipping processing for device ${parsedData.deviceId} due to invalid aircraftType: ${parsedData.aircraftType}`);
+          }
+          if (!hasPilotName) {
+              // console.log(`Skipping processing for device ${parsedData.deviceId} (Name: ${parsedData.name}) because pilotName is null.`);
+          }
+          return; // Do not proceed if not eligible, invalid type, or no pilot name
+      }
+
+      // --- First Packet Filtering Logic ---
+      const lastValidPoint = this.lastValidTrackCache.get(parsedData.deviceId);
+
+      if (!lastValidPoint) {
+          // This is the first packet we've seen for this aircraft.
+          // Store it as a candidate and wait for the next packet to validate.
+          this.firstPacketCandidates.set(parsedData.deviceId, parsedData);
+          console.log(`Holding first packet for ${parsedData.deviceId} for validation. Cache state: ${this.lastValidTrackCache.has(parsedData.deviceId) ? 'present' : 'absent'}`);
+          
+      } // Closing brace for the if (!lastValidPoint) block
+      else if (this.firstPacketCandidates.has(parsedData.deviceId)) {
+          // This is the second packet for an aircraft whose first packet is being held.
+          const firstPacket = this.firstPacketCandidates.get(parsedData.deviceId);
+          const distance = this._haversineDistance(firstPacket.lat, firstPacket.lon, parsedData.lat, parsedData.lon);
+
+          // Clear the candidate regardless of the outcome
+          this.firstPacketCandidates.delete(parsedData.deviceId);
+
+          if (distance > DISTANCE_THRESHOLD_KM * 1000) { // Convert KM threshold to meters for comparison
+              console.log(`Discarding initial packet for ${parsedData.deviceId} due to large distance (${(distance / 1000).toFixed(2)} km > ${DISTANCE_THRESHOLD_KM} km).`);
+              // Only process the current (second) packet. The first one is discarded.
+          } else {
+              console.log(`Initial packet for ${parsedData.deviceId} is valid (${(distance / 1000).toFixed(2)} km <= ${DISTANCE_THRESHOLD_KM} km). Processing both.`);
+              // Process the first packet that was held
+              const firstPacketStatus = await this._calculatePilotStatus(firstPacket.deviceId, {
+                  timestamp: firstPacket.timestamp,
+                  alt_agl: firstPacket.altAgl,
+                  speed_kmh: firstPacket.speedKmh,
+                  vs: firstPacket.vs
+              });
+              firstPacket.status = firstPacketStatus;
+              await this.storeAircraftData(firstPacket);
+              this.aircraftCache.set(firstPacket.id, firstPacket);
+              this.emit('aircraft-update', firstPacket);
+              // Update lastValidTrackCache with the first packet
+              this.lastValidTrackCache.set(firstPacket.deviceId, {
+                  lat: firstPacket.lat,
+                  lon: firstPacket.lon,
+                  timestamp: firstPacket.timestamp
+              });
+          }
+      }
+      // --- End First Packet Filtering Logic ---
+
+      // For all valid packets (including the current one if it passed the filter, or subsequent ones)
+      // Calculate pilot status BEFORE storing/emitting
+      const pilotStatus = await this._calculatePilotStatus(parsedData.deviceId, {
           timestamp: parsedData.timestamp,
           alt_agl: parsedData.altAgl, // Use the calculated/corrected AGL
           speed_kmh: parsedData.speedKmh,
           vs: parsedData.vs
-        });
-        parsedData.status = pilotStatus; // Add status to the data object
+      });
+      parsedData.status = pilotStatus; // Add status to the data object
 
-        // Store in database (now includes status)
-        await this.storeAircraftData(parsedData);
+      // Store in database (now includes status)
+      await this.storeAircraftData(parsedData);
 
-        // Update cache (ensure parsedData includes status if needed here)
-        this.aircraftCache.set(parsedData.id, parsedData); // Cache now includes status
+      // Update cache (ensure parsedData includes status if needed here)
+      this.aircraftCache.set(parsedData.id, parsedData); // Cache now includes status
 
-        // Emit event for real-time updates (local event)
-        this.emit('aircraft-update', parsedData);
+      // Update lastValidTrackCache with the current packet
+      this.lastValidTrackCache.set(parsedData.deviceId, {
+          lat: parsedData.lat,
+          lon: parsedData.lon,
+          timestamp: parsedData.timestamp
+      });
 
-        // Emit WebSocket event if Socket.IO is available
-        if (this.io) {
+      // Emit event for real-time updates (local event)
+      this.emit('aircraft-update', parsedData);
+
+      // Emit WebSocket event if Socket.IO is available
+      if (this.io) {
           try {
-            const ognNamespace = this.io.of('/ogn');
+              const ognNamespace = this.io.of('/ogn');
 
-            // Get all clients in the aircraft-updates room
-            const sockets = await ognNamespace.in('aircraft-updates').fetchSockets();
+              // Get all clients in the aircraft-updates room
+              const sockets = await ognNamespace.in('aircraft-updates').fetchSockets();
 
-            // RE-ADDED: Fetch the current name from the database to ensure we send the correct one
-            let currentDbName = parsedData.name; // Default to parsed name in case DB lookup fails
-            const client = await this.dbPool.connect();
-            try {
-              // Fetch name specifically from aircraft table using deviceId
-              const nameResult = await client.query('SELECT name FROM aircraft WHERE device_id = $1', [parsedData.deviceId]);
-              if (nameResult.rows.length > 0 && nameResult.rows[0].name) {
-                // Use the name from the database if found
-                currentDbName = nameResult.rows[0].name;
-              } else {
-                 // If not found in DB (shouldn't happen after storeAircraftData), keep parsedData.name
-                 console.warn(`Device ${parsedData.deviceId} not found in aircraft table when preparing WS update, using parsed name: ${parsedData.name}`);
+              // RE-ADDED: Fetch the current name from the database to ensure we send the correct one
+              let currentDbName = parsedData.name; // Default to parsed name in case DB lookup fails
+              const client = await this.dbPool.connect();
+              try {
+                  // Fetch name specifically from aircraft table using deviceId
+                  const nameResult = await client.query('SELECT name FROM aircraft WHERE device_id = $1', [parsedData.deviceId]);
+                  if (nameResult.rows.length > 0 && nameResult.rows[0].name) {
+                      // Use the name from the database if found
+                      currentDbName = nameResult.rows[0].name;
+                  } else {
+                      // If not found in DB (shouldn't happen after storeAircraftData), keep parsedData.name
+                      console.warn(`Device ${parsedData.deviceId} not found in aircraft table when preparing WS update, using parsed name: ${parsedData.name}`);
+                  }
+              } catch (dbError) {
+                  console.error(`Error fetching current name for ${parsedData.deviceId} from DB for WS update:`, dbError);
+                  // Keep the default parsed name if DB query fails
+              } finally {
+                  client.release();
               }
-            } catch (dbError) {
-              console.error(`Error fetching current name for ${parsedData.deviceId} from DB for WS update:`, dbError);
-              // Keep the default parsed name if DB query fails
-            } finally {
-              client.release();
-            }
 
-            // Format the data for WebSocket transmission
-            const wsData = {
-            	id: parsedData.id, // This is now the normalized deviceId
-            	name: currentDbName, // Use the name fetched from DB (or default)
-            	last_lat: parsedData.lat,
-            	last_lon: parsedData.lon, // Corrected typo from last_lon to lon
-            	last_alt_msl: parsedData.altMsl,
-            	last_alt_agl: parsedData.altAgl,
-            	last_course: parsedData.course,
-            	last_speed_kmh: parsedData.speedKmh,
-            	last_vs: parsedData.vs,
-            	last_turn_rate: parsedData.turnRate,
-                status: parsedData.status, // Include calculated pilot status
-            	type: parsedData.aircraftType,
-            	pilot_name: parsedData.pilotName,
-            	last_seen: parsedData.timestamp,
-            	// Add a unique timestamp to help client identify duplicates
-            	update_timestamp: Date.now()
-            };
+              // Format the data for WebSocket transmission
+              const wsData = {
+                  id: parsedData.id, // This is now the normalized deviceId
+                  name: currentDbName, // Use the name fetched from DB (or default)
+                  last_lat: parsedData.lat,
+                  last_lon: parsedData.lon, // Corrected typo from last_lon to lon
+                  last_alt_msl: parsedData.altMsl,
+                  last_alt_agl: parsedData.altAgl,
+                  last_course: parsedData.course,
+                  last_speed_kmh: parsedData.speedKmh,
+                  last_vs: parsedData.vs,
+                  last_turn_rate: parsedData.turnRate,
+                  status: parsedData.status, // Include calculated pilot status
+                  type: parsedData.aircraftType,
+                  pilot_name: parsedData.pilotName,
+                  last_seen: parsedData.timestamp,
+                  // Add a unique timestamp to help client identify duplicates
+                  update_timestamp: Date.now()
+              };
 
-            // Send updates only to clients whose bounds contain this aircraft
-            for (const socket of sockets) {
-              if (socket.bounds && this._isAircraftInBounds(parsedData, socket.bounds)) {
-                socket.emit('aircraft-update', wsData);
+              // Send updates only to clients whose bounds contain this aircraft
+              for (const socket of sockets) {
+                  if (socket.bounds && this._isAircraftInBounds(parsedData, socket.bounds)) {
+                      socket.emit('aircraft-update', wsData);
+                  }
               }
-            }
           } catch (err) {
-            console.error('Error emitting WebSocket event:', err);
-          }
-        }
-      } else if (storeData && (!isValidType || !hasPilotName)) {
-          // Log if we intended to store but the type was invalid OR pilotName was null
-          if (!isValidType) {
-              console.log(`Skipping store/update for device ${parsedData.deviceId} due to invalid aircraftType: ${parsedData.aircraftType}`);
-          }
-          if (!hasPilotName) {
-              // console.log(`Skipping store/update for device ${parsedData.deviceId} (Name: ${parsedData.name}) because pilotName is null.`);
+              console.error('Error emitting WebSocket event:', err);
           }
       }
-    } catch (err) { // End of try, start of catch for processAprsData
+    } // This closes the main try block that starts at line 1194
+    catch (err) {
       console.error('Error processing APRS data:', err, 'Line:', line);
     }
-  } // End of processAprsData
+  }
 
   /**
    * Parse APRS packet
@@ -1441,7 +1502,6 @@ class OgnAprsClient extends EventEmitter {
 
       // --- Refined logic: Check trailing OGN type code ---
       let finalAircraftType = aircraftInfo.aircraftType; // Default to original type
-      let rejectPacket = false;
 
       const payloadParts = payload.trim().split(/\s+/);
       if (payloadParts.length > 0) {
@@ -1460,9 +1520,9 @@ class OgnAprsClient extends EventEmitter {
             finalAircraftType = 3; // Override with HG type
             console.log(`OGN: Identified Helicopter (${deviceId || callsign}) from trailing code: ${ognAircraftTypeCode}`);
           } else {
-            // Valid OGN code, but not PG/HG - Mark for REJECTION
-            console.log(`OGN: Rejecting packet for ${deviceId || callsign}. Non-PG/HG trailing type: ${ognAircraftTypeCode}. Packet: ${packet}`);
-            rejectPacket = true;
+            // Valid OGN code, but not PG/HG - do not reject, let it pass with its determined type
+            console.log(`OGN: Allowing packet for ${deviceId || callsign} with non-PG/HG trailing type: ${ognAircraftTypeCode}. Packet: ${packet}`);
+            // Do NOT set rejectPacket = true;
           }
         }
         // If it doesn't look like an OGN code, we keep the original finalAircraftType
@@ -1471,10 +1531,6 @@ class OgnAprsClient extends EventEmitter {
 
       // --- End refined logic ---
 
-      // Reject packet if marked
-      if (rejectPacket) {
-        return null;
-      }
 
       // --- Continue processing if not rejected ---
 
@@ -1498,8 +1554,7 @@ class OgnAprsClient extends EventEmitter {
 
       // Create result object - Use normalized deviceId as the primary 'id'
       return {
-        // id: callsign.toUpperCase(), // OLD: Use callsign as ID
-        id: deviceId, // NEW: Use normalized deviceId as the primary ID
+        id: deviceId, // Use normalized deviceId as the primary ID
         callsign: callsign.toUpperCase(), // Keep original callsign separately
         name: name, // This is usually registration or callsign
         timestamp: new Date(),
