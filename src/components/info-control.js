@@ -373,8 +373,74 @@ const InfoControl = L.Control.extend({
                  </tbody>
                </table>
                <p><strong>Note:</strong> For readability, the text color for the speed values inside the arrow automatically switches to white when the background color is black.</p>
-           `
-        };
+             `,
+              xctrack: `
+                  <p>With <strong>XCTrack PRO</strong>, you can integrate <strong>XCMaps</strong> into your XCTrack configuration using the <strong>Web Page Widget</strong> and customize the displayed map using URL parameters.</p>
+  
+                  <h5>How to Configure the Widget</h5>
+                  <p>You can configure your desired overlays in one of two ways:</p>
+  
+                  <h5><strong>1. Log in with Your XCMaps User Account</strong></h5>
+                  <p>⚠️ Important Notes:</p>
+                  <ul>
+                      <li>This method works only with native Android devices running XCTrack and using username/password authentication.</li>
+                      <li>Google login will not work because in-app WebViews on Android do not support Google OAuth.</li>
+                      <li>AIR³ devices are not compatible with this login method due to redirection issues with the internal XCMaps authentication URL.</li>
+                  </ul>
+  
+                  <h5><strong>2. Use URL Parameters Without a User Account (Recommended)</strong></h5>
+                  <ol>
+                      <li>Open a browser on your device.</li>
+                      <li>Navigate to XCMaps.com.</li>
+                      <li>Select your desired base map and overlay layers.</li>
+                      <li>Copy the resulting URL from your browser’s address bar (long press for the context menu).</li>
+                      <li>Open XCTrack and configure the Web Page Widget.</li>
+                      <li>Paste the copied URL into the widget settings (long press to paste).</li>
+                  </ol>
+  
+                  <h5>Available URL Parameters</h5>
+                  <p><strong>Base Maps</strong> (Only one base map can be selected at a time.)</p>
+                  <ul>
+                      <li><code>base=terrain</code> → Terrain – JawgMaps</li>
+                      <li><code>base=topo</code> → Topo – Esri</li>
+                      <li><code>base=osm</code> → OpenStreetMap</li>
+                      <li><code>base=satellite</code> → Satellite imagery</li>
+                  </ul>
+  
+                  <p><strong>Overlay Layers</strong> (Multiple overlays can be included, separated by commas.) <em>Example: <code>overlays=weather_stations,radar</code></em></p>
+                  <ul>
+                      <li><code>overlays=weather_stations</code> → Weather Stations</li>
+                      <li><code>overlays=radar</code> → Rain Viewer – Radar</li>
+                      <li><code>overlays=satellite</code> → Rain Viewer – Satellite</li>
+                      <li><code>overlays=kk7_thermals</code> → KK7 Thermals</li>
+                      <li><code>overlays=kk7_skyways</code> → KK7 Skyways</li>
+                      <li><code>overlays=take_off_pg</code> → Paragliding Take-off Points</li>
+                      <li><code>overlays=take_off_hg</code> → Hang Gliding Take-off Points</li>
+                      <li><code>overlays=landing_zones</code> → Landing Zones</li>
+                      <li><code>overlays=airspaces</code> → Airspace (XContest)</li>
+                      <li><code>overlays=obstacles</code> → Obstacles</li>
+                      <li><code>overlays=live</code> → Live Tracking Layer</li>
+                  </ul>
+  
+                  <h5>Other Parameters</h5>
+                  <ul>
+                      <li><code>floor_below=<meters></code> → Sets lower airspace limit. Accepted values: 2000, 2500, 3000, 3500, 4000, 4500.
+                          Example: <code>floor_below=3000</code></li>
+                      <li><code>locate_track=true</code> → Enables the "Locate & Track" control, centering the map on the user’s location.
+                          👉 Recommended to include this in widget URLs.</li>
+                  </ul>
+  
+                  <h5><strong>Example URL Combination</strong></h5>
+                  <p><code>https://XCMaps.com/?base=terrain&overlays=weather_stations,radar,airspaces&floor_below=2500&locate_track=true</code></p>
+                  <p>This URL will:</p>
+                  <ul>
+                      <li>Use the Terrain base map</li>
+                      <li>Show Weather Stations, Radar, and Airspace overlays</li>
+                      <li>Set the airspace floor to 2500 meters</li>
+                      <li>Center the map on the current user location</li>
+                  </ul>
+              `
+          };
 
         // --- Function to build the common content structure ---
         function buildContentStructure() {
@@ -509,6 +575,7 @@ const InfoControl = L.Control.extend({
                       <li><strong>Obstacles:</strong> OSM based obstacles from Xcontest</li>
                       <li><strong>Locate and Track:</strong> Locate and Track your position using the Locate Control</li>
                       <li><strong>XCMaps User Account:</strong> By using your account, your can save your preferred map layers in the profile-badge—so every time you log in, you'll return to your personalized view.</li>
+                      <li><strong><a href="#" data-section="xctrack">XCTrack Web Page Widget:</a></strong> Custom Map Overlays Using URL Parameters</li>
                       <li><strong>Current Release:</strong> v1.1.1 <a href="#" data-section="changelog">Change Log</a></li>
                     </ul>
 
@@ -548,6 +615,7 @@ const InfoControl = L.Control.extend({
                 else if (sectionName === 'airspaces') currentPageSpan.innerText = 'Airspaces';
                 else if (sectionName === 'weather-stations') currentPageSpan.innerText = 'Weather Stations';
                 else if (sectionName === 'live') currentPageSpan.innerText = 'LIVE!';
+                else if (sectionName === 'xctrack') currentPageSpan.innerText = 'XCTrack';
             }
             contentAreaDiv.scrollTop = 0;
         }
