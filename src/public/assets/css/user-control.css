@@ -139,3 +139,18 @@
 .add-pilot-button:hover {
   background-color: #777; /* Darker grey on hover */
 }
+
+/* Custom icons for Leaflet Locate Control */
+.leaflet-control-locate a .leaflet-control-locate-location-arrow {
+  background-image: url('../images/track-inactive.svg') !important;
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.leaflet-control-locate.active a .leaflet-control-locate-location-arrow {
+  background-image: url('../images/track-active.svg') !important;
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  background-position: center;
+}

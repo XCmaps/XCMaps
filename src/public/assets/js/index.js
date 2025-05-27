@@ -43,6 +43,11 @@ import '../../../components/rainviewer.js';
 import { initializeAirspaceXCMapListeners } from './../../../components/airspaces-xc.js';
 import { keycloak, initKeycloak, createUserControl, loadUserPreferences, isUserAuthenticated } from '../../../components/keycloak-auth.js'; // Import necessary functions AND keycloak instance
 
+// Define global layer objects and control states
+window.baseLayers = {};
+window.overlayLayers = {};
+window.controlStates = {};
+
 // --- Global App Configuration ---
 window.appConfig = {
   fullSpotsPopoup: false // Default value, will be overwritten by fetched config
@@ -65,6 +70,285 @@ async function fetchAppConfig() {
 // --- End Global App Configuration ---
 
 
+// Mappings for URL parameters to Leaflet layers/controls
+const BASE_MAP_URL_MAP = {
+  'terrain': 'jawgTerrain',
+  'topo': 'esriTopo',
+  'osm': 'osm',
+  'satellite': 'sat'
+};
+
+const OVERLAY_URL_MAP = {
+  'weather_stations': 'windStations',
+  'radar': 'rainviewerRadar',
+  'satellite': 'rainviewerSatellite',
+  'kk7_thermals': 'kk7thermals',
+  'kk7_skyways': 'kk7skyways',
+  'take_off_pg': 'placesLayerPG',
+  'take_off_hg': 'placesLayerHG',
+  'landing_zones': 'placesLayerLZ',
+  'airspaces': 'airspaceXC',
+  'obstacles': 'obstacleLayer',
+  'live': 'aircraftLayer'
+};
+
+// Function to parse URL parameters
+window.parseUrlParameters = function() {
+  const params = new URLSearchParams(window.location.search);
+  const parsed = {
+    baseMap: null,
+    overlays: [],
+    floorBelow: null,
+    locateTrack: false
+  };
+
+  const baseParam = params.get('base');
+  if (baseParam && BASE_MAP_URL_MAP[baseParam]) {
+    parsed.baseMap = BASE_MAP_URL_MAP[baseParam];
+  }
+
+  const overlaysParam = params.get('overlays');
+  if (overlaysParam) {
+    const overlayKeys = overlaysParam.split(',');
+    for (const key of overlayKeys) {
+      if (OVERLAY_URL_MAP[key]) {
+        parsed.overlays.push(OVERLAY_URL_MAP[key]);
+      }
+    }
+  }
+
+  const floorBelowParam = params.get('floor_below');
+  if (floorBelowParam && !isNaN(parseInt(floorBelowParam))) {
+    parsed.floorBelow = parseInt(floorBelowParam);
+  }
+
+  const locateTrackParam = params.get('locate_track');
+  if (locateTrackParam === 'true') {
+    parsed.locateTrack = true;
+  }
+
+  return parsed;
+}
+
+// Function to update URL parameters
+window.updateUrlParameters = function() {
+  if (window.isInitialLoad) {
+    return;
+  }
+  const currentParams = new URLSearchParams(window.location.search);
+  const newParams = new URLSearchParams();
+
+  let currentBaseMapKey = null;
+  for (const key in BASE_MAP_URL_MAP) {
+    if (window.baseLayers[BASE_MAP_URL_MAP[key]] && window.map.hasLayer(window.baseLayers[BASE_MAP_URL_MAP[key]])) {
+      currentBaseMapKey = key;
+      break;
+    }
+  }
+  if (currentBaseMapKey) {
+    newParams.set('base', currentBaseMapKey);
+  }
+
+  const activeOverlays = [];
+  for (const key in OVERLAY_URL_MAP) {
+    const layerVarName = OVERLAY_URL_MAP[key];
+    if (layerVarName === 'aircraftLayer') {
+      if (window.aircraftLayer && window.map.hasLayer(window.aircraftLayer)) {
+        activeOverlays.push(key);
+      }
+    } else if (window.overlayLayers[layerVarName] && window.map.hasLayer(window.overlayLayers[layerVarName])) {
+      activeOverlays.push(key);
+    }
+  }
+  if (activeOverlays.length > 0) {
+    newParams.set('overlays', activeOverlays.join(','));
+  } else {
+    newParams.delete('overlays');
+  }
+
+  const airspaceLowerLimitSelect = document.getElementById('airspaceLowerLimit');
+  if (airspaceLowerLimitSelect && airspaceLowerLimitSelect.value) {
+    newParams.set('floor_below', airspaceLowerLimitSelect.value);
+  } else {
+    newParams.delete('floor_below');
+  }
+
+  if (window.lc && window.lc._active) {
+    newParams.set('locate_track', 'true');
+  } else {
+    newParams.delete('locate_track');
+  }
+
+  const newUrl = `${window.location.pathname}?${newParams.toString()}${window.location.hash}`;
+  if (window.location.search !== `?${newParams.toString()}`) {
+    history.replaceState({}, '', newUrl);
+  }
+}
+// Generate dynamic airspace time options
+  const airspaceTimeOptions = (() => {
+    let options = '';
+    for (let i = 0; i <= 6; i++) {
+      const date = moment().add(i, 'days');
+      const dayName = date.format('ddd');
+      const dateValue = date.format('YYYY-MM-DD');
+      options += `<option value="${dateValue}" ${i === 0 ? 'selected' : ''}>${
+        i === 0 ? `Today` : dayName
+      }</option>`;
+    }
+    return options;
+  })();
+function setupPostMapInitializationListeners(urlParams) {
+var baseTree = {
+    label: 'Base Maps',
+    collapsed: true,
+    children: [
+        { label: 'Terrain - JawgMaps', layer: window.baseLayers.jawgTerrain },
+        { label: 'Topo - Esri', layer: window.baseLayers.esriTopo },
+        { label: 'OpenStreetMap', layer: window.baseLayers.osm },
+        { label: 'Satellite',  layer: window.baseLayers.sat },
+    ]
+  };
+
+  var overlayTree = {
+      label: 'Overlays',
+      children: [
+          { label: 'Weather Stations',
+            children: [
+              { label: 'Weather Stations', layer: window.overlayLayers.windStations, checked: true  },
+            ]
+          },
+          { html: '<hr class="leaflet-control-layers-separator">' },
+          { label: 'Rain Viewer',
+            children: [
+              { label: 'Radar', layer: window.overlayLayers.rainviewerRadar, checked: true  },
+              { label: 'Satellite', layer: window.overlayLayers.rainviewerSatellite },
+            ]
+          },
+          { html: '<hr class="leaflet-control-layers-separator">' },
+          { label: 'Thermals',
+            children: [
+              { label: 'kk7 Thermals', layer: window.overlayLayers.kk7thermals  },
+              { label: 'kk7 Skyways', layer: window.overlayLayers.kk7skyways  },
+            ]
+          },
+          { html: '<hr class="leaflet-control-layers-separator">' },
+          { label: 'Spots',
+              children: [
+                  { label: 'Take-off PG', layer: window.placesLayerPG },
+                  { label: 'Take-off HG', layer: window.placesLayerHG },
+                  { label: 'Landing Zones', layer: window.placesLayerLZ },
+              ]
+          },
+          { html: '<hr class="leaflet-control-layers-separator">' },
+          { label: 'Airspaces',
+              children: [
+                      {
+                        html: `
+                            <div class="airspace-time-control">
+                                Active:
+                                <select class="airspace-time-select" id="airspaceTime">
+                                    ${airspaceTimeOptions}
+                                </select>
+                            </div>
+                        `
+                      },
+                      {
+                        html: `
+                            <div class="airspace-limit-control">
+                                ↧ below:
+                                <select class="lower-limit-select" id="airspaceLowerLimit">
+                                    <option value="2000">2000m</option>
+                                    <option value="2500">2500m</option>
+                                    <option value="3000">3000m</option>
+                                    <option value="3500">3500m</option>
+                                    <option value="4000">4000m</option>
+                                    <option value="4500">4500m</option>
+                                </select>
+                            </div>
+                        `
+                      },
+                  { label: 'Airspaces', layer: window.overlayLayers.airspaceXC },
+                  { label: 'Trigger NOTAM', layer: window.airspaceTriggerNotam },
+                  { label: 'Obstacles', layer: window.overlayLayers.obstacleLayer },
+                  { label: 'OpenAIP Map', layer: window.overlayLayers.oaipMap},
+              ]
+          },
+      ]
+  };
+  // Add layer control tree and make it global
+  window.treeLayersControl = L.control.layers.tree(baseTree, overlayTree, {
+    namedToggle: false,
+    collapsed: true
+  }).addTo(window.map);
+const airspaceLowerLimitSelect = document.getElementById('airspaceLowerLimit');
+  if (airspaceLowerLimitSelect && urlParams.floorBelow !== null) {
+    const optionExists = Array.from(airspaceLowerLimitSelect.options).some(option => parseInt(option.value) === urlParams.floorBelow);
+    if (optionExists) {
+      airspaceLowerLimitSelect.value = urlParams.floorBelow;
+      console.log(`Set airspace lower limit from URL: ${urlParams.floorBelow}`);
+      airspaceLowerLimitSelect.dispatchEvent(new Event('change'));
+    } else {
+      console.warn(`URL parameter floor_below=${urlParams.floorBelow} is not a valid option.`);
+    }
+  }
+// Apply airspace lower limit from URL parameters
+
+  // Initialize with base tree collapsed and selected overlays expanded
+  window.treeLayersControl.collapseTree(false).expandSelected(true);
+
+  const layersControlContainer = window.treeLayersControl.getContainer();
+  const layersControlToggle = layersControlContainer.querySelector('.leaflet-control-layers-toggle');
+
+  const isTouchDevice = () => {
+    return (('ontouchstart' in window) ||
+            (navigator.maxTouchPoints > 0) ||
+            (navigator.msMaxTouchPoints > 0));
+  };
+
+  if (isTouchDevice()) {
+    L.DomEvent.on(layersControlToggle, 'click', function(e) {
+      L.DomEvent.stopPropagation(e);
+      if (L.DomUtil.hasClass(layersControlContainer, 'leaflet-control-layers-expanded')) {
+        L.DomUtil.removeClass(layersControlContainer, 'leaflet-control-layers-expanded');
+      } else {
+        L.DomUtil.addClass(layersControlContainer, 'leaflet-control-layers-expanded');
+      }
+    });
+
+    L.DomEvent.on(document, 'click', function() {
+      if (L.DomUtil.hasClass(layersControlContainer, 'leaflet-control-layers-expanded')) {
+        L.DomUtil.removeClass(layersControlContainer, 'leaflet-control-layers-expanded');
+      }
+    });
+
+    L.DomEvent.on(layersControlContainer, 'click', function(e) {
+      L.DomEvent.stopPropagation(e);
+    });
+  }
+
+  // Update URL parameters when base layer changes
+
+  // Update URL parameters when overlay layers are added or removed
+  window.map.on('overlayadd', function (e) {
+    console.log('Overlay added:', e.name);
+    window.updateUrlParameters();
+  });
+
+  window.map.on('overlayremove', function (e) {
+    console.log('Overlay removed:', e.name);
+    window.updateUrlParameters();
+  });
+
+  // Update URL parameters when airspace lower limit changes
+}
+const airspaceLowerLimitSelect = document.getElementById('airspaceLowerLimit');
+  if (airspaceLowerLimitSelect) {
+    airspaceLowerLimitSelect.addEventListener('change', function() {
+      console.log('Airspace lower limit changed:', this.value);
+      window.updateUrlParameters();
+    });
+  }
+
 // Initialize map and make necessary objects globally available
 let mapInitialized = false; // Flag to prevent multiple initializations
 
@@ -76,55 +360,107 @@ function initMap() {
   mapInitialized = true; // Set flag early
   console.log("Initializing map for the first time...");
 
-  // Define Esri Topo Map (Moved here)
-  var esriTopo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+  // Define Base Layers
+  window.baseLayers.esriTopo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
       attribution: 'Esri; © <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
   });
 
-  // Revert to L.mapboxGL (assuming mapbox-gl-leaflet is installed)
-  // var jawgTerrain = L.mapboxGL({
-  //   accessToken: 'not-needed', // Add dummy token to satisfy Mapbox GL JS
-  //   style: 'https://api.jawg.io/styles/jawg-terrain.json?access-token=qBDXRu1KSlZGhx4ROlceBD9hcxmrumL34oj29tUkzDVkafqx08tFWPeRNb0KSoKa&lang=&extrude=&worldview=&draft=',
-  //   attribution: '<a href="https://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank" class="jawg-attrib">&copy; <b>Jawg</b>Maps</a> | <a href="https://www.openstreetmap.org/copyright" title="OpenStreetMap is open data licensed under ODbL" target="_blank" class="osm-attrib">&copy; OSM contributors</a>',
-    // center: [0, 0], // Remove unnecessary center option here
-  //   maxZoom: 22 // Keep maxZoom matching the working example
-  // });
+  window.baseLayers.jawgTerrain = L.maplibreGL({
+    style: `https://api.jawg.io/styles/jawg-terrain.json?access-token=${process.env.JAWG_ACCESS_TOKEN}&lang=&extrude=&worldview=&draft=`,
+    attribution: '<a href="https://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank" class="jawg-attrib">&copy; <b>Jawg</b>Maps</a> | <a href="https://www.openstreetmap.org/copyright" title="OpenStreetMap is open data licensed under ODbL" target="_blank" class="osm-attrib">&copy; OSM contributors</a>',
+    maxZoom: 22
+  });
 
-    // Revert to L.mapboxGL (assuming mapbox-gl-leaflet is installed)
-    var jawgTerrain = L.maplibreGL({
-      style: `https://api.jawg.io/styles/jawg-terrain.json?access-token=${process.env.JAWG_ACCESS_TOKEN}&lang=&extrude=&worldview=&draft=`,
-      attribution: '<a href="https://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank" class="jawg-attrib">&copy; <b>Jawg</b>Maps</a> | <a href="https://www.openstreetmap.org/copyright" title="OpenStreetMap is open data licensed under ODbL" target="_blank" class="osm-attrib">&copy; OSM contributors</a>',
-      // center: [0, 0], // Remove unnecessary center option here
-      maxZoom: 22 // Keep maxZoom matching the working example
+  window.baseLayers.osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+  });
+
+  window.baseLayers.sat = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{
+      attribution: 'Map data: Google',
+      maxZoom: 20,
+      subdomains:['mt0','mt1','mt2','mt3']
+  });
+window.overlayLayers.windStations = L.layerGroup();
+  window.windLayer = window.overlayLayers.windStations; // Expose windLayer globally for windstations.js
+  window.overlayLayers.airspaceXC = L.layerGroup([], {
+    attribution: '&copy; <a href="https://xcontest.org">XContest</a>',
+  });
+  window.airspaceXC = window.overlayLayers.airspaceXC; // Expose airspaceXC globally for airspaces-xc.js
+  window.airspaceTriggerNotam = L.layerGroup([], {
+    attribution: '&copy; <a href="https://xcontest.org">XContest</a>',
+  });
+
+  // Define Overlay Layers
+  window.overlayLayers.kk7thermals = L.tileLayer('/api/kk7thermals/{z}/{x}/{y}.png', {
+    attribution: '<a href="https://thermal.kk7.ch">thermal.kk7.ch</a>',
+    maxNativeZoom: 12,
+    tms: true
+  });
+  window.overlayLayers.kk7skyways = L.tileLayer('/api/kk7skyways/{z}/{x}/{y}.png', {
+    attribution: '<a href="https://thermal.kk7.ch">thermal.kk7.ch</a>',
+    maxNativeZoom: 12,
+    tms: true
+  });
+  window.placesLayerPG = L.layerGroup();
+  window.placesLayerHG = L.layerGroup();
+  window.placesLayerLZ = L.layerGroup();
+
+  // Add these to overlayLayers for URL parameter handling and layer control
+  window.overlayLayers.placesLayerPG = window.placesLayerPG;
+  window.overlayLayers.placesLayerHG = window.placesLayerHG;
+  window.overlayLayers.placesLayerLZ = window.placesLayerLZ;
+  window.overlayLayers.obstacleLayer = L.layerGroup(); // Initialize obstacleLayer
+  window.overlayLayers.oaipMap = L.tileLayer(`https://a.api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png?apiKey=${process.env.OAIP_KEY}`, {
+      attribution: '&copy; <a href="https://www.openaip.net">OpenAIP</a>',
+      className: 'oaip-layer'
+  });
+
+  // Initialize RainViewer layers with error handling
+  try {
+    window.overlayLayers.rainviewerRadar = L.timeDimension.layer.rainviewer("https://api.rainviewer.com/public/weather-maps.json", {
+      opacity: 0.7,
+      cache: 5,
+      refreshInterval: 300000
     });
+    window.overlayLayers.rainviewerSatellite = L.timeDimension.layer.rainviewer("https://api.rainviewer.com/public/weather-maps.json", {
+      type: 'satellite',
+      opacity: 0.7,
+      cache: 5,
+      refreshInterval: 300000
+    });
+    console.log('RainViewer layers initialized successfully');
+  } catch (error) {
+    console.error('Error initializing RainViewer layers:', error);
+    window.overlayLayers.rainviewerRadar = L.layerGroup();
+    window.overlayLayers.rainviewerSatellite = L.layerGroup();
+  }
+
+  // Parse URL parameters for initial map state
+  const urlParams = parseUrlParameters();
+  let initialBaseLayer = window.baseLayers.jawgTerrain; // Default base layer
+
+  if (urlParams.baseMap && window.baseLayers[urlParams.baseMap]) {
+    initialBaseLayer = window.baseLayers[urlParams.baseMap];
+    console.log(`Setting initial base map from URL: ${urlParams.baseMap}`);
+  }
 
   // Create the map object and make it globally accessible
   window.map = L.map('map', {
       center: [50, 6],
       zoom: 9,
       zoomControl: false,
-      layers: [jawgTerrain], // Revert to esriTopo as the default layer initially
-      dragging: true, // Keep dragging explicitly enabled
+      layers: [
+        initialBaseLayer,
+        window.airspaceTriggerNotam
+      ],
+      dragging: true,
       timeDimension: true,
-      maxZoom: 22 // Add maxZoom to the map options
+      maxZoom: 22
   });
-
-  // Explicitly add jawgTerrain after map initialization
-  // jawgTerrain.addTo(window.map);
 
   L.control.zoom({
       position: 'bottomright',
   }).addTo(window.map);
-
-  // Base Layers
-  var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap'
-  });
-
-  var xcontest = L.tileLayer('https://topo.xcontest.app/elev/{z}/{x}/{y}.jpg', {
-      attribution: '&copy; <a href="https://www.xcontest.org">XContest</a>',
-      className: 'xcontest-layer'
-  });
 
   /* JS */
     // Modified popupopen handler
@@ -258,89 +594,6 @@ function initMap() {
     //    attribution: 'MapTiler Terrain'
    // });
 
-  var sat = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{
-      attribution: 'Map data: Google',
-      maxZoom: 20,
-      subdomains:['mt0','mt1','mt2','mt3']
-  });
-
-  var mbsat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
-    attribution: '© Esri',
-    id: 'MapID',
-  });
-
-  //var mapTilerTerrainOverlay = L.mapboxGL({
-  //  style: '/assets/maps/maptiler_terrain_wob_testxc.json',
-  //  apiKey: "c49iG8J3xvAkgCSZ8M8v",
-  //  className: 'xcmap-layer satellite-overlay',
-  //  attribution: 'MapTiler Terrain'
-  //});
-
-  // Use the local proxy for kk7 thermals to avoid CORS issues
-  var kk7thermals = L.tileLayer('/api/kk7thermals/{z}/{x}/{y}.png', {
-    attribution: '<a href="https://thermal.kk7.ch">thermal.kk7.ch</a>',
-    maxNativeZoom: 12,
-    tms: true // Keep TMS if the original source uses it
-    // Removed headers option as it's handled by the proxy
-  });
-
-
-  // Use the local proxy for kk7 skyways to avoid CORS issues
-  var kk7skyways = L.tileLayer('/api/kk7skyways/{z}/{x}/{y}.png', {
-    attribution: '<a href="https://thermal.kk7.ch">thermal.kk7.ch</a>',
-    maxNativeZoom: 12,
-    tms: true // Keep TMS if the original source uses it
-    // Removed headers option as it's handled by the proxy
-  });
-
-// Create a simplified contour overlay specifically for use with satellite
-var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x}/{y}.pbf?key=c49iG8J3xvAkgCSZ8M8v', {
-  attribution: 'MapTiler',
-  opacity: 0.8,
-  className: 'contour-overlay',
-  style: {
-      color: '#ffffff',
-      weight: 1,
-      opacity: 0.8
-  }
-});
-  // Layer groups - make them globally accessible
-  window.windLayer = L.layerGroup().addTo(window.map);
-
-  window.oaipMap = L.tileLayer(`https://a.api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png?apiKey=${process.env.OAIP_KEY}`, {
-      attribution: '&copy; <a href="https://www.openaip.net">OpenAIP</a>',
-      className: 'oaip-layer'
-  });
-  
-  // Initialize RainViewer layers with error handling
-  try {
-    // Use different endpoints for radar and satellite to prevent conflicts
-    window.rainviewerRadarLayer = L.timeDimension.layer.rainviewer("https://api.rainviewer.com/public/weather-maps.json", {
-      opacity: 0.7,
-      cache: 5, // Limit cache size to improve performance
-      refreshInterval: 300000 // Refresh every 5 minutes
-    }).addTo(window.map); // Add radar layer to map by default
-    
-    window.rainviewerSatelliteLayer = L.timeDimension.layer.rainviewer("https://api.rainviewer.com/public/weather-maps.json", {
-      type: 'satellite',
-      opacity: 0.7,
-      cache: 5, // Limit cache size to improve performance
-      refreshInterval: 300000 // Refresh every 5 minutes
-    });
-    
-    console.log('RainViewer layers initialized successfully');
-    
-    // Ensure TimeDimension control is added to the map
-    setTimeout(() => {
-      updateTimeDimensionControlVisibility();
-    }, 500); // Short delay to ensure the layer is fully added
-  } catch (error) {
-    console.error('Error initializing RainViewer layers:', error);
-    // Create empty layers as fallbacks
-    window.rainviewerRadarLayer = L.layerGroup();
-    window.rainviewerSatelliteLayer = L.layerGroup();
-  }
-  
   // Create TimeDimension control with error handling
   try {
     window.timeDimensionControl = L.control.timeDimension({
@@ -348,47 +601,29 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
       playerOptions: {
         transitionTime: 1000,
         loop: true,
-        buffer: 2 // Reduce buffer size to improve performance
+        buffer: 2
       },
       timeZones: ['Local'],
       autoPlay: true,
-      speedSlider: false // Disable speed slider to simplify UI
+      speedSlider: false
     });
     console.log('TimeDimension control initialized successfully');
   } catch (error) {
     console.error('Error initializing TimeDimension control:', error);
-    // Create a dummy control as fallback
     window.timeDimensionControl = {
       addTo: function() { console.log('Using dummy TimeDimension control'); }
     };
   }
-  
-  // Track if the TimeDimension control is added to the map
+
   window.isTimeDimensionControlAdded = false;
-  // window.airspaceEFG = L.layerGroup([], { // Removed EFG airspaces
-  //   attribution: 'OpenAIP&copy; <a href="https://www.openaip.net">OpenAIP</a>',
-  // });
   window.airspaceGliding = L.layerGroup([], {
     attribution: '&copy; <a href="https://www.openaip.net">OpenAIP</a>',
   });
   window.airspaceNotam = L.layerGroup([], {
     attribution: '&copy; <a href="https://www.openaip.net">OpenAIP</a>',
   });
-  window.airspaceXC = L.layerGroup([], {
+  window.airspaceTriggerNotam = L.layerGroup([], {
     attribution: '&copy; <a href="https://xcontest.org">XContest</a>',
-  });
-  window.airspaceTriggerNotam = L.layerGroup([], { // New layer group for Trigger NOTAMs
-    attribution: '&copy; <a href="https://xcontest.org">XContest</a>', // Or specific attribution if needed
-  });
-
-  window.placesLayerPG = L.layerGroup( [], {
-    attribution: '&copy; <a href="https://paraglidingspots.com">paraglidingspots.com</a>',
-  });
-  window.placesLayerHG = L.layerGroup([], {
-    attribution: '&copy; <a href="https://paraglidingspots.com">paraglidingspots.com</a>',
-  });
-  window.placesLayerLZ = L.layerGroup([], {
-    attribution: '&copy; <a href="https://paraglidingspots.com">paraglidingspots.com</a>',
   });
 
   function debugMapLayers() {
@@ -399,100 +634,8 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   }
 
   // Generate dynamic airspace time options
-  const airspaceTimeOptions = (() => {
-    let options = '';
-    for (let i = 0; i <= 6; i++) {
-      const date = moment().add(i, 'days');
-      const dayName = date.format('ddd');
-      const dateValue = date.format('YYYY-MM-DD');
-      options += `<option value="${dateValue}" ${i === 0 ? 'selected' : ''}>${
-        i === 0 ? `Today` : dayName
-      }</option>`;
-    }
-    return options;  // Removed the '+ '<option value="All">All</option>''
-  })();
 
-
-  // Tree structure
-  var baseTree = {
-    label: 'Base Maps',
-    collapsed: true, // Add this line to collapse by default
-    children: [
-        { label: 'Terrain - JawgMaps', layer: jawgTerrain },
-        { label: 'Topo - Esri', layer: esriTopo }, // Replaced Terrain with Esri Topo
-        // { label: 'XContest', layer: L.layerGroup([xcontest, mapTilerTerrain])},
-        { label: 'OpenStreetMap', layer: osm },
-        { label: 'Satellite',  layer: sat },
-    ]
-};
-
-  var overlayTree = {
-      label: 'Overlays',
-      children: [
-          { label: 'Weather Stations',
-            children: [
-              { label: 'Weather Stations', layer: window.windLayer, checked: true  },
-            ]
-          },
-          { html: '<hr class="leaflet-control-layers-separator">' }, // Separator
-          { label: 'Rain Viewer',
-            children: [
-              { label: 'Radar', layer: window.rainviewerRadarLayer, checked: true  },
-              { label: 'Satellite', layer: window.rainviewerSatelliteLayer },
-            ]
-          },
-          { html: '<hr class="leaflet-control-layers-separator">' }, // Separator
-          { label: 'Thermals',
-            children: [
-              { label: 'kk7 Thermals', layer: kk7thermals  },
-              { label: 'kk7 Skyways', layer: kk7skyways  },
-            ]
-          },
-          { html: '<hr class="leaflet-control-layers-separator">' }, // Separator
-          { label: 'Spots',
-              children: [
-                  { label: 'Take-off PG', layer: window.placesLayerPG },
-                  { label: 'Take-off HG', layer: window.placesLayerHG },
-                  { label: 'Landing Zones', layer: window.placesLayerLZ },
-              ]
-          },
-          { html: '<hr class="leaflet-control-layers-separator">' }, // Separator
-          { label: 'Airspaces',
-              children: [
-                      {
-                        html: `
-                            <div class="airspace-time-control">
-                                Active:
-                                <select class="airspace-time-select" id="airspaceTime">
-                                    ${airspaceTimeOptions}
-                                </select>
-                            </div>
-                        `
-                      },
-                      {
-                        html: `
-                            <div class="airspace-limit-control">
-                                ↧ below:
-                                <select class="lower-limit-select" id="airspaceLowerLimit">
-                                    <option value="2000">2000m</option>
-                                    <option value="2500">2500m</option>
-                                    <option value="3000" selected>3000m</option>
-                                    <option value="3500">3500m</option>
-                                    <option value="4000">4000m</option>
-                                    <option value="4500">4500m</option>
-                                </select>
-                            </div>
-                        `
-                      },
-                  // { label: 'Airspaces', layer: window.airspaceEFG }, // Removed EFG airspaces layer from tree
-                  { label: 'Airspaces', layer: window.airspaceXC },
-                  { label: 'Trigger NOTAM', layer: window.airspaceTriggerNotam }, // Link to the new layer group
-                  { label: 'Obstacles', layer: window.obstacleLayer },
-                  { label: 'OpenAIP Map', layer: window.oaipMap},
-              ]
-          },
-      ]
-  };
+  // Tree structure for layer control
 
 
   new InfoControl({ position: 'bottomright' }).addTo(window.map);
@@ -527,94 +670,28 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   const locateActiveIcon = '/assets/images/track-active.svg';
 
   // Add locate control by instantiating the imported class
-  var lc = new LocateControl({
+  window.lc = new LocateControl({
       position: 'bottomright',
       drawCircle: false,
       keepCurrentZoomLevel: true,
-      setView: 'always', // Keep map centered on user's location
-      flyTo: true, // Use flyTo animation for smoother panning
-      iconElementTag: 'img', // Use an img tag for the icon
-      // Initial icon settings (will be updated by events)
-      icon: locateInactiveIcon, // Set initial src (though plugin might override)
-      iconLoading: locateInactiveIcon, // Use inactive while loading too
+      setView: 'always',
+      flyTo: true,
       strings: {
-          title: "Show current location" // Tooltip
+          title: "Show current location"
       }
   }).addTo(window.map);
 
-  // Get the actual img element created by the plugin
-  const locateIconElement = lc._container.querySelector('img');
-  if (locateIconElement) {
-      // Ensure initial state is correct
-      locateIconElement.src = locateInactiveIcon;
-      locateIconElement.style.width = '20px'; // Set desired size
-      locateIconElement.style.height = '20px'; // Set desired size
-  }
-
-  // Event listeners to change the icon source
-  window.map.on('locateactivate', function() {
-      console.log("Locate activated");
-      if (locateIconElement) {
-          locateIconElement.src = locateActiveIcon;
-      }
-  });
-
-  window.map.on('locatedeactivate', function() {
-      console.log("Locate deactivated");
-      if (locateIconElement) {
-          locateIconElement.src = locateInactiveIcon;
-      }
-      // Handle potential errors or manual stop where location wasn't found
-      if (lc._event) { // Check if there was a location event
-          // If location was found, keep the active icon until explicitly deactivated
-      } else {
-          // If stopped before finding location, revert icon
-          if (locateIconElement) {
-              locateIconElement.src = locateInactiveIcon;
-          }
-      }
-  });
-
-   // Handle location found - might need active icon here too if activate event doesn't cover all cases
-   window.map.on('locationfound', function(e) {
-       console.log("Location found");
-       if (locateIconElement && lc._active) { // Check if control is still active
-           locateIconElement.src = locateActiveIcon;
-       }
-   });
-
-   // Handle location error - revert to inactive icon
-   window.map.on('locationerror', function(e) {
-       console.error("Location error:", e.message);
-       if (locateIconElement) {
-           locateIconElement.src = locateInactiveIcon;
-       }
-   });
 
 
-  // Add layer control tree
-
-  // Add layer control tree and make it global
-  window.treeLayersControl = L.control.layers.tree(baseTree, overlayTree, {
-    namedToggle: false,
-    collapsed: true
-  }).addTo(window.map);
-
-  // Initialize with base tree collapsed and selected overlays expanded
-  treeLayersControl.collapseTree(false).expandSelected(true);
-
-  // Initialize AirspaceXC map listeners AFTER map and layer control are ready
   initializeAirspaceXCMapListeners(window.map);
 
-  // --- Wind Layer Auto-Refresh ---
   let windRefreshIntervalId = null;
   const refreshWindStations = () => {
-    // Ensure the layer is still on the map before fetching
-    if (window.map.hasLayer(window.windLayer)) {
-      console.log('[Wind Refresh Interval] Calling fetchWindStations...'); // Added log
-      fetchWindStations(); // Assumes fetchWindStations is globally available
+    if (window.map.hasLayer(window.overlayLayers.windStations)) {
+      console.log('[Wind Refresh Interval] Calling fetchWindStations...');
+      fetchWindStations();
     } else {
-      console.log('[Wind Refresh Interval] Layer not active, skipping refresh and clearing interval.'); // Modified log
+      console.log('[Wind Refresh Interval] Layer not active, skipping refresh and clearing interval.');
       if (windRefreshIntervalId) {
         clearInterval(windRefreshIntervalId);
         windRefreshIntervalId = null;
@@ -624,115 +701,63 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   };
 
   window.map.on('layeradd', function(e) {
-      if (e.layer === window.windLayer) {
-          console.log('[Wind Layer] Layer added. Initial fetch and starting refresh interval.'); // Modified log
-          // Clear any existing interval just in case
+      if (e.layer === window.overlayLayers.windStations) {
+          console.log('[Wind Layer] Layer added. Initial fetch and starting refresh interval.');
           if (windRefreshIntervalId) {
-              console.log('[Wind Layer] Clearing pre-existing interval ID:', windRefreshIntervalId); // Added log
+              console.log('[Wind Layer] Clearing pre-existing interval ID:', windRefreshIntervalId);
               clearInterval(windRefreshIntervalId);
           }
-          // Fetch immediately on add
           refreshWindStations();
-          // Start interval
-          windRefreshIntervalId = setInterval(refreshWindStations, 60000); // 60000 ms = 1 minute
-          console.log('[Wind Layer] Refresh interval started with ID:', windRefreshIntervalId); // Added log
+          windRefreshIntervalId = setInterval(refreshWindStations, 60000);
+          console.log('[Wind Layer] Refresh interval started with ID:', windRefreshIntervalId);
       }
+      updateUrlParameters();
   });
 
   window.map.on('layerremove', function(e) {
-      if (e.layer === window.windLayer) {
-          console.log('[Wind Layer] Layer removed, clearing refresh interval ID:', windRefreshIntervalId); // Modified log
+      if (e.layer === window.overlayLayers.windStations) {
+          console.log('[Wind Layer] Layer removed, clearing refresh interval ID:', windRefreshIntervalId);
           if (windRefreshIntervalId) {
               clearInterval(windRefreshIntervalId);
               windRefreshIntervalId = null;
           }
       }
+      updateUrlParameters();
   });
-  // --- End Wind Layer Auto-Refresh ---
 
 
-  // Add touch support for mobile devices
-  const layersControlContainer = treeLayersControl.getContainer();
-  const layersControlToggle = layersControlContainer.querySelector('.leaflet-control-layers-toggle');
-
-  // Function to detect if device is touch-only (no hover capability)
-  const isTouchDevice = () => {
-    return (('ontouchstart' in window) ||
-            (navigator.maxTouchPoints > 0) ||
-            (navigator.msMaxTouchPoints > 0));
-  };
-
-  // Add click handler for touch devices
-  if (isTouchDevice()) {
-    L.DomEvent.on(layersControlToggle, 'click', function(e) {
-      L.DomEvent.stopPropagation(e);
-      if (L.DomUtil.hasClass(layersControlContainer, 'leaflet-control-layers-expanded')) {
-        L.DomUtil.removeClass(layersControlContainer, 'leaflet-control-layers-expanded');
-      } else {
-        L.DomUtil.addClass(layersControlContainer, 'leaflet-control-layers-expanded');
-      }
-    });
-
-    // Close the control when clicking outside of it
-    L.DomEvent.on(document, 'click', function() {
-      if (L.DomUtil.hasClass(layersControlContainer, 'leaflet-control-layers-expanded')) {
-        L.DomUtil.removeClass(layersControlContainer, 'leaflet-control-layers-expanded');
-      }
-    });
-
-    // Prevent clicks inside the control from closing it
-    L.DomEvent.on(layersControlContainer, 'click', function(e) {
-      L.DomEvent.stopPropagation(e);
-    });
-  }
-
-
-
-  // Central event handler for map movements
-  // This will be the ONLY moveend handler for fetching data
   window.map.on('moveend', function() {
     console.log('Map moveend event triggered');
 
-    // Check if windLayer is on the map and fetchWindStations exists
-    if (window.map.hasLayer(window.windLayer) && typeof window.fetchWindStations === 'function') {
+    if (window.map.hasLayer(window.overlayLayers.windStations) && typeof window.fetchWindStations === 'function') {
       console.log('Fetching wind stations after map move...');
       window.fetchWindStations();
     }
 
-    // Only trigger fetch for visible spot layers
-    if (window.map.hasLayer(window.placesLayerPG) && window.fetchPlacesPG) {
+    if (window.map.hasLayer(window.overlayLayers.placesLayerPG) && window.fetchPlacesPG) {
       console.log('Fetching PG spots after map move...');
       window.fetchPlacesPG();
     }
 
-    if (window.map.hasLayer(window.placesLayerHG) && window.fetchPlacesHG) {
+    if (window.map.hasLayer(window.overlayLayers.placesLayerHG) && window.fetchPlacesHG) {
       console.log('Fetching HG spots after map move...');
       window.fetchPlacesHG();
     }
 
-    if (window.map.hasLayer(window.placesLayerLZ) && window.fetchPlacesLZ) {
+    if (window.map.hasLayer(window.overlayLayers.placesLayerLZ) && window.fetchPlacesLZ) {
       console.log('Fetching LZ spots after map move...');
       window.fetchPlacesLZ();
     }
 
-    // Airspaces EFG removed
-    // if (window.map.hasLayer(window.airspaceEFG) && typeof window.fetchAirspaces === 'function') {
-    //   console.log('Fetching airspaces after map move...');
-    //   window.fetchAirspaces();
-    // }
-    // Airspaces Gliding
     if (window.map.hasLayer(window.airspaceGliding) && typeof window.fetchAirspacesGliding === 'function') {
       console.log('Fetching airspaces after map move...');
       window.fetchAirspacesGliding();
     }
-    // Airspaces Notam
     if (window.map.hasLayer(window.airspaceNotam) && typeof window.fetchAirspacesNotam === 'function') {
       console.log('Fetching airspaces after map move...');
       window.fetchAirspacesNotam();
     }
-    // Airspaces XContest & Trigger NOTAMs (fetch if either layer is active)
-    if ((window.map.hasLayer(window.airspaceXC) || window.map.hasLayer(window.airspaceTriggerNotam)) && typeof window.fetchAirspacesXC === 'function') {
-      // Only fetch if no popup is currently open
+    if ((window.map.hasLayer(window.overlayLayers.airspaceXC) || window.map.hasLayer(window.airspaceTriggerNotam)) && typeof window.fetchAirspacesXC === 'function') {
       if (!window.map._popup) {
         console.log('Fetching XC/Trigger airspaces after map move (no popup open)...');
         window.fetchAirspacesXC();
@@ -740,9 +765,8 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
         console.log('Skipping XC airspace fetch on moveend because popup is open.');
       }
     }
-    // Obstacles XContest
-    if (window.map.hasLayer(window.obstacleLayer) && typeof window.fetchObstacles === 'function') {
-      console.log('Fetching airspaces after map move...');
+    if (window.map.hasLayer(window.overlayLayers.obstacleLayer) && typeof window.fetchObstacles === 'function') {
+      console.log('Fetching obstacles after map move...');
       window.fetchObstacles();
     }
   });
@@ -750,87 +774,108 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
   document.addEventListener('change', function(e) {
     if (e.target && e.target.id === 'airspaceLowerLimit') {
         console.log('Selected limit:', e.target.value);
+        updateUrlParameters();
+if (window.lc) {
+    window.lc.on('start', function() {
+      console.log('Locate control started');
+      window.updateUrlParameters();
+    });
+    window.lc.on('stop', function() {
+      console.log('Locate control stopped');
+      window.updateUrlParameters();
+    });
+
+
+    window.map.on('locateactivate', function() {
+        console.log("Locate activated");
+        updateUrlParameters();
+    });
+
+    window.map.on('locatedeactivate', function() {
+        console.log("Locate deactivated");
+        updateUrlParameters();
+    });
+
+    window.map.on('locationfound', function(e) {
+        console.log("Location found");
+    });
+
+    window.map.on('locationerror', function(e) {
+        console.error("Location error:", e.message);
+        updateUrlParameters();
+    });
+  }
     }
-    // Add this new handler for the time selector
     if (e.target && e.target.id === 'airspaceTime') {
         console.log('Selected airspace date:', e.target.value);
     }
   });
 
-  // Add layer change event listeners to fetch data when layers are added
   window.map.on('layeradd', function(e) {
     const layer = e.layer;
 
-    // When a layer is added, fetch its data if needed
-    if (layer === window.windLayer && typeof window.fetchWindStations === 'function') {
+    if (layer === window.overlayLayers.windStations && typeof window.fetchWindStations === 'function') {
       window.fetchWindStations();
-    } else if (layer === window.placesLayerPG && window.fetchPlacesPG) {
+    } else if (layer === window.overlayLayers.placesLayerPG && window.fetchPlacesPG) {
       window.fetchPlacesPG();
-    } else if (layer === window.placesLayerHG && window.fetchPlacesHG) {
+    } else if (layer === window.overlayLayers.placesLayerHG && window.fetchPlacesHG) {
       window.fetchPlacesHG();
-    } else if (layer === window.placesLayerLZ && window.fetchPlacesLZ) {
+    } else if (layer === window.overlayLayers.placesLayerLZ && window.fetchPlacesLZ) {
       window.fetchPlacesLZ();
-    // } else if (layer === window.airspaceEFG && typeof window.fetchAirspaces === 'function') { // Removed EFG airspaces
-    //   window.fetchAirspaces();
     } else if (layer === window.airspaceGliding && typeof window.fetchAirspacesGliding === 'function') {
       window.fetchAirspacesGliding();
     } else if (layer === window.airspaceNotam && typeof window.fetchAirspacesNotam === 'function') {
       window.fetchAirspacesNotam();
-    } else if ((layer === window.airspaceXC || layer === window.airspaceTriggerNotam) && typeof window.fetchAirspacesXC === 'function') {
-      // Fetch if either XC or Trigger NOTAM layer is added
+    } else if ((layer === window.overlayLayers.airspaceXC || layer === window.airspaceTriggerNotam) && typeof window.fetchAirspacesXC === 'function') {
       window.fetchAirspacesXC();
-    } else if (layer === window.obstacleLayer && typeof window.fetchObstacles === 'function') {
+    } else if (layer === window.overlayLayers.obstacleLayer && typeof window.fetchObstacles === 'function') {
       window.fetchObstacles();
-    } else if (layer === window.rainviewerRadarLayer) {
+    } else if (layer === window.overlayLayers.rainviewerRadar) {
       console.log('RainViewer Radar layer added via layeradd');
-      updateTimeDimensionControlVisibility();
-    } else if (layer === window.rainviewerSatelliteLayer) {
+      debouncedUpdateTimeDimensionControl();
+    } else if (layer === window.overlayLayers.rainviewerSatellite) {
       console.log('RainViewer Satellite layer added via layeradd');
-      updateTimeDimensionControlVisibility();
+      debouncedUpdateTimeDimensionControl();
     }
+    updateUrlParameters();
   });
-  
-  // Function to check if any RainViewer layer is active
+
   function isAnyRainViewerLayerActive() {
-    const hasRadar = window.map.hasLayer(window.rainviewerRadarLayer);
-    const hasSatellite = window.map.hasLayer(window.rainviewerSatelliteLayer);
+    const hasRadar = window.map.hasLayer(window.overlayLayers.rainviewerRadar);
+    const hasSatellite = window.map.hasLayer(window.overlayLayers.rainviewerSatellite);
     console.log('RainViewer layer check - Radar:', hasRadar, 'Satellite:', hasSatellite);
     return hasRadar || hasSatellite;
   }
-  
-  // Function to update TimeDimension control visibility
+
   function updateTimeDimensionControlVisibility() {
     console.log('Updating TimeDimension control visibility');
-    
-    // Prevent multiple simultaneous calls
+
     if (window.isUpdatingTimeDimensionControl) {
       console.log('Already updating TimeDimension control, skipping');
       return;
     }
-    
+
     window.isUpdatingTimeDimensionControl = true;
-    
+
     try {
       const shouldBeVisible = isAnyRainViewerLayerActive();
       console.log('Should TimeDimension control be visible?', shouldBeVisible);
       console.log('Is TimeDimension control currently added?', window.isTimeDimensionControlAdded);
-      
+
       if (shouldBeVisible) {
         if (!window.isTimeDimensionControlAdded) {
           try {
             console.log('Adding TimeDimension control to map');
-            
-            // Set a timeout to prevent hanging
+
             const timeoutPromise = new Promise((_, reject) => {
               setTimeout(() => reject(new Error('Adding TimeDimension control timed out')), 5000);
             });
-            
+
             const addControlPromise = new Promise((resolve) => {
               window.timeDimensionControl.addTo(window.map);
               resolve();
             });
-            
-            // Use Promise.race to implement the timeout
+
             Promise.race([addControlPromise, timeoutPromise])
               .then(() => {
                 window.isTimeDimensionControlAdded = true;
@@ -842,8 +887,8 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
               .finally(() => {
                 window.isUpdatingTimeDimensionControl = false;
               });
-            
-            return; // Exit early since we're handling the completion in the promise
+
+            return;
           } catch (error) {
             console.error('Error adding TimeDimension control:', error);
           }
@@ -867,39 +912,30 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
     } catch (error) {
       console.error('Error in updateTimeDimensionControlVisibility:', error);
     }
-    
+
     window.isUpdatingTimeDimensionControl = false;
   }
-  
-  // Handle RainViewer layer visibility with error handling and debouncing
+
   let rainviewerUpdateTimeout = null;
-  
-  // Function to format time display in 24-hour format (HH:MM)
+
   function updateTimeDisplay() {
     try {
       const timeControls = document.querySelectorAll('.leaflet-control-timecontrol.timecontrol-date');
       timeControls.forEach(control => {
-        // Get the original text content
         const originalText = control.textContent || control.innerText;
-        
-        // Extract the time part including AM/PM using regex
         const timeMatch = originalText.match(/(\d{1,2}):(\d{2}):\d{2}\s*(AM|PM)?/i);
         if (timeMatch) {
           let hours = parseInt(timeMatch[1]);
           const minutes = timeMatch[2];
           const period = timeMatch[3] ? timeMatch[3].toUpperCase() : null;
-          
-          // Convert to 24-hour format if period is specified
+
           if (period === 'PM' && hours < 12) {
             hours += 12;
           } else if (period === 'AM' && hours === 12) {
             hours = 0;
           }
-          
-          // Format as HH:MM with leading zero
+
           const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes}`;
-          
-          // Update the text content
           control.textContent = formattedTime;
         }
       });
@@ -907,67 +943,58 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
       console.error('Error updating time display:', error);
     }
   }
-  
-  // Set up a MutationObserver to watch for changes to the time control
+
   function setupTimeControlObserver() {
     try {
       const observer = new MutationObserver(function(mutations) {
         updateTimeDisplay();
       });
-      
-      // Start observing the document with the configured parameters
+
       observer.observe(document.body, {
         childList: true,
         subtree: true
       });
-      
-      // Also update on initial load and periodically
+
       updateTimeDisplay();
       setInterval(updateTimeDisplay, 1000);
     } catch (error) {
       console.error('Error setting up time control observer:', error);
     }
   }
-  
-  // Call the setup function when the map is initialized
+
   document.addEventListener('map_initialized', setupTimeControlObserver);
 
-  // Set up periodic refresh for RainViewer layers
   function setupRainViewerRefresh() {
-    // Only set up the interval if not already set up
     if (!window.rainviewerRefreshInterval) {
       window.rainviewerRefreshInterval = setInterval(() => {
         try {
-          // Check if either RainViewer layer is active
-          const hasRadar = window.map.hasLayer(window.rainviewerRadarLayer);
-          const hasSatellite = window.map.hasLayer(window.rainviewerSatelliteLayer);
-          
+          const hasRadar = window.map.hasLayer(window.overlayLayers.rainviewerRadar);
+          const hasSatellite = window.map.hasLayer(window.overlayLayers.rainviewerSatellite);
+
           if (hasRadar || hasSatellite) {
             console.log('Refreshing RainViewer data...');
-            
-            // Refresh radar layer if active
+
             if (hasRadar) {
               fetch("https://api.rainviewer.com/public/weather-maps.json")
-                .then(response => response.json()) // Fetch and parse JSON
+                .then(response => response.json())
                 .then(metadata => {
-                  window.rainviewerRadarLayer._metadata = metadata;
-                  window.rainviewerRadarLayer._loaded = true;
-                  if (window.map.hasLayer(window.rainviewerRadarLayer)) {
-                    window.rainviewerRadarLayer._setAvailableTimes();
+                  window.overlayLayers.rainviewerRadar._metadata = metadata;
+                  window.overlayLayers.rainviewerRadar._loaded = true;
+                  if (window.map.hasLayer(window.overlayLayers.rainviewerRadar)) {
+                    window.overlayLayers.rainviewerRadar._setAvailableTimes();
                   }
                 })
                 .catch(error => console.error('Error refreshing radar data:', error));
             }
-            
-            // Refresh satellite layer if active
+
             if (hasSatellite) {
               fetch("https://api.rainviewer.com/public/weather-maps.json")
-                .then(response => response.json()) // Fetch and parse JSON
+                .then(response => response.json())
                 .then(metadata => {
-                  window.rainviewerSatelliteLayer._metadata = metadata;
-                  window.rainviewerSatelliteLayer._loaded = true;
-                  if (window.map.hasLayer(window.rainviewerSatelliteLayer)) {
-                    window.rainviewerSatelliteLayer._setAvailableTimes();
+                  window.overlayLayers.rainviewerSatellite._metadata = metadata;
+                  window.overlayLayers.rainviewerSatellite._loaded = true;
+                  if (window.map.hasLayer(window.overlayLayers.rainviewerSatellite)) {
+                    window.overlayLayers.rainviewerSatellite._setAvailableTimes();
                   }
                 })
                 .catch(error => console.error('Error refreshing satellite data:', error));
@@ -976,81 +1003,70 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
         } catch (error) {
           console.error('Error in RainViewer refresh:', error);
         }
-      }, 60000); // 1 minute interval
+      }, 60000);
     }
   }
 
-  // Start the refresh when map is initialized
   document.addEventListener('map_initialized', setupRainViewerRefresh);
-  
+
   function debouncedUpdateTimeDimensionControl() {
-    // Clear any existing timeout
     if (rainviewerUpdateTimeout) {
       clearTimeout(rainviewerUpdateTimeout);
     }
-    
-    // Set a new timeout to update the control after a short delay
+
     rainviewerUpdateTimeout = setTimeout(() => {
       try {
         updateTimeDimensionControlVisibility();
-        // Update time display after visibility is updated
         setTimeout(updateTimeDisplay, 500);
       } catch (error) {
         console.error('Error in debouncedUpdateTimeDimensionControl:', error);
       }
-    }, 100); // 100ms debounce time
+    }, 100);
   }
-  
-  // Removed focusMapContainerDeferred function definition
 
   window.map.on('overlayadd', function(e) {
     try {
       console.log('overlayadd event triggered for layer:', e.name);
-      if (e.layer === window.rainviewerRadarLayer) {
+      if (e.layer === window.overlayLayers.rainviewerRadar) {
         console.log('RainViewer Radar layer added');
         debouncedUpdateTimeDimensionControl();
-      } else if (e.layer === window.rainviewerSatelliteLayer) {
+      } else if (e.layer === window.overlayLayers.rainviewerSatellite) {
         console.log('RainViewer Satellite layer added');
         debouncedUpdateTimeDimensionControl();
       }
-      // Removed call to focusMapContainerDeferred(); 
+      updateUrlParameters();
     } catch (error) {
       console.error('Error in overlayadd event handler:', error);
     }
   });
-  
+
   window.map.on('overlayremove', function(e) {
     try {
       console.log('overlayremove event triggered for layer:', e.name);
-      if (e.layer === window.rainviewerRadarLayer) {
+      if (e.layer === window.overlayLayers.rainviewerRadar) {
         console.log('RainViewer Radar layer removed');
         debouncedUpdateTimeDimensionControl();
-      } else if (e.layer === window.rainviewerSatelliteLayer) {
+      } else if (e.layer === window.overlayLayers.rainviewerSatellite) {
         console.log('RainViewer Satellite layer removed');
         debouncedUpdateTimeDimensionControl();
       }
-      // Removed call to focusMapContainerDeferred(); 
+      updateUrlParameters();
     } catch (error) {
       console.error('Error in overlayremove event handler:', error);
     }
   });
 
-  // Add listener for base layer changes
   window.map.on('baselayerchange', function(e) {
       console.log('baselayerchange event triggered for layer:', e.name);
-      // Removed call to focusMapContainerDeferred(); 
+      updateUrlParameters();
   });
 
-  // Signal that the map is fully initialized
   window.mapInitialized = true;
   console.log("Map initialization complete");
 
-  // Trigger an event that component scripts can listen for
   const mapReadyEvent = new Event('map_initialized');
   document.dispatchEvent(mapReadyEvent);
   console.log("Map initialized event dispatched");
-
-  // Keycloak initialization is now handled in DOMContentLoaded
 
   return window.map;
 } // End of initMap function
@@ -1059,31 +1075,40 @@ var contourOverlay = L.tileLayer('https://api.maptiler.com/tiles/contours/{z}/{x
 function addLiveControlIfNeeded() {
   console.log("Checking if Live Control should be added...");
   console.log("Config live:", window.appConfig?.live);
-  // Use the imported keycloak instance directly
   console.log("Keycloak authenticated:", keycloak?.authenticated);
   console.log("User has 'live' role:", keycloak?.hasRealmRole('live'));
 
-  if ((window.appConfig?.live === true) || (keycloak?.authenticated && keycloak?.hasRealmRole('live'))) {
+  const urlParams = parseUrlParameters();
+
+  if ((window.appConfig?.live === true) || (keycloak?.authenticated && keycloak?.hasRealmRole('live')) || urlParams.overlays.includes('aircraftLayer')) {
     console.log("Adding Live Control to map.");
-    // Create aircraft layer group
     window.aircraftLayer = L.layerGroup();
     window.aircraftTrackLayer = L.layerGroup();
 
-    // Store reference to layers in the layer group
     window.aircraftLayer._live = true;
 
-    // Add live control
-    var llc = L.control.live({
+    window.lcLive = L.control.live({
         position: 'bottomright',
-        refreshInterval: 30000, // 30 seconds
+        refreshInterval: 30000,
         trackColor: '#FF5500',
         trackWeight: 3,
         trackOpacity: 0.8
     }).addTo(window.map);
 
-    // Activate the control by default if added
     console.log("Activating Live Control by default.");
-    llc._activateLive();
+    window.lcLive._activateLive();
+
+    if (urlParams.overlays.includes('aircraftLayer')) {
+      if (!window.map.hasLayer(window.aircraftLayer)) {
+        window.map.addLayer(window.aircraftLayer);
+        console.log("Live layer added from URL parameter.");
+      }
+      const liveCheckbox = document.querySelector('input[type="checkbox"][data-layer-name="Live"]');
+      if (liveCheckbox) {
+        liveCheckbox.checked = true;
+        console.log("Live layer checkbox checked from URL parameter.");
+      }
+    }
 
   } else {
     console.log("Conditions not met, Live Control will not be added.");
@@ -1091,118 +1116,141 @@ function addLiveControlIfNeeded() {
 }
 
 // Wait for DOM to be fully loaded
-document.addEventListener('DOMContentLoaded', async () => { // Use arrow function for consistency
+window.isInitialLoad = true;
+document.addEventListener('DOMContentLoaded', async () => {
   console.log('DOM content loaded, fetching config...');
   try {
-      await fetchAppConfig(); // Wait for config first
+      await fetchAppConfig();
   } catch (error) {
       console.error("Failed to fetch app config, proceeding with defaults:", error);
-      // Continue with defaults if config fetch fails
   }
 
   console.log('Config fetched/defaulted, initializing map...');
-  const map = initMap(); // Initialize map globally (initMap ensures it only runs once)
+  const map = initMap();
+
+  const urlParams = parseUrlParameters();
+
+  if (!urlParams.baseMap) {
+      urlParams.baseMap = 'jawgTerrain'; // Set default base map if not in URL
+      console.log("No base map in URL, defaulting to Terrain.");
+  }
+
+  if (urlParams.overlays.length === 0) {
+      urlParams.overlays.push('windStations'); // Default weather stations
+      urlParams.overlays.push('rainviewerRadar'); // Default radar
+      console.log("No overlays in URL, defaulting to Weather Stations and Radar.");
+  }
+
+  if (urlParams.floorBelow === null) {
+      urlParams.floorBelow = 3000; // Default floor_below
+      console.log("No floor_below in URL, defaulting to 3000.");
+  }
+
+  for (const layerName of urlParams.overlays) {
+    // Use direct window properties for places layers
+    if (layerName === 'placesLayerPG' && window.placesLayerPG && !window.map.hasLayer(window.placesLayerPG)) {
+      window.map.addLayer(window.placesLayerPG);
+      console.log(`Added overlay layer from URL: ${layerName}`);
+    } else if (layerName === 'placesLayerHG' && window.placesLayerHG && !window.map.hasLayer(window.placesLayerHG)) {
+      window.map.addLayer(window.placesLayerHG);
+      console.log(`Added overlay layer from URL: ${layerName}`);
+    } else if (layerName === 'placesLayerLZ' && window.placesLayerLZ && !window.map.hasLayer(window.placesLayerLZ)) {
+      window.map.addLayer(window.placesLayerLZ);
+      console.log(`Added overlay layer from URL: ${layerName}`);
+    }
+    // For other layers, use window.overlayLayers
+    else if (window.overlayLayers[layerName] && !window.map.hasLayer(window.overlayLayers[layerName])) {
+      window.map.addLayer(window.overlayLayers[layerName]);
+      console.log(`Added overlay layer from URL: ${layerName}`);
+    }
+  }
+
+
+  if (urlParams.locateTrack && window.lc && !window.lc._active) {
+    window.lc.start();
+    console.log("Locate control activated from URL parameter.");
+  }
 
   try {
     console.log('Attempting to initialize Keycloak...');
-    const authenticated = await initKeycloak(); // Wait for Keycloak initialization
+    const authenticated = await initKeycloak();
     console.log(`Keycloak init finished. Authenticated: ${authenticated}`);
 
-    // Now that Keycloak is initialized (or failed gracefully), proceed
-    createUserControl(); // Create user icon/control
+    console.log('Calling createUserControl()...');
+    createUserControl();
+    console.log('createUserControl() called.');
 
-    // Load preferences only if authenticated
     let baseLayerApplied = false;
     if (authenticated) {
         console.log("User authenticated, loading preferences...");
-        baseLayerApplied = await loadUserPreferences(); // Wait for preferences
+        baseLayerApplied = await loadUserPreferences();
         console.log("Preferences loaded, base layer applied:", baseLayerApplied);
     } else {
         console.log("User not authenticated, skipping preference loading.");
     }
 
-    // Apply default base layer if preferences didn't set one OR user is not authenticated
-    if (!baseLayerApplied) {
-        console.log("No base layer preference found/applied or user not authenticated, adding default Terrain layer.");
-        // Assuming awgTerrain is globally accessible or defined within initMap scope accessible here
-        if (window.map && window.awgTerrain) { // Check if map and layer exist
-             // Check if the layer is already on the map (e.g., added by default in initMap)
-             if (!window.map.hasLayer(window.awgTerrain)) {
-                 window.map.addLayer(window.awgTerrain);
+    // Only apply default base layer if no preference was loaded AND no base map was specified in the URL
+    if (!baseLayerApplied && !urlParams.baseMap) {
+        console.log("No base layer preference found/applied and no base map in URL, ensuring default Terrain layer is active.");
+        if (window.map && window.baseLayers.jawgTerrain) {
+             if (!window.map.hasLayer(window.baseLayers.jawgTerrain)) {
+                 window.map.addLayer(window.baseLayers.jawgTerrain);
                  console.log("Default Terrain layer added.");
              } else {
                  console.log("Default Terrain layer was already present.");
              }
-             // Ensure the layer control reflects the state if needed
              const controlContainer = window.treeLayersControl?.getContainer();
              if (controlContainer) {
-                 const terrainRadio = controlContainer.querySelector('.leaflet-control-layers-base input[type="radio"]'); // Assuming Terrain is the first
+                 const terrainRadio = controlContainer.querySelector('input[type="radio"][value="jawgTerrain"]');
                  if (terrainRadio && !terrainRadio.checked) {
-                     // Find the label associated with the radio button
-                     let labelElement = terrainRadio.closest('label') || terrainRadio.parentElement.querySelector('span');
-                     if (labelElement && labelElement.textContent.trim() === 'Terrain') { // Double-check it's the correct one
-                         terrainRadio.checked = true;
-                         console.log("Default Terrain radio button checked in layer control.");
-                     }
+                     terrainRadio.checked = true;
+                     console.log("Default Terrain radio button checked in layer control.");
                  }
              }
         } else {
-             console.warn("Map or default base layer (awgTerrain) not available to set default.");
+             console.warn("Map or default base layer (jawgTerrain) not available to set default.");
         }
     }
 
-    // Initialize other map modules that might depend on auth state or map layers
-    // These should ideally be called *after* the map and layers (including default/preferred base) are set up.
-    initSpotPG(); // Corrected function name
-    initSpotHG(); // Corrected function name
-    initSpotLZ(); // Corrected function name
-    // ... any other module initializations
+    initSpotPG();
+    initSpotHG();
+    initSpotLZ();
 
   } catch (error) {
     console.error('Error during Keycloak initialization or subsequent setup:', error);
-    // Handle initialization failure - maybe show a message to the user
-    // Still create the user control so the login button is visible
     createUserControl();
-    // Apply default base layer even on error?
-    if (window.map && window.awgTerrain && !window.map.hasLayer(window.awgTerrain)) {
+    if (window.map && window.baseLayers.jawgTerrain && !window.map.hasLayer(window.baseLayers.jawgTerrain)) {
          console.log("Applying default base layer after Keycloak init error.");
-         window.map.addLayer(window.awgTerrain);
-          // Ensure the layer control reflects the state if needed
+         window.map.addLayer(window.baseLayers.jawgTerrain);
          const controlContainer = window.treeLayersControl?.getContainer();
          if (controlContainer) {
-             const terrainRadio = controlContainer.querySelector('.leaflet-control-layers-base input[type="radio"]');
+             const terrainRadio = controlContainer.querySelector('input[type="radio"][value="jawgTerrain"]');
              if (terrainRadio && !terrainRadio.checked) {
-                 let labelElement = terrainRadio.closest('label') || terrainRadio.parentElement.querySelector('span');
-                 if (labelElement && labelElement.textContent.trim() === 'Terrain') {
-                     terrainRadio.checked = true;
-                     console.log("Default Terrain radio button checked in layer control after error.");
-                 }
+                 terrainRadio.checked = true;
+                 console.log("Default Terrain radio button checked in layer control after error.");
              }
          }
     }
-     // Initialize other modules gracefully if possible
-    initSpotPG(); // Corrected function name
-    initSpotHG(); // Corrected function name
-    initSpotLZ(); // Corrected function name
+    initSpotPG();
+    initSpotHG();
+    initSpotLZ();
 
   } finally {
-      // Code that should run regardless of success or failure
       console.log("Initial setup sequence complete (Keycloak attempted).");
-      addLiveControlIfNeeded(); // Add the live control check AFTER Keycloak attempt
-      
-      // Reorder controls in the top-right corner
-      setTimeout(() => {
+      console.log('Calling addLiveControlIfNeeded()...');
+      addLiveControlIfNeeded();
+      console.log('addLiveControlIfNeeded() called.');
+window.isInitialLoad = false;
+setupPostMapInitializationListeners(urlParams);
+
         try {
-          // Find the top-right container
           const topRightContainer = document.querySelector('.leaflet-top.leaflet-right');
           if (topRightContainer) {
-            // Find the user control and layers control
             const userControl = topRightContainer.querySelector('.leaflet-control-user');
             const layersControl = topRightContainer.querySelector('.leaflet-control-layers');
-            
+
             if (userControl && layersControl) {
               console.log('Found both controls, reordering...');
-              // Move the user control to be the first child of the container
               topRightContainer.insertBefore(userControl, topRightContainer.firstChild);
               console.log('Controls reordered successfully');
             } else {
@@ -1217,14 +1265,14 @@ document.addEventListener('DOMContentLoaded', async () => { // Use arrow functio
         } catch (error) {
           console.error('Error reordering controls:', error);
         }
-      }, 1000); // Wait for 1 second to ensure all controls are added
-      // Initialize geolocation after map and potentially Keycloak init attempt
+window.updateUrlParameters();
+window.isInitialLoad = false;
       if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(position => {
               console.log("Geolocation received");
               const userLat = position.coords.latitude;
               const userLng = position.coords.longitude;
-              const currentMap = window.map; // Map should be initialized by now
+              const currentMap = window.map;
               if (currentMap) {
                    currentMap.setView([userLat, userLng], 10);
               } else {
@@ -1242,17 +1290,12 @@ document.addEventListener('DOMContentLoaded', async () => { // Use arrow functio
   }
 });
 
-
-
-// Special patch for initial data loading
 document.addEventListener('user_location_ready', function(e) {
 console.log("Handling user location ready event");
 setTimeout(() => {
-    // Only call these functions if they exist, the map is fully initialized,
-    // AND their respective layers are visible
     if (typeof window.fetchWindStations === 'function' &&
         window.mapInitialized &&
-        window.map.hasLayer(window.windLayer)) {
+        window.map.hasLayer(window.overlayLayers.windStations)) {
         try {
             console.log("Fetching wind stations");
             window.fetchWindStations(e.detail.lat, e.detail.lng);
@@ -1260,18 +1303,6 @@ setTimeout(() => {
             console.error('Error fetching wind stations:', error);
         }
     }
-
-    // EFG Removed
-    // if (typeof window.fetchAirspaces === 'function' &&
-    //     window.mapInitialized &&
-    //     window.map.hasLayer(window.airspaceEFG)) {
-    //     try {
-    //         console.log("Fetching airspaces");
-    //         window.fetchAirspaces();
-    //     } catch (error) {
-    //         console.error('Error fetching airspaces:', error);
-    //     }
-    // }
 
     if (typeof window.fetchAirspacesGliding === 'function' &&
       window.mapInitialized &&
@@ -1297,7 +1328,7 @@ setTimeout(() => {
 
     if (typeof window.fetchAirspacesXC === 'function' &&
       window.mapInitialized &&
-      window.map.hasLayer(window.airspaceXC)) {
+      window.map.hasLayer(window.overlayLayers.airspaceXC)) {
       try {
           console.log("Fetching airspaces");
           window.fetchAirspacesXC();
@@ -1308,7 +1339,7 @@ setTimeout(() => {
 
     if (typeof window.fetchObstacles === 'function' &&
       window.mapInitialized &&
-      window.map.hasLayer(window.obstacleLayer)) {
+      window.map.hasLayer(window.overlayLayers.obstacleLayer)) {
       try {
           console.log("Fetching obstacles");
           window.fetchObstacles();
@@ -1316,5 +1347,7 @@ setTimeout(() => {
           console.error('Error fetching obstacles:', error);
       }
     }
-}, 500); // Give a short delay to ensure all scripts are loaded
+}, 500);
 });
+
+
