@@ -238,6 +238,12 @@ async function storeAirspaceData(pool, features, fetchDate, countryId) {
         continue;
       }
 
+      // Skip airspaces where "foreignisocode" is not null
+      if (properties.foreignisocode !== null) {
+        console.log(`Skipping airspace with foreignisocode: ${properties.foreignisocode} for feature: ${properties?.name}`);
+        continue;
+      }
+
       // Process each feature individually
       try {
         const geoJsonText = JSON.stringify(geometry);
