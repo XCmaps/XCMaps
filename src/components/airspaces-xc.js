@@ -317,17 +317,38 @@ function fetchAirspacesXC() {
               // Update the content of the popup that just opened
               // console.log('[AirspaceXC popupopen Listener - Attempt 13] Updating popup content.'); // DEBUG REMOVED
               // console.log('[AirspaceXC popupopen Listener - Attempt 13] Combined HTML:', combinedHtml); // DEBUG (potentially very long)
-              popup.setContent(combinedHtml);
+              const screenWidthThreshold = 768; // Match CSS media query from index.js
+              if (window.innerWidth < screenWidthThreshold) { // Removed dependency on window.appConfig.fullSpotsPopoup
+                  // Use the showInFullscreen function from index.js
+                  if (typeof window.showInFullscreen === 'function') {
+                      window.showInFullscreen(combinedHtml);
+                  } else {
+                      console.warn("window.showInFullscreen is not defined. Falling back to regular popup.");
+                      popup.setContent(combinedHtml);
+                  }
+              } else {
+                  popup.setContent(combinedHtml);
+              }
 
           } else {
-              // console.log('[AirspaceXC popupopen Listener - Attempt 13] No overlaps found, setting default content.'); // DEBUG REMOVED
-              // Fallback: Set content to just the opened layer's default
               const openedLayerEntry = allLoadedAirspaces.find(entry => entry.polygon === openedLayer);
+              let contentToDisplay = "Error: Could not find airspace details.";
               if (openedLayerEntry) {
-                 popup.setContent(generateAirspacePopupHtml(openedLayerEntry.data));
+                 contentToDisplay = generateAirspacePopupHtml(openedLayerEntry.data);
               } else {
-                 console.error('[AirspaceXC popupopen Listener - Attempt 13] Could not find data for the opened layer!'); // DEBUG
-                 popup.setContent("Error: Could not find airspace details.");
+                 console.error('[AirspaceXC popupopen Listener] Could not find data for the opened layer!');
+              }
+
+              const screenWidthThreshold = 768; // Match CSS media query from index.js
+              if (window.innerWidth < screenWidthThreshold) { // Removed dependency on window.appConfig.fullSpotsPopoup
+                  if (typeof window.showInFullscreen === 'function') {
+                      window.showInFullscreen(contentToDisplay);
+                  } else {
+                      console.warn("window.showInFullscreen is not defined. Falling back to regular popup.");
+                      popup.setContent(contentToDisplay);
+                  }
+              } else {
+                  popup.setContent(contentToDisplay);
               }
           }
         };

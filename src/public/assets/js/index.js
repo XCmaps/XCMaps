@@ -470,9 +470,14 @@ window.overlayLayers.windStations = L.layerGroup();
     const popupEl = ev.popup.getElement(); // Get popup DOM element
 
     // Helper function to show content in fullscreen modal
-    function showInFullscreen(content) {
+    window.showInFullscreen = function(content) { // Make it global
         console.log("Attempting to show content in fullscreen modal.");
         window.map.closePopup(); // Close small popup first
+        const el = document.getElementById('fullScreenInfo'); // Get el here, as it's needed by this global function
+        if (!el) {
+            console.error("Fullscreen info element not found!");
+            return;
+        }
         try {
             // Add default close button and footer
             const closeButtonHTML = '<div id="default-fullscreen-close-btn" style="position: absolute; top: 10px; right: 10px;">' +
