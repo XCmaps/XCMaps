@@ -310,6 +310,17 @@ function fetchAirspacesXC() {
 
           if (overlappingAirspacesData.length > 0) {
               // Generate combined HTML content
+              // Sort overlapping airspaces by their lower limit (lowest first)
+              overlappingAirspacesData.sort((a, b) => {
+                  const lowerA = getLimitMeters(a.airlower_j);
+                  const lowerB = getLimitMeters(b.airlower_j);
+                  // Handle null/undefined limits by pushing them to the end
+                  if (lowerA === null && lowerB === null) return 0;
+                  if (lowerA === null) return 1;
+                  if (lowerB === null) return -1;
+                  return lowerA - lowerB;
+              });
+
               const combinedHtml = overlappingAirspacesData
                   .map(data => generateAirspacePopupHtml(data)) // Use helper for each
                   .join("<hr style='margin: 5px 0; border-top: 1px solid #ccc;'>"); // Join with separator
