@@ -98,6 +98,15 @@ const InfoControl = L.Control.extend({
             `,
             changelog: `
                 <h3>Change Log</h3>
+                <p><strong>2025-MAY-29 version 1.2.0</strong></p>
+                <ul>
+                <li>#52 XCTrack Web Page Widget Support: Custom Map Overlays Using URL Parameters.</br>
+                 - Please read the description in the Info popup.</li>
+                <li>#49 Airspaces popup: full-screen on mobile devices for better usability </li>
+                <li>#53 Airspaces popup: airspaces are sorted by lower floor level</li>
+                <li>#55 LIVE! Viewer: First-Packet Validator </br>
+                  - Drop first packet of devices sending erroneous packets when they are switched on. </li>
+                </ul>
                 <p><strong>2025-MAY-22 version 1.1.1</strong></p>
                 <ul>
                 <li>#44 Remove obviously wrong points in live viewer</br>
@@ -576,7 +585,7 @@ const InfoControl = L.Control.extend({
                       <li><strong>Locate and Track:</strong> Locate and Track your position using the Locate Control</li>
                       <li><strong>XCMaps User Account:</strong> By using your account, your can save your preferred map layers in the profile-badge—so every time you log in, you'll return to your personalized view.</li>
                       <li><strong><a href="#" data-section="xctrack">XCTrack Web Page Widget:</a></strong> Custom Map Overlays Using URL Parameters</li>
-                      <li><strong>Current Release:</strong> v1.1.1 <a href="#" data-section="changelog">Change Log</a></li>
+                      <li><strong>Current Release:</strong> v1.2.0 <a href="#" data-section="changelog">Change Log</a></li>
                     </ul>
 
                     <h3>Sponsors</h3>
