@@ -6,6 +6,7 @@ let airspacePopupOpenListener = null; // Listener for popupopen
 let currentLowerLimit = 3000; // Default matches dropdown
 let airspaceDebounceTimer;
 let selectedDateStr = getCurrentDateStr(); // Store the selected date
+let abortController = null; // For cancelling previous fetch requests
 
 // Global array to store airspace data accessible by the popupopen listener
 let allLoadedAirspaces = [];
@@ -23,6 +24,7 @@ function getLimitMeters(limit) {
   switch (limit.type) {
     case 'FL': return limit.height * 0.3048;
     case 'AMSL': case 'AGL': return limit.height * 0.3048;
+    case 'AGL/AMSL': return limit.height2 * 0.3048; // Use height2 for AMSL value
     default: return null;
   }
 }
@@ -72,7 +74,12 @@ function generateAirspacePopupHtml(a) { // 'a' represents the airspace data (fea
     } else if (type === 'AMSL' || type === 'AGL') {
       const meters = Math.round(height * 0.3048);
       return `${meters}m`;
-    } else {
+    } else if (type === 'AGL/AMSL') {
+      const aglMeters = Math.round(limit.height * 0.3048);
+      const amslMeters = Math.round(limit.height2 * 0.3048);
+      return `${aglMeters}m/${amslMeters}m AGL/AMSL`;
+    }
+    else {
       return original || 'N/A';
     }
   };
@@ -128,9 +135,23 @@ function fetchAirspacesXC() {
     const dateStr = selectedDateStr;
     const apiUrl = `/api/airspacesXCdb?startDate=${dateStr}&nw_lat=${nw.lat.toFixed(6)}&nw_lng=${nw.lng.toFixed(6)}&se_lat=${se.lat.toFixed(6)}&se_lng=${se.lng.toFixed(6)}`;
 
-    fetch(apiUrl)
-    .then(response => response.json())
+    // Abort any ongoing fetch request
+    if (abortController) {
+      abortController.abort();
+    }
+    abortController = new AbortController();
+    const signal = abortController.signal;
+
+    fetch(apiUrl, { signal })
+    .then(response => {
+       if (!response.ok) {
+           throw new Error(`HTTP error! status: ${response.status}`);
+       }
+       return response.json();
+    })
     .then(data => {
+       // Request completed successfully, reset controller
+       abortController = null;
         window.airspaceXC.clearLayers();
         if (window.airspaceTriggerNotam) { // Clear Trigger NOTAM layer too
             window.airspaceTriggerNotam.clearLayers();
@@ -176,6 +197,8 @@ function fetchAirspacesXC() {
 
             // --- Filtering Logic ---
             if (feature.properties.name && (feature.properties.name.startsWith("V00") || feature.properties.name.startsWith("EBBR"))) return;
+            // Filter out airspaces with airspace_class "Q"
+            // if (feature.properties.airspaceClass === "Q") return;
             const lowerLimitMeters = getLimitMeters(feature.properties.airlower_j);
             if (lowerLimitMeters === null || lowerLimitMeters > currentLowerLimit) return;
             let isExpired = false;
@@ -384,7 +407,21 @@ function fetchAirspacesXC() {
         window.map.on("popupopen", airspacePopupOpenListener);
         console.log("[AirspaceXC] popupopen listener attached to MAP."); // INFO
       })
-      .catch(error => console.error("Error fetching airspaces:", error));
+      .catch(error => {
+        if (error.name === 'AbortError') {
+          console.log('[AirspaceXC] Fetch aborted:', error.message);
+        } else {
+          console.error("Error fetching airspaces:", error);
+        }
+      })
+      .finally(() => {
+        // Ensure controller is reset even if there's an error (unless it was an abort)
+        if (abortController && abortController.signal.aborted) {
+           // Do nothing, it was intentionally aborted
+        } else {
+           abortController = null;
+        }
+      });
 }
 
 

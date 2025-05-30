@@ -10,6 +10,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { createServer } from "http";
 import { Server } from "socket.io";
+import compression from 'compression'; // Import compression middleware
 
 // For GDAL checking
 const execAsync = promisify(exec);
@@ -118,6 +119,8 @@ const PORT = process.env.PORT || 3000;
 
 // Enable CORS
 app.use(cors());
+// Enable Gzip compression for all responses
+app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
