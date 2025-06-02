@@ -1272,26 +1272,55 @@ setupPostMapInitializationListeners(urlParams);
         }
 window.updateUrlParameters();
 window.isInitialLoad = false;
-      if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(position => {
-              console.log("Geolocation received");
-              const userLat = position.coords.latitude;
-              const userLng = position.coords.longitude;
-              const currentMap = window.map;
-              if (currentMap) {
-                   currentMap.setView([userLat, userLng], 10);
-              } else {
-                   console.error("Map object not available for geolocation setView.");
-              }
-              const locationReadyEvent = new CustomEvent('user_location_ready', { detail: { lat: userLat, lng: userLng } });
-              document.dispatchEvent(locationReadyEvent);
-              console.log("User location event dispatched");
-          }, error => {
-               console.error("Geolocation error:", error);
-          });
-      } else {
-          console.log("Geolocation is not supported by this browser.");
+      // Function to get user location, prioritizing XCTrack.getLocation()
+      function getUserLocation() {
+        if (typeof XCTrack !== 'undefined' && typeof XCTrack.getLocation === 'function') {
+          try {
+            const location = JSON.parse(XCTrack.getLocation());
+            const userLat = location.latitude;
+            const userLng = location.longitude;
+            console.log("XCTrack Geolocation received:", location);
+            updateMapAndDispatchEvent(userLat, userLng);
+          } catch (error) {
+            console.error("Error parsing XCTrack location or XCTrack.getLocation() not available:", error);
+            // Fallback to standard geolocation if XCTrack fails
+            fallbackToStandardGeolocation();
+          }
+        } else {
+          console.log("XCTrack.getLocation() is not available. Falling back to standard geolocation.");
+          fallbackToStandardGeolocation();
+        }
       }
+
+      function fallbackToStandardGeolocation() {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(position => {
+            console.log("Standard Geolocation received");
+            const userLat = position.coords.latitude;
+            const userLng = position.coords.longitude;
+            updateMapAndDispatchEvent(userLat, userLng);
+          }, error => {
+            console.error("Standard Geolocation error:", error);
+          }, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
+        } else {
+          console.log("Geolocation is not supported by this browser.");
+        }
+      }
+
+      function updateMapAndDispatchEvent(userLat, userLng) {
+        const currentMap = window.map;
+        if (currentMap) {
+          currentMap.setView([userLat, userLng], 10);
+        } else {
+          console.error("Map object not available for geolocation setView.");
+        }
+        const locationReadyEvent = new CustomEvent('user_location_ready', { detail: { lat: userLat, lng: userLng } });
+        document.dispatchEvent(locationReadyEvent);
+        console.log("User location event dispatched");
+      }
+
+      // Call the new function to get user location
+      getUserLocation();
   }
 });
 
