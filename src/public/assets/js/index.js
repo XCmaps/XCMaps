@@ -670,11 +670,11 @@ window.overlayLayers.windStations = L.layerGroup();
   L.control.logo({ position: 'topleft' }).addTo(window.map);
 
   // Add locate control
-  // Define icon paths
+  // Define icon paths for the locate control
   const locateInactiveIcon = '/assets/images/track-inactive.svg';
   const locateActiveIcon = '/assets/images/track-active.svg';
 
-  // Add locate control by instantiating the imported class
+  // Create a custom locate control that uses XCTrack.getLocation() when available
   window.lc = new LocateControl({
       position: 'bottomright',
       drawCircle: false,
@@ -683,9 +683,165 @@ window.overlayLayers.windStations = L.layerGroup();
       flyTo: true,
       strings: {
           title: "Show current location"
+      },
+      icon: 'leaflet-control-locate-location-arrow',
+      iconLoading: 'leaflet-control-locate-spinner',
+      iconElementTag: 'span',
+      // Use default marker style (blue dot with white circle)
+      // Override the default locate method to use XCTrack when available
+      getLocationBounds: function() {
+          return null; // We'll handle this ourselves
+      },
+      getLocationOptions: function() {
+          return {}; // We'll handle this ourselves
       }
   }).addTo(window.map);
 
+  // Override the locate method to use XCTrack.getLocation() when available
+  const originalStartLocate = window.lc.start;
+  window.lc.start = function() {
+      console.log("Custom locate control activated");
+      if (typeof XCTrack !== 'undefined' && typeof XCTrack.getLocation === 'function') {
+          console.log("Using XCTrack.getLocation() for locate control");
+          
+          // Show active icon instead of spinner
+          this._icon.classList.remove(this.options.iconLoading);
+          this._icon.classList.add(this.options.icon);
+          
+          // Clear any existing tracking interval
+          if (this._xcTrackTrackingInterval) {
+              clearInterval(this._xcTrackTrackingInterval);
+              this._xcTrackTrackingInterval = null;
+          }
+          
+          // Function to update location from XCTrack
+          const updateLocationFromXCTrack = () => {
+              try {
+                  // Get location data from XCTrack
+                  let location = XCTrack.getLocation();
+                  
+                  // Handle the case where it might be a string (from some XCTrack versions)
+                  if (typeof location === 'string') {
+                      try {
+                          location = JSON.parse(location);
+                      } catch (e) {
+                          console.error("Failed to parse XCTrack location string:", e);
+                      }
+                  }
+                  
+                  // Check if location is valid with proper type checking
+                  if (location && typeof location.lat !== 'undefined' && typeof location.lon !== 'undefined') {
+                      const userLat = location.lat;
+                      const userLng = location.lon;
+                      
+                      // Only log if position has changed significantly
+                      if (!this._lastPosition ||
+                          Math.abs(this._lastPosition.lat - userLat) > 0.00001 ||
+                          Math.abs(this._lastPosition.lng - userLng) > 0.00001) {
+                          console.log("XCTrack position updated:", location);
+                          this._lastPosition = { lat: userLat, lng: userLng };
+                      }
+                      
+                      // Update the map view if this is the first location or if follow is enabled
+                      if (!this._marker || this._following) {
+                          window.map.setView([userLat, userLng], window.map.getZoom());
+                      }
+                      
+                      // Set the locate control as active
+                      this._active = true;
+                      this._updateContainerStyle();
+                      
+                      // Create or update the marker using the default style (blue dot with white circle)
+                      if (!this._marker) {
+                          // Create a marker with the exact style used by leaflet-control-locate-location
+                          this._marker = L.circleMarker([userLat, userLng], {
+                              color: '#fff',          // stroke color
+                              weight: 3,              // stroke width
+                              fillColor: '#2A93EE',   // fill color
+                              fillOpacity: 1,         // fill opacity
+                              opacity: 1,             // stroke opacity
+                              radius: 7               // slightly larger radius to match the standard marker
+                          }).addTo(this._layer);
+                      } else {
+                          this._marker.setLatLng([userLat, userLng]);
+                      }
+                      
+                      // Dispatch a custom event for other components
+                      const locationReadyEvent = new CustomEvent('user_location_ready', {
+                          detail: { lat: userLat, lng: userLng }
+                      });
+                      document.dispatchEvent(locationReadyEvent);
+                  } else {
+                      console.warn("XCTrack location data is incomplete:", location);
+                  }
+              } catch (error) {
+                  console.error("Error updating location from XCTrack:", error);
+                  // Don't fallback to standard geolocation here, just log the error
+                  // We'll try again on the next interval
+              }
+          };
+          
+          try {
+              // Initial location update
+              updateLocationFromXCTrack();
+              
+              // Set up continuous tracking with XCTrack.getLocation()
+              this._xcTrackTrackingInterval = setInterval(updateLocationFromXCTrack, 1000);
+              
+              // Set initial following state to true
+              this._following = true;
+              
+              // Add map drag handler to disable following
+              if (!this._mapDragHandler) {
+                  this._mapDragHandler = () => {
+                      this._following = false;
+                      console.log("Map dragged, disabled auto-following");
+                  };
+                  window.map.on('dragstart', this._mapDragHandler);
+              }
+          } catch (error) {
+              console.error("Error with XCTrack.getLocation() in locate control:", error);
+              fallbackToStandardGeolocation();
+          }
+      } else {
+          console.log("Falling back to standard geolocation for locate control");
+          originalStartLocate.call(this); // Call the original method if XCTrack is not available
+      }
+      window.updateUrlParameters();
+      };
+      
+      // Override the stop method to properly handle our custom implementation
+      const originalStopLocate = window.lc.stop;
+      window.lc.stop = function() {
+          console.log("Custom locate control deactivated");
+          this._active = false;
+          
+          // Clear the tracking interval if it exists
+          if (this._xcTrackTrackingInterval) {
+              clearInterval(this._xcTrackTrackingInterval);
+              this._xcTrackTrackingInterval = null;
+              console.log("Cleared XCTrack tracking interval");
+          }
+          
+          // Remove the map drag handler if it exists
+          if (this._mapDragHandler) {
+              window.map.off('dragstart', this._mapDragHandler);
+              this._mapDragHandler = null;
+              console.log("Removed map drag handler");
+          }
+          
+          // Reset following state
+          this._following = false;
+          
+          // Remove the marker if it exists
+          if (this._marker) {
+              this._layer.removeLayer(this._marker);
+              this._marker = null;
+          }
+          
+          this._updateContainerStyle();
+          window.updateUrlParameters();
+      };
 
 
   initializeAirspaceXCMapListeners(window.map);
@@ -1276,13 +1432,32 @@ window.isInitialLoad = false;
       function getUserLocation() {
         if (typeof XCTrack !== 'undefined' && typeof XCTrack.getLocation === 'function') {
           try {
-            const location = JSON.parse(XCTrack.getLocation());
-            const userLat = location.latitude;
-            const userLng = location.longitude;
-            console.log("XCTrack Geolocation received:", location);
-            updateMapAndDispatchEvent(userLat, userLng);
+            // Get location data from XCTrack
+            let location = XCTrack.getLocation();
+            
+            // Handle the case where it might be a string (from some XCTrack versions)
+            if (typeof location === 'string') {
+              try {
+                location = JSON.parse(location);
+              } catch (e) {
+                console.error("Failed to parse XCTrack location string:", e);
+              }
+            }
+            
+            console.log("XCTrack.getLocation()=", location);
+            
+            // Check if location is valid with proper type checking
+            if (location && typeof location.lat !== 'undefined' && typeof location.lon !== 'undefined') {
+              const userLat = location.lat;
+              const userLng = location.lon;
+              console.log("XCTrack Geolocation received:", location);
+              updateMapAndDispatchEvent(userLat, userLng);
+            } else {
+              console.warn("XCTrack location data is incomplete:", location);
+              fallbackToStandardGeolocation();
+            }
           } catch (error) {
-            console.error("Error parsing XCTrack location or XCTrack.getLocation() not available:", error);
+            console.error("Error with XCTrack.getLocation():", error);
             // Fallback to standard geolocation if XCTrack fails
             fallbackToStandardGeolocation();
           }

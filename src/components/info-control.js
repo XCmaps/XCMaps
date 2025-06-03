@@ -387,6 +387,13 @@ const InfoControl = L.Control.extend({
                   <p>With <strong>XCTrack PRO</strong>, you can integrate <strong>XCMaps</strong> into your XCTrack configuration using the <strong>Web Page Widget</strong> and customize the displayed map using URL parameters.</p>
   
                   <h5>How to Configure the Widget</h5>
+                  <p>In the XCTrack widget configuration page activate the following options: </p>
+                  <ul>
+                      <li>Allow web page to access GPS location</li>
+                      <li>Allow web page to access XCTrack data (XCMaps uses the GPS position from XCTrack when available)</li>
+                      <li>Allow tapping on the web page when locked </li>
+                  </ul>
+
                   <p>You can configure your desired overlays in one of two ways:</p>
   
                   <h5><strong>1. Log in with Your XCMaps User Account</strong></h5>
