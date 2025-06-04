@@ -699,14 +699,20 @@ window.overlayLayers.windStations = L.layerGroup();
 
   // Override the locate method to use XCTrack.getLocation() when available
   const originalStartLocate = window.lc.start;
+  const originalStopLocate = window.lc.stop; // Store original stop method
+  const originalIconLoading = window.lc.options.iconLoading; // Store original iconLoading
+
   window.lc.start = function() {
       console.log("Custom locate control activated");
       if (typeof XCTrack !== 'undefined' && typeof XCTrack.getLocation === 'function') {
           console.log("Using XCTrack.getLocation() for locate control");
           
-          // Show active icon instead of spinner
-          this._icon.classList.remove(this.options.iconLoading);
-          this._icon.classList.add(this.options.icon);
+          // Temporarily change iconLoading to show the active icon instead of spinner
+          this.options.iconLoading = this.options.icon;
+          
+          // Show active icon instead of spinner (these lines are now redundant but harmless)
+          this._icon.classList.remove(originalIconLoading); // Remove the actual spinner class
+          this._icon.classList.add(this.options.icon); // Add the active icon class
           
           // Clear any existing tracking interval
           if (this._xcTrackTrackingInterval) {
@@ -781,67 +787,34 @@ window.overlayLayers.windStations = L.layerGroup();
               }
           };
           
-          try {
-              // Initial location update
-              updateLocationFromXCTrack();
-              
-              // Set up continuous tracking with XCTrack.getLocation()
-              this._xcTrackTrackingInterval = setInterval(updateLocationFromXCTrack, 1000);
-              
-              // Set initial following state to true
-              this._following = true;
-              
-              // Add map drag handler to disable following
-              if (!this._mapDragHandler) {
-                  this._mapDragHandler = () => {
-                      this._following = false;
-                      console.log("Map dragged, disabled auto-following");
-                  };
-                  window.map.on('dragstart', this._mapDragHandler);
-              }
-          } catch (error) {
-              console.error("Error with XCTrack.getLocation() in locate control:", error);
-              fallbackToStandardGeolocation();
-          }
-      } else {
-          console.log("Falling back to standard geolocation for locate control");
-          originalStartLocate.call(this); // Call the original method if XCTrack is not available
-      }
-      window.updateUrlParameters();
-      };
-      
-      // Override the stop method to properly handle our custom implementation
-      const originalStopLocate = window.lc.stop;
-      window.lc.stop = function() {
-          console.log("Custom locate control deactivated");
-          this._active = false;
+          // Immediately update location and then set interval
+          updateLocationFromXCTrack();
+          this._xcTrackTrackingInterval = setInterval(updateLocationFromXCTrack, 1000); // Poll every 1 second
           
-          // Clear the tracking interval if it exists
-          if (this._xcTrackTrackingInterval) {
-              clearInterval(this._xcTrackTrackingInterval);
-              this._xcTrackTrackingInterval = null;
-              console.log("Cleared XCTrack tracking interval");
-          }
-          
-          // Remove the map drag handler if it exists
-          if (this._mapDragHandler) {
-              window.map.off('dragstart', this._mapDragHandler);
-              this._mapDragHandler = null;
-              console.log("Removed map drag handler");
-          }
-          
-          // Reset following state
-          this._following = false;
-          
-          // Remove the marker if it exists
-          if (this._marker) {
-              this._layer.removeLayer(this._marker);
-              this._marker = null;
-          }
-          
+          // Set the locate control as active
+          this._active = true;
           this._updateContainerStyle();
-          window.updateUrlParameters();
-      };
+          
+      } else {
+          // If XCTrack is not available, call the original start method
+          originalStartLocate.apply(this, arguments);
+      }
+  };
+
+  window.lc.stop = function() {
+      console.log("Custom locate control deactivated");
+      // Restore the original iconLoading option
+      this.options.iconLoading = originalIconLoading;
+      
+      // Clear the XCTrack tracking interval if it exists
+      if (this._xcTrackTrackingInterval) {
+          clearInterval(this._xcTrackTrackingInterval);
+          this._xcTrackTrackingInterval = null;
+      }
+      
+      // Call the original stop method
+      originalStopLocate.apply(this, arguments);
+  };
 
 
   initializeAirspaceXCMapListeners(window.map);
@@ -1558,5 +1531,3 @@ setTimeout(() => {
     }
 }, 500);
 });
-
-
