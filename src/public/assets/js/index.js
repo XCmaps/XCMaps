@@ -704,37 +704,9 @@ window.overlayLayers.windStations = L.layerGroup();
       if (typeof XCTrack !== 'undefined' && typeof XCTrack.getLocation === 'function') {
           console.log("Using XCTrack.getLocation() for locate control");
           
-          // Force the icon to show track-active.svg BEFORE adding the active class
-          if (this._icon) {
-              // Remove all classes first
-              this._icon.className = '';
-              // Add back the icon class
-              this._icon.classList.add(this.options.icon);
-              // Force the background image directly
-              this._icon.style.backgroundImage = `url('/assets/images/track-active.svg')`;
-              this._icon.style.backgroundSize = '16px 16px';
-              this._icon.style.backgroundRepeat = 'no-repeat';
-              this._icon.style.backgroundPosition = 'center';
-              // Remove any spinner animation
-              this._icon.style.animation = 'none';
-          }
-          
-          // Make sure the control container has the 'active' class
-          L.DomUtil.addClass(this._container, 'active');
-          
-          // Apply our styles AGAIN after a short delay to ensure they stick
-          setTimeout(() => {
-              if (this._icon) {
-                  this._icon.style.backgroundImage = `url('/assets/images/track-active.svg')`;
-                  this._icon.style.backgroundSize = '16px 16px';
-                  this._icon.style.backgroundRepeat = 'no-repeat';
-                  this._icon.style.backgroundPosition = 'center';
-                  this._icon.style.animation = 'none';
-              }
-              if (this._container) {
-                  L.DomUtil.addClass(this._container, 'active');
-              }
-          }, 10);
+          // Show active icon instead of spinner
+          this._icon.classList.remove(this.options.iconLoading);
+          this._icon.classList.add(this.options.icon);
           
           // Clear any existing tracking interval
           if (this._xcTrackTrackingInterval) {
@@ -777,43 +749,7 @@ window.overlayLayers.windStations = L.layerGroup();
                       
                       // Set the locate control as active
                       this._active = true;
-                      
-                      // Force the icon to show track-active.svg BEFORE calling _updateContainerStyle
-                      if (this._icon) {
-                          // Remove all classes first
-                          this._icon.className = '';
-                          // Add back the icon class
-                          this._icon.classList.add(this.options.icon);
-                          // Force the background image directly
-                          this._icon.style.backgroundImage = `url('/assets/images/track-active.svg')`;
-                          this._icon.style.backgroundSize = '16px 16px';
-                          this._icon.style.backgroundRepeat = 'no-repeat';
-                          this._icon.style.backgroundPosition = 'center';
-                          // Remove any spinner animation
-                          this._icon.style.animation = 'none';
-                      }
-                      
-                      // Make sure the control container has the 'active' class
-                      if (this._container) {
-                          L.DomUtil.addClass(this._container, 'active');
-                      }
-                      
-                      // Call _updateContainerStyle AFTER setting our styles
                       this._updateContainerStyle();
-                      
-                      // Apply our styles AGAIN after _updateContainerStyle to ensure they stick
-                      setTimeout(() => {
-                          if (this._icon) {
-                              this._icon.style.backgroundImage = `url('/assets/images/track-active.svg')`;
-                              this._icon.style.backgroundSize = '16px 16px';
-                              this._icon.style.backgroundRepeat = 'no-repeat';
-                              this._icon.style.backgroundPosition = 'center';
-                              this._icon.style.animation = 'none';
-                          }
-                          if (this._container) {
-                              L.DomUtil.addClass(this._container, 'active');
-                          }
-                      }, 10);
                       
                       // Create or update the marker using the default style (blue dot with white circle)
                       if (!this._marker) {
@@ -879,9 +815,6 @@ window.overlayLayers.windStations = L.layerGroup();
       window.lc.stop = function() {
           console.log("Custom locate control deactivated");
           this._active = false;
-          
-          // Make sure the control container doesn't have the 'active' class
-          L.DomUtil.removeClass(this._container, 'active');
           
           // Clear the tracking interval if it exists
           if (this._xcTrackTrackingInterval) {
@@ -1536,23 +1469,6 @@ window.isInitialLoad = false;
 
       function fallbackToStandardGeolocation() {
         if (navigator.geolocation) {
-          // Show the active icon instead of spinner even before we get a position
-          if (window.lc && window.lc._icon) {
-            // Force the icon to show track-active.svg instead of spinner
-            window.lc._icon.className = '';
-            window.lc._icon.classList.add(window.lc.options.icon);
-            window.lc._icon.style.backgroundImage = `url('/assets/images/track-active.svg')`;
-            window.lc._icon.style.backgroundSize = '16px 16px';
-            window.lc._icon.style.backgroundRepeat = 'no-repeat';
-            window.lc._icon.style.backgroundPosition = 'center';
-            window.lc._icon.style.animation = 'none';
-            
-            // Make sure the control container has the 'active' class
-            if (window.lc._container) {
-              L.DomUtil.addClass(window.lc._container, 'active');
-            }
-          }
-          
           navigator.geolocation.getCurrentPosition(position => {
             console.log("Standard Geolocation received");
             const userLat = position.coords.latitude;
@@ -1560,20 +1476,7 @@ window.isInitialLoad = false;
             updateMapAndDispatchEvent(userLat, userLng);
           }, error => {
             console.error("Standard Geolocation error:", error);
-            
-            // Even if we get an error, we should still show the active icon
-            if (window.lc && window.lc._icon) {
-              window.lc._icon.style.backgroundImage = `url('/assets/images/track-active.svg')`;
-            }
-            
-            // Use a default location if geolocation fails
-            console.log("Using default location due to geolocation error");
-            updateMapAndDispatchEvent(50, 6); // Default to center of map
-          }, {
-            enableHighAccuracy: true,
-            timeout: 15000, // Increase timeout to 15 seconds
-            maximumAge: 60000 // Allow cached positions up to 1 minute old
-          });
+          }, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
         } else {
           console.log("Geolocation is not supported by this browser.");
         }
