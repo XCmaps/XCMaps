@@ -30,6 +30,7 @@
 /* Force TimeDimension control into a single row using flexbox */
 .leaflet-bar-timecontrol {
   display: flex !important;
+  z-index: 1000; /* Ensure it's always on top */
   flex-direction: row !important;
   flex-wrap: nowrap !important;
   align-items: center !important; /* Align items vertically */

@@ -1,5 +1,5 @@
 import L from 'leaflet'; // Explicitly import L first
-import 'leaflet/dist/leaflet.css'; // Import Leaflet CSS
+import '../css/leaflet.css'; // Import Leaflet CSS from local assets
 import { LocateControl } from 'leaflet.locatecontrol'; // Use named import
 import 'leaflet.locatecontrol/dist/L.Control.Locate.min.css'; // Import locate control CSS
 import 'maplibre-gl'; // Import maplibre-gl
