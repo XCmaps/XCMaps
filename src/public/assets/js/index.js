@@ -707,12 +707,9 @@ window.overlayLayers.windStations = L.layerGroup();
       if (typeof XCTrack !== 'undefined' && typeof XCTrack.getLocation === 'function') {
           console.log("Using XCTrack.getLocation() for locate control");
           
-          // Temporarily change iconLoading to show the active icon instead of spinner
-          this.options.iconLoading = this.options.icon;
-          
-          // Show active icon instead of spinner (these lines are now redundant but harmless)
-          this._icon.classList.remove(originalIconLoading); // Remove the actual spinner class
-          this._icon.classList.add(this.options.icon); // Add the active icon class
+          // Use the spinner class to indicate that the locate control is active
+          this._icon.classList.remove(this.options.icon);
+          this._icon.classList.add(originalIconLoading); // Add the spinner class
           
           // Clear any existing tracking interval
           if (this._xcTrackTrackingInterval) {
@@ -757,6 +754,10 @@ window.overlayLayers.windStations = L.layerGroup();
                       this._active = true;
                       this._updateContainerStyle();
                       
+                      // Ensure spinner class remains applied during tracking
+                      this._icon.classList.remove(this.options.icon);
+                      this._icon.classList.add(originalIconLoading);
+                      
                       // Create or update the marker using the default style (blue dot with white circle)
                       if (!this._marker) {
                           // Create a marker with the exact style used by leaflet-control-locate-location
@@ -791,9 +792,13 @@ window.overlayLayers.windStations = L.layerGroup();
           updateLocationFromXCTrack();
           this._xcTrackTrackingInterval = setInterval(updateLocationFromXCTrack, 1000); // Poll every 1 second
           
-          // Set the locate control as active
+          // Set the locate control as active and ensure spinner is shown
           this._active = true;
           this._updateContainerStyle();
+          
+          // Make sure the spinner class stays applied
+          this._icon.classList.remove(this.options.icon);
+          this._icon.classList.add(originalIconLoading);
           
       } else {
           // If XCTrack is not available, call the original start method
@@ -803,8 +808,7 @@ window.overlayLayers.windStations = L.layerGroup();
 
   window.lc.stop = function() {
       console.log("Custom locate control deactivated");
-      // Restore the original iconLoading option
-      this.options.iconLoading = originalIconLoading;
+      // No need to restore the original iconLoading option as we're not changing it anymore
       
       // Clear the XCTrack tracking interval if it exists
       if (this._xcTrackTrackingInterval) {

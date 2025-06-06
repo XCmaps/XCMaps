@@ -154,3 +154,11 @@
   background-repeat: no-repeat;
   background-position: center;
 }
+
+.leaflet-control-locate a .leaflet-control-locate-spinner {
+  background-image: url('../images/track-active.svg') !important;
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  background-position: center;
+  animation: none !important;
+}
