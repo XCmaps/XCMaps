@@ -609,7 +609,7 @@ window.overlayLayers.windStations = L.layerGroup();
         buffer: 2
       },
       timeZones: ['Local'],
-      autoPlay: true,
+      autoPlay: false,
       speedSlider: false
     });
     console.log('TimeDimension control initialized successfully');
