@@ -304,11 +304,9 @@ const createUserControl = () => {
           L.DomEvent.stopPropagation(e);
           
           if (isAuthenticated) {
-            // Show profile badge with logout option
             showProfileBadge(container);
           } else {
-            // Login
-            login();
+            showLoginBadge(container);
           }
         });
         
@@ -331,46 +329,55 @@ const createUserControl = () => {
   }
 };
 
+// Close profile badge when clicking outside
+const closeProfileBadgeOnClickOutside = (e) => {
+  const profileBadge = document.getElementById('profile-badge');
+  const loginBadge = document.getElementById('login-badge');
+  const userControl = document.getElementById('user-control');
+
+  if (profileBadge && !profileBadge.contains(e.target) && userControl && !userControl.contains(e.target)) {
+    profileBadge.remove();
+    document.removeEventListener('click', closeProfileBadgeOnClickOutside);
+  }
+  if (loginBadge && !loginBadge.contains(e.target) && userControl && !userControl.contains(e.target)) {
+    loginBadge.remove();
+    document.removeEventListener('click', closeProfileBadgeOnClickOutside);
+  }
+};
+
 // Show profile badge with logout option
-const showProfileBadge = async (container) => { // Make async
-  // Remove existing profile badge if any
+const showProfileBadge = async (container) => {
   const existingBadge = document.getElementById('profile-badge');
   if (existingBadge) {
     existingBadge.remove();
     return;
   }
-  
-  // Create profile badge
+
   const badge = document.createElement('div');
   badge.id = 'profile-badge';
   badge.className = 'profile-badge';
-  
-  // Add user info and logout button
+
   badge.innerHTML = `
     <div class="profile-info">
       <div class="profile-name">${userProfile ? userProfile.username : 'User'}</div>
       ${userProfile && userProfile.email ? `<div class="profile-email">${userProfile.email}</div>` : ''}
     </div>
-    <div id="profile-badge-message" style="color: green; margin-bottom: 5px; display: none; text-align: left;"></div> <!-- Message Area -->
+    <div id="profile-badge-message" style="color: green; margin-bottom: 5px; display: none; text-align: left;"></div>
     <div class="profile-actions" style="display: flex; justify-content: space-between; align-items: center; padding-top: 5px;">
-      <button id="save-settings-button" class="save-settings-button" style="padding: 5px 10px; border: none; border-radius: 3px;">Save Settings</button> <!-- Initial style set by JS -->
+      <button id="save-settings-button" class="save-settings-button" style="padding: 5px 10px; border: none; border-radius: 3px;">Save Settings</button>
       <button id="logout-button" class="logout-button">Logout</button>
     </div>
 
-    <!-- Live Pilot Name Configuration Section (Added) -->
     <div id="live-pilot-config-section" style="display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
       <div style="font-weight: bold; margin-bottom: 8px; text-align: left;">Live! pilot name</div>
       <div id="live-pilot-rows-container">
-        <!-- Rows will be added here by JS -->
       </div>
-      <button id="add-pilot-row-button" class="add-pilot-button">+</button> <!-- Add Button -->
+      <button id="add-pilot-row-button" class="add-pilot-button">+</button>
       
-      <!-- XContest UUID Link Row -->
       <div class="xcontest-uuid-link-row" style="margin-top: 10px; margin-bottom: 5px; font-size: 0.9em; font-weight: bold; text-align: left;">
         XContest/XCTrack UUID <a href="https://www.xcontest.org/world/en/my-groups:xcmaps" target="_blank" rel="noopener noreferrer">    get it here</a>
       </div>
       
-      <!-- XContest UUID Input Row -->
       <div class="xcontest-uuid-input-row" style="margin-bottom: 10px;">
          <input type="text" id="xcontest-uuid-input" name="xcontestUuid" placeholder="Enter your XContest UUID" style="width: 100%; padding: 3px;">
       </div>
@@ -380,28 +387,19 @@ const showProfileBadge = async (container) => { // Make async
         <label for="live-pilot-consent-checkbox" style="font-size: 0.9em;">I certify to be the owner of this device</label>
       </div>
     </div>
-    <!-- End Live Pilot Name Configuration Section -->
   `;
   
-  // Append badge to container
   container.appendChild(badge);
 
-  // Stop clicks inside the badge from propagating to the document listener
   L.DomEvent.on(badge, 'click', L.DomEvent.stopPropagation);
-  L.DomEvent.on(badge, 'mousedown', L.DomEvent.stopPropagation); // Also stop mousedown
+  L.DomEvent.on(badge, 'mousedown', L.DomEvent.stopPropagation);
 
-  // --- Live Pilot Config Logic will be handled later ---
-
-  // Logout button listener will be added later, after the button element is confirmed to exist
-
-  // --- Get references (Primary) ---
   const saveSettingsButton = document.getElementById('save-settings-button');
   const messageArea = document.getElementById('profile-badge-message');
-  const logoutButton = document.getElementById('logout-button'); // Declare logoutButton here
-  let initialPilotNamesState = []; // Store initial state for comparison
-  let savedPreferences = null; // Declare savedPreferences here to be accessible in helpers
+  const logoutButton = document.getElementById('logout-button');
+  let initialPilotNamesState = [];
+  let savedPreferences = null;
 
-  // --- Helper: Add Pilot Name Row ---
   const addPilotNameRow = (deviceId = '', pilotName = '') => {
       const rowDiv = document.createElement('div');
       rowDiv.className = 'live-pilot-row';
@@ -419,21 +417,18 @@ const showProfileBadge = async (container) => { // Make async
           </div>
           <button class="remove-pilot-button" style="padding: 3px 8px; margin-left: 5px; background-color: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer;">-</button>
       `;
-      // Get livePilotRowsContainer reference here as it's needed now
       const livePilotRowsContainer = document.getElementById('live-pilot-rows-container');
       if (livePilotRowsContainer) {
            livePilotRowsContainer.appendChild(rowDiv);
       } else {
           console.error("Could not find live-pilot-rows-container to append row.");
       }
-      // Add blur listener for deviceId input for lookup
       const deviceIdInput = rowDiv.querySelector('input[name="deviceId"]');
       if (deviceIdInput) {
           L.DomEvent.on(deviceIdInput, 'blur', handleDeviceIdBlur);
       }
   };
 
-  // --- Helper: Handle Device ID Blur for Lookup ---
   const handleDeviceIdBlur = async (e) => {
       const deviceIdInput = e.target;
       const deviceId = deviceIdInput.value.trim();
@@ -441,24 +436,22 @@ const showProfileBadge = async (container) => { // Make async
       const nameInput = row ? row.querySelector('input[name="pilotName"]') : null;
 
       if (!deviceId || !nameInput || nameInput.value.trim()) {
-          // Don't lookup if device ID is empty or name is already filled
           return;
       }
 
       console.log(`Looking up name for Device ID: ${deviceId}`);
       try {
-          // Show some loading indicator? (Optional)
           deviceIdInput.style.cursor = 'wait';
           nameInput.style.cursor = 'wait';
 
-          const response = await fetch(`/api/lookup/pilot-name?deviceId=${encodeURIComponent(deviceId)}`); // Use your actual endpoint path
+          const response = await fetch(`/api/lookup/pilot-name?deviceId=${encodeURIComponent(deviceId)}`);
 
           if (response.ok) {
               const data = await response.json();
               if (data && data.name) {
                   console.log(`Found name: ${data.name}`);
                   nameInput.value = data.name;
-                  updateSaveButtonState(); // Update save button state as name was changed programmatically
+                  updateSaveButtonState();
               } else {
                   console.log(`No name found for Device ID: ${deviceId}`);
               }
@@ -468,22 +461,18 @@ const showProfileBadge = async (container) => { // Make async
       } catch (error) {
           console.error('Error during pilot name lookup:', error);
       } finally {
-          // Remove loading indicator (Optional)
           deviceIdInput.style.cursor = '';
           nameInput.style.cursor = '';
       }
   };
-  // --- Helper: Get Current Pilot Names from UI ---
   const getCurrentPilotNamesFromUI = () => {
       let currentData = [];
-      // Get livePilotRowsContainer reference here as it's needed now
       const livePilotRowsContainer = document.getElementById('live-pilot-rows-container');
       if (livePilotRowsContainer) {
           const rows = livePilotRowsContainer.querySelectorAll('.live-pilot-row');
           rows.forEach(row => {
               const deviceIdInput = row.querySelector('input[name="deviceId"]');
               const nameInput = row.querySelector('input[name="pilotName"]');
-              // Only include if both fields have some value (even if just whitespace initially)
               if (deviceIdInput && nameInput && (deviceIdInput.value || nameInput.value)) {
                   currentData.push({
                       deviceId: deviceIdInput.value.trim(),
@@ -494,10 +483,8 @@ const showProfileBadge = async (container) => { // Make async
       } else {
            console.error("Could not find live-pilot-rows-container to get UI data.");
       }
-      // Sort for consistent comparison
       return currentData.sort((a, b) => a.deviceId.localeCompare(b.deviceId));
   };
-  // Removed duplicated block from getCurrentPilotNamesFromUI
 
   // --- Helper: Update Save Button State ---
   const updateSaveButtonState = () => {
@@ -794,11 +781,16 @@ const showProfileBadge = async (container) => { // Make async
 
  // --- Close Badge Logic ---
  const closeProfileBadgeOnClickOutside = (e) => {
-   const badgeElement = document.getElementById('profile-badge'); // Renamed to avoid conflict
-   const userControlContainer = document.getElementById('user-control'); // Renamed to avoid conflict
+   const profileBadge = document.getElementById('profile-badge');
+   const loginBadge = document.getElementById('login-badge');
+   const userControl = document.getElementById('user-control');
 
-   if (badgeElement && userControlContainer && !userControlContainer.contains(e.target)) {
-     badgeElement.remove();
+   if (profileBadge && !profileBadge.contains(e.target) && userControl && !userControl.contains(e.target)) {
+     profileBadge.remove();
+     document.removeEventListener('click', closeProfileBadgeOnClickOutside);
+   }
+   if (loginBadge && !loginBadge.contains(e.target) && userControl && !userControl.contains(e.target)) {
+     loginBadge.remove();
      document.removeEventListener('click', closeProfileBadgeOnClickOutside);
    }
  };
@@ -808,8 +800,53 @@ const showProfileBadge = async (container) => { // Make async
    document.addEventListener('click', closeProfileBadgeOnClickOutside);
  }, 100);
  // --- End Close Badge Logic ---
-
 }; // End of showProfileBadge function
+
+// Show login badge for unauthenticated users
+const showLoginBadge = (container) => {
+ // Remove existing badges if any
+ const existingProfileBadge = document.getElementById('profile-badge');
+ if (existingProfileBadge) {
+   existingProfileBadge.remove();
+ }
+ const existingLoginBadge = document.getElementById('login-badge');
+ if (existingLoginBadge) {
+   existingLoginBadge.remove();
+   return; // If it exists, just remove and return to toggle it off
+ }
+
+ const badge = document.createElement('div');
+ badge.id = 'login-badge';
+ badge.className = 'profile-badge'; // Use the same CSS as profile-badge
+
+ badge.innerHTML = `
+   <div style="padding: 10px; text-align: center;">
+     <p style="font-size: 14px; margin-bottom: 15px;">
+       By using your account, you can save your preferred configuration, configure your LIVE! pilot name linked to your device ID(s) and link your XContest account.
+     </p>
+     <button id="login-create-account-button" style="background-color: #4CAF50; color: white; border: none; border-radius: 4px; padding: 10px 20px; font-size: 16px; cursor: pointer;">
+       LOGIN / CREATE ACCOUNT
+     </button>
+   </div>
+ `;
+
+ container.appendChild(badge);
+
+ L.DomEvent.on(badge, 'click', L.DomEvent.stopPropagation);
+ L.DomEvent.on(badge, 'mousedown', L.DomEvent.stopPropagation);
+
+ const loginCreateAccountButton = document.getElementById('login-create-account-button');
+ if (loginCreateAccountButton) {
+   L.DomEvent.on(loginCreateAccountButton, 'click', () => {
+     login(); // Call the existing login function
+   });
+ }
+
+ // Add event listener with a slight delay to prevent immediate closing
+ setTimeout(() => {
+   document.addEventListener('click', closeProfileBadgeOnClickOutside);
+ }, 100);
+};
 
 // Function to load and apply user preferences (called from index.js after init)
 // Function to load and apply user preferences (called from index.js after init)
