@@ -50,7 +50,7 @@ export default function createPlacesRouter(pool) {
 
         try {
             const query = `
-                SELECT id, name, type, direction, description, 
+                SELECT id, name, type, direction, description, dhv_site_id,
                     ST_AsGeoJSON(geom)::json AS geometry
                 FROM places
                 WHERE geom && ST_MakeEnvelope($1, $2, $3, $4, 4326)
@@ -69,6 +69,7 @@ export default function createPlacesRouter(pool) {
                         name: row.name,
                         type: typeMapping[row.type] || row.type, // Map the type code to full name
                         direction: row.direction,
+                        dhv_site_id: row.dhv_site_id,
                     },
                 })),
             });
