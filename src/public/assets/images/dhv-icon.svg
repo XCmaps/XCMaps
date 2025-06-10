@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   id="b"
+   data-name="Ebene 2"
+   viewBox="0 0 101.25857 101.25857"
+   version="1.1"
+   sodipodi:docname="dhv-icon.svg"
+   xml:space="preserve"
+   width="101.25858"
+   height="101.25858"
+   inkscape:version="1.2.1 (9c6d41e410, 2022-07-14)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"><sodipodi:namedview
+     id="namedview216"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="3.7208813"
+     inkscape:cx="89.629304"
+     inkscape:cy="77.401018"
+     inkscape:window-width="1920"
+     inkscape:window-height="1137"
+     inkscape:window-x="1912"
+     inkscape:window-y="32"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g212" /><defs
+     id="defs202"><style
+       id="style200">
+      .d {
+        fill: #fff;
+      }
+    </style></defs><g
+     id="c"
+     data-name="Ebene 1"
+     transform="translate(-178.17581,-39.828537)"><g
+       id="g212"
+       style="fill:#0000ff"><circle
+         style="fill:#ffffff;fill-opacity:1;stroke:#234084;stroke-width:7;stroke-dasharray:none;stroke-opacity:1"
+         id="path3947"
+         cx="228.8051"
+         cy="90.457825"
+         r="47.129288" /><path
+         class="d"
+         d="m 251.19289,75.475405 -8.46584,33.844665 c -6.78492,-6.50358 -18.32068,-8.05383 -29.01362,-6.7317 0,0 2.5002,-6.983076 -8.73421,-16.787314 l 46.21367,-10.3303 z m -62.84402,6.96912 c 20.52895,12.397299 17.0541,28.104565 17.0541,28.104565 20.28882,-2.82582 35.03576,2.43942 41.71238,13.60304 l 14.54447,-58.266819 -73.31095,16.554552 z"
+         id="path210"
+         style="fill:#234084;fill-opacity:1;stroke-width:0.468185" /></g></g></svg>

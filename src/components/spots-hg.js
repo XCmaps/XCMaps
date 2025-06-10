@@ -112,7 +112,7 @@ export function initSpotHG() {
                                 return d;
                             }
 
-                            const iconSize = 30; // Adjusted icon size
+                            const iconSize = 45; // Adjusted icon size
                             const center = iconSize / 2;
                             const radius = center - 1; // Leave 1px padding
                             let direction = feature.properties.direction || "";
@@ -135,12 +135,26 @@ export function initSpotHG() {
                                 // pathData = describeArc(center, center, radius, 0, 359.999); // Optional: Draw full circle if no direction
                             }
 
+
+                            const dhvIconSize = iconSize * 0.4;
+                            const dhvOffset = (iconSize - dhvIconSize) / 2;
+
                             // Construct the SVG content string
                             const svgContent = `
-<svg xmlns="http://www.w3.org/2000/svg" width="${iconSize}" height="${iconSize}" viewBox="0 0 ${iconSize} ${iconSize}">
-  <path d="${pathData}" fill="orange" stroke="darkorange" stroke-width="0.5" />
-  <circle cx="${center}" cy="${center}" r="${radius / 4}" fill="green" stroke="darkgreen" stroke-width="0.5" />
-</svg>`;
+                            <svg xmlns="http://www.w3.org/2000/svg" width="${iconSize}" height="${iconSize}" viewBox="0 0 ${iconSize} ${iconSize}">
+                            <path d="${pathData}" fill="orange" stroke="darkorange" stroke-width="0.5" />
+                            ${feature.properties.dhv_site_id !== null ? `
+                                <svg x="${dhvOffset}" y="${dhvOffset}" width="${dhvIconSize}" height="${dhvIconSize}" viewBox="0 0 101.25857 101.25857">
+                                <defs><style>.d { fill: #fff; }</style></defs>
+                                <g data-name="Ebene 1" transform="translate(-178.17581,-39.828537)">
+                                    <g style="fill:#0000ff">
+                                    <circle style="fill:#ffffff;fill-opacity:1;stroke:#234084;stroke-width:7;stroke-dasharray:none;stroke-opacity:1" cx="228.8051" cy="90.457825" r="47.129288" />
+                                    <path class="d" d="m 251.19289,75.475405 -8.46584,33.844665 c -6.78492,-6.50358 -18.32068,-8.05383 -29.01362,-6.7317 0,0 2.5002,-6.983076 -8.73421,-16.787314 l 46.21367,-10.3303 z m -62.84402,6.96912 c 20.52895,12.397299 17.0541,28.104565 17.0541,28.104565 20.28882,-2.82582 35.03576,2.43942 41.71238,13.60304 l 14.54447,-58.266819 -73.31095,16.554552 z" style="fill:#234084;fill-opacity:1;stroke-width:0.468185" />
+                                    </g>
+                                </g>
+                                </svg>
+                            ` : `<circle cx="${center}" cy="${center}" r="${radius / 4}" fill="green" stroke="darkgreen" stroke-width="0.5" />`}
+                            </svg>`;
 
                             // Encode the SVG string using Base64 for use as a data URI
                             const svgCleaned = svgContent.replace(/[\r\n]+/g, ''); // Remove only newlines
