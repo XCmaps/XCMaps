@@ -148,7 +148,7 @@ export function initSpotPG() {
                             const svgContent = `
                             <svg xmlns="http://www.w3.org/2000/svg" width="${iconSize}" height="${iconSize}" viewBox="0 0 ${iconSize} ${iconSize}">
                             <path d="${pathData}" fill="orange" stroke="darkorange" stroke-width="0.5" />
-                            ${feature.properties.dhv_site_id != null ? `
+                            ${feature.properties.dhv_id != null ? `
                                 <svg x="${dhvOffset}" y="${dhvOffset}" width="${dhvIconSize}" height="${dhvIconSize}" viewBox="0 0 101.25857 101.25857">
                                 <defs><style>.d { fill: #fff; }</style></defs>
                                 <g data-name="Ebene 1" transform="translate(-178.17581,-39.828537)">

@@ -50,7 +50,7 @@ export default function createPlacesRouter(pool) {
 
         try {
             const query = `
-                SELECT id, name, type, direction, description, dhv_site_id,
+                SELECT id, name, type, direction, description, dhv_id,
                     ST_AsGeoJSON(geom)::json AS geometry
                 FROM places
                 WHERE geom && ST_MakeEnvelope($1, $2, $3, $4, 4326)
@@ -69,7 +69,7 @@ export default function createPlacesRouter(pool) {
                         name: row.name,
                         type: typeMapping[row.type] || row.type, // Map the type code to full name
                         direction: row.direction,
-                        dhv_site_id: row.dhv_site_id,
+                        dhv_id: row.dhv_id,
                     },
                 })),
             });
@@ -82,18 +82,21 @@ export default function createPlacesRouter(pool) {
 
     // API endpoint to fetch place details by ID (includes description)
     router.get("/:id", async (req, res) => {
-        const { id } = req.params;
+        const id = parseInt(req.params.id, 10);
 
-        if (!id) {
-            return res.status(400).json({ error: "Missing place ID." });
+        if (isNaN(id)) {
+            return res.status(400).json({ error: "Invalid place ID. Must be a number." });
         }
 
         try {
             const query = `
-                SELECT id, strplacemarkid, name, type, direction, lastupdate, rating, height, heightdifference, description, 
-                    ST_AsGeoJSON(geom)::json AS geometry
-                FROM places
-                WHERE id = $1;
+                SELECT
+                    p.id, p.strplacemarkid, p.name, p.type, p.direction, p.lastupdate, p.rating, p.height, p.heightdifference, p.description, p.dhv_id,
+                    ST_AsGeoJSON(p.geom)::json AS geometry,
+                    d.site_type, d.height_difference_max, , d.weather_info, d.de_certified, d.de_certification_holder, d.site_contact, d.site_information, d.cable_car, d.site_remarks, d.requirements, d.site_url, d.location_name, d.location_id, d.location_type, d.directions_text, d.towing_length, d.towing_height1, d.towing_height2, d.access_by_car, d.access_by_public_transport, d.access_by_foot, d.access_remarks, d.hanggliding, d.paragliding, d.suitability_hg, d.suitability_pg, d.location_remarks
+                FROM places p
+                LEFT JOIN dhv_sites d ON p.dhv_id::integer = d.id
+                WHERE p.id = $1;
             `;
 
             const { rows } = await pool.query(query, [id]);
@@ -118,6 +121,34 @@ export default function createPlacesRouter(pool) {
                     heightdifference: place.heightdifference,
                     lastupdate: place.lastupdate,
                     description: place.description,
+                    dhv_id: place.dhv_id,
+                    site_type: place.site_type,
+                    height_difference_max: place.height_difference_max,
+                    weather_info: place.weather_info,
+                    de_certified: place.de_certified,
+                    de_certification_holder: place.de_certification_holder,
+                    site_contact: place.site_contact,
+                    site_information: place.site_information,
+                    cable_car: place.cable_car,
+                    site_remarks: place.site_remarks,
+                    requirements: place.requirements,
+                    site_url: place.site_url,
+                    location_name: place.location_name,
+                    location_id: place.location_id,
+                    location_type: place.location_type,
+                    directions_text: place.directions_text,
+                    towing_length: place.towing_length,
+                    towing_height1: place.towing_height1,
+                    towing_height2: place.towing_height2,
+                    access_by_car: place.access_by_car,
+                    access_by_public_transport: place.access_by_public_transport,
+                    access_by_foot: place.access_by_foot,
+                    access_remarks: place.access_remarks,
+                    hanggliding: place.hanggliding,
+                    paragliding: place.paragliding,
+                    suitability_hg: place.suitability_hg,
+                    suitability_pg: place.suitability_pg,
+                    location_remarks: place.location_remarks,
                 },
             });
 

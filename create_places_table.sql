@@ -4,10 +4,11 @@ CREATE TABLE places (
     type TEXT,
     direction TEXT,
     lastupdate TIMESTAMP,
-    descriptio TEXT,
+    description TEXT,
+    dhv_id INTEGER,
     geom GEOMETRY(Point, 4326),
     rating TEXT,
     height TEXT,
-    heightdiff TEXT,
-    strplacem TEXT
+    heightdifference TEXT,
+    strplacemarkid TEXT
 );
