@@ -210,6 +210,28 @@ export default (env, argv) => {
         'moment': path.resolve(__dirname, 'node_modules/moment'),
         'moment-timezone': path.resolve(__dirname, 'node_modules/moment-timezone/builds/moment-timezone-with-data.min.js')
       },
+      fallback: {
+        "fs": false,
+        "tls": false,
+        "net": false,
+        "path": false,
+        "zlib": false,
+        "http": false,
+        "https": false,
+        "stream": false,
+        "crypto": false,
+        "os": false,
+        "worker_threads": false,
+        "module": false,
+        "child_process": false,
+        "diagnostics_channel": false,
+        "buffer": false, // or require.resolve('buffer/')
+        "util": false, // or require.resolve('util/')
+        "assert": false, // or require.resolve('assert/')
+        "tty": false, // or require.resolve('tty-browserify')
+        "url": false, // or require.resolve('url/')
+        "vm": false // or require.resolve('vm-browserify')
+      }
     },
     performance: {
       hints: isProduction ? 'warning' : false,

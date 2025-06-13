@@ -16,6 +16,7 @@
     "@fortawesome/fontawesome-free": "^6.7.2",
     "@keycloak/keycloak-admin-client": "^26.1.4",
     "@maplibre/maplibre-gl-leaflet": "^0.1.0",
+    "@sentry/browser": "^9.29.0",
     "@turf/turf": "^7.2.0",
     "adm-zip": "^0.5.10",
     "axios": "^1.8.3",

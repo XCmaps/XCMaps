@@ -1,3 +1,5 @@
+
+import './instrument.js';
 import L from 'leaflet'; // Explicitly import L first
 import '../css/leaflet.css'; // Import Leaflet CSS from local assets
 import { LocateControl } from 'leaflet.locatecontrol'; // Use named import
@@ -52,6 +54,7 @@ window.controlStates = {};
 window.appConfig = {
   fullSpotsPopoup: false // Default value, will be overwritten by fetched config
 };
+
 
 async function fetchAppConfig() {
   try {
