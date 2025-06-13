@@ -144,7 +144,221 @@ async function loadPlaceDetails(layer, placeId) {
 
         // --- Apply fullSpotsPopoup configuration ---
         const userHasRole = keycloak && isUserAuthenticated() && keycloak.hasRealmRole('fullSpotsPopoup');
-        if (window.appConfig && (window.appConfig.fullSpotsPopoup === true || userHasRole)) {
+
+        // --- Apply DhvSpotsPopoup configuration ---
+        if (window.appConfig && window.appConfig.DhvSpotsPopoup === true && data.properties.dhv_id != null) {
+            console.log("Generating DHV spot popup (config enabled and dhv_id present)");
+
+            let popupContent = `<span style="color: #0087F7;"><h5>${data.properties.name}</h5></span>
+                                <table style="border-collapse: collapse; width: 100%;">`;
+
+            if (data.properties.site_type != null) {
+                popupContent += `<tr>
+                                    <th style="text-align: left; vertical-align: top; width: 30%;">Suitability:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.site_type}</td>
+                                 </tr>`;
+            }
+            if (data.properties.altitude != null) {
+                popupContent += `<tr>
+                                    <th style="text-align: left; vertical-align: top;">Altitude:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.altitude} m</td>
+                                 </tr>`;
+            }
+            if (data.properties.height_difference_max != null) {
+                popupContent += `<tr>
+                                    <th style="text-align: left; vertical-align: top;">Height Difference:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.height_difference_max} m</td>
+                                 </tr>`;
+            }
+            if (data.properties.de_certification_holder != null) {
+                popupContent += `<tr>
+                                    <th style="text-align: left; vertical-align: top;">Site Owner:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.de_certification_holder}</td>
+                                 </tr>`;
+            }
+            if (data.properties.site_contact != null) {
+                popupContent += `<tr>
+                                    <th style="text-align: left; vertical-align: top;">Site Contact:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.site_contact}</td>
+                                 </tr>`;
+            }
+            if (data.properties.site_information != null) {
+                popupContent += `<tr>
+                                    <th style="text-align: left; vertical-align: top;">Site Information:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.site_information}</td>
+                                 </tr>`;
+            }
+            if (data.properties.site_remarks != null) {
+                popupContent += `<tr>
+                                    <th style="text-align: left; vertical-align: top;">Site Remarks:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.site_remarks}</td>
+                                 </tr>`;
+            }
+            if (data.properties.paragliding != null || data.properties.suitability_pg != null) {
+                popupContent += `<tr>
+                                    <th style="text-align: left; vertical-align: top;">Paragliding:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.paragliding ? 'Yes' : 'No'}${data.properties.suitability_pg ? ' (' + data.properties.suitability_pg + ')' : ''}</td>
+                                 </tr>`;
+            }
+            if (data.properties.hanggliding != null || data.properties.suitability_hg != null) {
+                popupContent += `<tr>
+                                    <th style="text-align: left; vertical-align: top;">Hang gliding:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.hanggliding ? 'Yes' : 'No'}${data.properties.suitability_hg ? ' (' + data.properties.suitability_hg + ')' : ''}</td>
+                                 </tr>`;
+            }
+            if (data.properties.weather_info != null) {
+                popupContent += `<tr>
+                                    <th style="text-align: left; vertical-align: top;">Weather Info:</th>
+                                    <td style="text-align: left; vertical-align: top;"><a href="${data.properties.weather_info}" target="_blank">${data.properties.weather_info}</a></td>
+                                 </tr>`;
+            }
+            if (data.properties.cable_car != null) {
+                popupContent += `<tr>
+                                    <th style="text-align: left; vertical-align: top;">Cable Car:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.cable_car}</td>
+                                 </tr>`;
+            }
+
+            let accessInfo = [];
+            if (data.properties.access_by_car) accessInfo.push("Car: Yes");
+            if (data.properties.access_by_public_transport) accessInfo.push("Public Transport: Yes");
+            if (data.properties.access_by_foot) accessInfo.push("Foot: Yes");
+            if (accessInfo.length > 0) {
+                 popupContent += `<tr>
+                                    <th style="text-align: left; vertical-align: top;">Access:</th>
+                                    <td style="text-align: left; vertical-align: top;">${accessInfo.join(', ')}</td>
+                                 </tr>`;
+            }
+
+            if (data.properties.access_remarks != null) {
+                popupContent += `<tr>
+                                    <th style="text-align: left; vertical-align: top;">Access remarks:</th>
+                                    <td style="text-align: left; vertical-align: top;">${data.properties.access_remarks}</td>
+                                 </tr>`;
+            }
+            if (data.properties.requirements != null) {
+                popupContent += `<tr>
+                                    <th style="text-align: left; vertical-align: top;">Requirements:</th>
+                                    <td style="text-align: left; vertical-align: top;"><div style="white-space: pre-wrap;">${data.properties.requirements}</div></td>
+                                 </tr>`;
+            }
+            if (data.properties.site_url != null) {
+                popupContent += `<tr>
+                                    <th style="text-align: left; vertical-align: top;">Link to DHV Site Page:</th>
+                                    <td style="text-align: left; vertical-align: top;"><a href="${data.properties.site_url}" target="_blank">${data.properties.site_url}</a></td>
+                                 </tr>`;
+            }
+
+            popupContent += `</table><br>
+                             <b>© <a href="https://www.dhv.de" target="_blank">DHV</a></b>
+                             <div class="modal-footer d-flex justify-content-between">
+                             <div id="feedback-message" class="text-start"></div> <!-- Message on the left -->
+                             <div class="d-flex ms-auto">
+                                 <button class="btn btn-primary btn-sm me-2" onclick="showFeebackForm()">Feedback/Correction</button>
+                                 <button class="btn btn-dark btn-sm close-popup">Close</button>
+                             </div>
+                             </div>
+                             `;
+            
+            popupContent += `<style>
+            .leaflet-popup-content { max-width: 600px !important; } /* Adjust DHV popup width */
+            .spot-description { max-height: 200px; overflow-y: auto; white-space: pre-wrap; }
+            /* Limit the height of the Swiper container */
+            .swiper-container {
+                max-height: 460px !important;
+                height: 460px !important;
+                overflow: hidden !important;
+            }
+
+            /* Ensure individual Swipers don't expand beyond this height */
+            .swiper, .swiper1, .swiper2 {
+                max-height: 460px !important;
+                height: 460px !important;
+                overflow: hidden !important;
+            }
+
+            /* Limit Swiper wrapper height */
+            .swiper-wrapper {
+                max-height: 460px !important;
+            }
+
+            /* Ensure Swiper slides don't stretch */
+            .swiper-slide {
+                max-height: 460px !important;
+                display: flex !important;
+                align-items: center !important; /* Keep images centered */
+                justify-content: center !important;
+            }
+
+            /* Prevent images from exceeding the swiper height */
+            .swiper-slide img {
+                max-height: 100% !important;
+                width: auto !important;
+            }
+            
+            /* Keep the overall popup size unchanged */
+            .leaflet-popup-content {
+                max-height: 780px !important; /* Keep original popup height */
+                overflow-y: auto; /* Allow scrolling inside the popup if needed */
+            }
+
+            .swiper-clear {
+                clear: both;
+                margin-bottom: 1px;
+            }
+            </style>`;
+            
+            const fullScreenInfo = document.getElementById('fullScreenInfo');
+            const fullScreenContentArea = document.getElementById('fullscreen-content-area');
+            if (fullScreenInfo && fullScreenInfo.classList.contains('visible') && fullScreenContentArea) {
+                console.log("Updating fullscreen info content area for DHV spot");
+                const defaultCloseBtn = fullScreenInfo.querySelector('#default-fullscreen-close-btn');
+                const defaultFooter = fullScreenInfo.querySelector('#default-fullscreen-footer');
+                if (defaultCloseBtn) defaultCloseBtn.remove();
+                if (defaultFooter) defaultFooter.remove();
+                fullScreenContentArea.innerHTML = popupContent;
+            }
+
+            layer.setPopupContent(popupContent);
+
+            setTimeout(() => {
+                let firstImg = document.querySelector(".swiper1 .swiper-slide img");
+                if (firstImg) {
+                    let idImg = parseInt(firstImg.id.replace(/\D/g, ""), 10) || 1;
+                    initSwiper(idImg);
+                }
+            }, 300);
+            
+            setTimeout(() => {
+                const fullScreenInfo = document.getElementById('fullScreenInfo');
+                let closeButton = null;
+
+                if (fullScreenInfo && fullScreenInfo.classList.contains('visible')) {
+                    closeButton = fullScreenInfo.querySelector('#fullscreen-content-area .close-popup');
+                    if (closeButton) {
+                        closeButton.replaceWith(closeButton.cloneNode(true));
+                        closeButton = fullScreenInfo.querySelector('#fullscreen-content-area .close-popup');
+                        closeButton.addEventListener("click", function () {
+                            window.closeFullscreenInfo();
+                        });
+                    }
+                } else {
+                    const popupElement = layer.getPopup()?.getElement();
+                    if (popupElement) {
+                        closeButton = popupElement.querySelector(".close-popup");
+                        if (closeButton) {
+                            closeButton.replaceWith(closeButton.cloneNode(true));
+                            closeButton = popupElement.querySelector(".close-popup");
+                            closeButton.addEventListener("click", function () {
+                                if (window.map) { window.map.closePopup(); }
+                            });
+                        }
+                    }
+                }
+            }, 350);
+
+
+        } else if (window.appConfig && (window.appConfig.fullSpotsPopoup === true || userHasRole)) {
             // --- FULL POPUP LOGIC ---
             if (userHasRole && window.appConfig.fullSpotsPopoup === false) {
                 console.log("Generating full spot popup (user role override)");
