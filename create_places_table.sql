@@ -12,3 +12,4 @@ CREATE TABLE places (
     heightdifference TEXT,
     strplacemarkid TEXT
 );
+CREATE INDEX IF NOT EXISTS idx_places_dhv_id ON places(dhv_id);

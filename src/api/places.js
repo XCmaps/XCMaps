@@ -93,9 +93,9 @@ export default function createPlacesRouter(pool) {
                 SELECT
                     p.id, p.strplacemarkid, p.name, p.type, p.direction, p.lastupdate, p.rating, p.height, p.heightdifference, p.description, p.dhv_id,
                     ST_AsGeoJSON(p.geom)::json AS geometry,
-                    d.site_type, d.height_difference_max, , d.weather_info, d.de_certified, d.de_certification_holder, d.site_contact, d.site_information, d.cable_car, d.site_remarks, d.requirements, d.site_url, d.location_name, d.location_id, d.location_type, d.directions_text, d.towing_length, d.towing_height1, d.towing_height2, d.access_by_car, d.access_by_public_transport, d.access_by_foot, d.access_remarks, d.hanggliding, d.paragliding, d.suitability_hg, d.suitability_pg, d.location_remarks
+                    d.site_type, d.height_difference_max, d.weather_info, d.de_certified, d.altitude, d.de_certification_holder, d.site_contact, d.site_information, d.cable_car, d.site_remarks, d.requirements, d.site_url, d.location_name, d.location_id, d.location_type, d.directions_text, d.towing_length, d.towing_height1, d.towing_height2, d.access_by_car, d.access_by_public_transport, d.access_by_foot, d.access_remarks, d.hanggliding, d.paragliding, d.suitability_hg, d.suitability_pg, d.location_remarks
                 FROM places p
-                LEFT JOIN dhv_sites d ON p.dhv_id::integer = d.id
+                LEFT JOIN dhv_sites d ON p.dhv_id = d.id
                 WHERE p.id = $1;
             `;
 
@@ -118,6 +118,7 @@ export default function createPlacesRouter(pool) {
                     direction: place.direction,
                     rating: place.rating,
                     height: place.height,
+                    altitude: place.altitude, 
                     heightdifference: place.heightdifference,
                     lastupdate: place.lastupdate,
                     description: place.description,
