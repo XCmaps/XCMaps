@@ -27,6 +27,7 @@
     "commander": "^11.1.0",
     "compression": "^1.8.0",
     "cors": "^2.8.5",
+    "deeplx": "^0.3.2",
     "dotenv": "^16.5.0",
     "dropzone": "^6.0.0-beta.2",
     "esm": "^3.2.25",
