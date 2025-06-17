@@ -572,14 +572,34 @@ window.overlayLayers.windStations = L.layerGroup();
 
       // --- Handle Other Generic Popups (Conditional on Config) ---
       // Includes full spot popups if config is true, simplified spot popups are handled by Leaflet if config is false
-      if (window.appConfig && window.appConfig.fullSpotsPopoup === true) {
-          console.log("Opening generic popup in fullscreen mode (config enabled).");
-          showInFullscreen(ev.popup.getContent());
-          // Note: Simplified spot popups won't reach here if config is false
+      // Also includes DHV popups if DhvSpotsPopoup config is true
+      const popupElForCheck = ev.popup.getElement(); // Get popup DOM element for class check
+
+      if (window.appConfig) {
+          const isDhvSpotPopup = popupElForCheck && popupElForCheck.classList.contains('dhv-spot-popup');
+
+          if (isDhvSpotPopup) {
+              // This is a DHV Spot Popup
+              if (window.appConfig.DhvSpotsPopoup === true) {
+                  console.log("Opening DHV popup in fullscreen mode (DhvSpotsPopoup enabled, class found).");
+                  showInFullscreen(ev.popup.getContent());
+              } else {
+                  // Leaflet will handle the standard popup display.
+                  console.log("Skipping fullscreen for DHV popup (DhvSpotsPopoup config disabled, class found). Leaflet will handle.");
+              }
+          } else {
+              // This is another generic popup (NOT a DHV Spot Popup)
+              if (window.appConfig.fullSpotsPopoup === true) {
+                  console.log("Opening generic non-DHV spot popup in fullscreen mode (fullSpotsPopoup enabled).");
+                  showInFullscreen(ev.popup.getContent());
+              } else {
+                  // Leaflet will handle the standard popup display.
+                  console.log("Skipping fullscreen for generic non-DHV spot popup (fullSpotsPopoup config disabled). Leaflet will handle.");
+              }
+          }
       } else {
-          // If config is false, do nothing extra for other generic popups (like simplified spots).
           // Leaflet will handle the standard popup display.
-          console.log("Skipping fullscreen for generic popup (config disabled).");
+          console.log("Skipping fullscreen for generic/DHV popup (appConfig not loaded). Leaflet will handle.");
       }
     }
     // --- End Small Screen Logic ---

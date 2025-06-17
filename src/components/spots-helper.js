@@ -146,11 +146,11 @@ async function loadPlaceDetails(layer, placeId) {
         const userHasRole = keycloak && isUserAuthenticated() && keycloak.hasRealmRole('fullSpotsPopoup');
 
         // --- Apply DhvSpotsPopoup configuration ---
-        if (window.appConfig && window.appConfig.DhvSpotsPopoup === true && data.properties.dhv_id != null) {
-            console.log("Generating DHV spot popup (config enabled and dhv_id present)");
-
+        if (data.properties.dhv_id != null) { // First, check if it's a DHV-potential spot
+            console.log("spots-helper.js: Detected spot with dhv_id, processing as potential DHV popup.");
+            const screenWidthThreshold = 768; // Match CSS media query from index.js
             let popupContent = `<span style="color: #0087F7;"><h5>${data.properties.name}</h5></span>
-                                <table style="border-collapse: collapse; width: 100%;">`;
+                              <table style="border-collapse: collapse; width: 100%;">`;
 
             if (data.properties.site_type != null) {
                 popupContent += `<tr>
@@ -307,20 +307,59 @@ async function loadPlaceDetails(layer, placeId) {
                 margin-bottom: 1px;
             }
             </style>`;
+
+            let madeFullscreenBySpotsHelper = false;
+            // Check DHV config and screen size to proactively trigger fullscreen
+            if (window.appConfig && window.appConfig.DhvSpotsPopoup === true && window.innerWidth < screenWidthThreshold) {
+                console.log("spots-helper.js: DHV spot, DhvSpotsPopoup is true, and small screen. Calling showInFullscreen.");
+                window.showInFullscreen(popupContent); // This function (in index.js) closes the small popup.
+                madeFullscreenBySpotsHelper = true;
+            }
+
+            // If not made fullscreen by spots-helper (e.g. large screen or DhvSpotsPopoup is false),
+            // set content for the regular Leaflet popup.
+            if (!madeFullscreenBySpotsHelper) {
+                layer.setPopupContent(popupContent);
+            }
+
+            // Add 'dhv-spot-popup' class to the popup element if it exists.
+            // This is useful if it didn't go fullscreen, or for styling the fullscreen content later.
+            const currentPopup = layer.getPopup();
+            if (currentPopup && currentPopup.getElement()) {
+                currentPopup.getElement().classList.add('dhv-spot-popup');
+                console.log("spots-helper.js: Added 'dhv-spot-popup' class to popup element.");
+            }
             
+            // Handle content update if fullscreen was ALREADY visible (e.g., by a generic rule in index.js)
+            // and spots-helper itself didn't just make it fullscreen.
             const fullScreenInfo = document.getElementById('fullScreenInfo');
             const fullScreenContentArea = document.getElementById('fullscreen-content-area');
             if (fullScreenInfo && fullScreenInfo.classList.contains('visible') && fullScreenContentArea) {
-                console.log("Updating fullscreen info content area for DHV spot");
-                const defaultCloseBtn = fullScreenInfo.querySelector('#default-fullscreen-close-btn');
-                const defaultFooter = fullScreenInfo.querySelector('#default-fullscreen-footer');
-                if (defaultCloseBtn) defaultCloseBtn.remove();
-                if (defaultFooter) defaultFooter.remove();
-                fullScreenContentArea.innerHTML = popupContent;
+                if (!madeFullscreenBySpotsHelper) {
+                    // Fullscreen was visible due to other reasons (e.g. index.js fullSpotsPopup=true generic rule)
+                    // Now we know it's DHV, so update its content and remove default buttons.
+                    console.log("spots-helper.js: Fullscreen was already visible (not by spots-helper). Updating content for DHV.");
+                    const defaultCloseBtn = fullScreenInfo.querySelector('#default-fullscreen-close-btn');
+                    const defaultFooter = fullScreenInfo.querySelector('#default-fullscreen-footer');
+                    if (defaultCloseBtn) defaultCloseBtn.remove();
+                    if (defaultFooter) defaultFooter.remove();
+                    fullScreenContentArea.innerHTML = popupContent; // Update with DHV specific content
+                } else {
+                    // spots-helper just made it fullscreen. The content is set by showInFullscreen.
+                    // We need to ensure our custom DHV buttons (from popupContent) are used,
+                    // instead of generic ones showInFullscreen might add.
+                    // showInFullscreen in index.js adds its own default close/footer. We need to remove those
+                    // as popupContent (passed to showInFullscreen) already has the correct DHV footer/buttons.
+                    console.log("spots-helper.js: Fullscreen triggered by spots-helper. Ensuring DHV buttons are primary.");
+                    const defaultCloseBtn = fullScreenInfo.querySelector('#default-fullscreen-close-btn');
+                    const defaultFooter = fullScreenInfo.querySelector('#default-fullscreen-footer');
+                    if (defaultCloseBtn) defaultCloseBtn.remove(); // Remove default added by showInFullscreen
+                    if (defaultFooter) defaultFooter.remove();   // Remove default added by showInFullscreen
+                    // The `popupContent` was passed to showInFullscreen, which should have placed it in `fullscreen-content-area`.
+                    // The setTimeout for button listeners below will attach to buttons within this `popupContent`.
+                }
             }
-
-            layer.setPopupContent(popupContent);
-
+ 
             setTimeout(() => {
                 let firstImg = document.querySelector(".swiper1 .swiper-slide img");
                 if (firstImg) {

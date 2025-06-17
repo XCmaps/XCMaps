@@ -1180,7 +1180,7 @@ class OgnAprsClient extends EventEmitter {
 
 
     // --- Name Logging Check (Moved down, might still be useful for other name formats) ---
-    if (line.includes('MaK') || line.includes('1988')) { // Keep this check for general logging if needed
+    if (line.includes('simon') || line.includes('Maurer')) { // Keep this check for general logging if needed
       try {
         // Append the raw packet line to the CSV file
         fs.appendFileSync(nameMatchLogPath, line + '\n');
