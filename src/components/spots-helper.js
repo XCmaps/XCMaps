@@ -112,7 +112,85 @@ function getAngleRange(direction) {
 
     return angleRanges;
 }
-
+ 
+/**
+ * Translates specific properties of spotData using the backend translation service.
+ * Modifies spotData.properties in place.
+ * @param {object} spotData - The spot data object, expected to have a .properties child object.
+ */
+async function translateSpotProperties(spotData) {
+    if (!spotData || !spotData.properties) {
+        console.warn("translateSpotProperties: Invalid spotData or missing properties.");
+        return;
+    }
+ 
+    const propertiesToTranslate = [
+        "site_type",
+        "suitability_hg",
+        "suitability_pg",
+        "requirements",
+        "site_remarks",
+        "access_remarks",
+        "site_information"
+    ];
+ 
+    const textsToTranslateMap = []; // To store { key, originalText }
+ 
+    for (const key of propertiesToTranslate) {
+        if (spotData.properties[key] && typeof spotData.properties[key] === 'string' && spotData.properties[key].trim() !== "") {
+            textsToTranslateMap.push({ key, originalText: spotData.properties[key] });
+        }
+    }
+ 
+    if (textsToTranslateMap.length === 0) {
+        // console.log("translateSpotProperties: No text found to translate.");
+        return; // No text to translate
+    }
+ 
+    const textsArray = textsToTranslateMap.map(item => item.originalText);
+    const browserLang = navigator.language || 'en'; // Default to 'en' if navigator.language is not available
+ 
+    try {
+        console.log(`[Spots-Helper] Requesting translation for ${textsArray.length} texts to ${browserLang}`);
+        const response = await fetch('/api/translate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                texts: textsArray,
+                targetBrowserLang: browserLang,
+            }),
+        });
+ 
+        if (!response.ok) {
+            const errorBody = await response.text();
+            console.error(`[Spots-Helper] Translation API request failed: ${response.status}`, errorBody);
+            return; // Do not modify original texts on error
+        }
+ 
+        const result = await response.json();
+ 
+        if (result.translatedTexts && Array.isArray(result.translatedTexts) && result.translatedTexts.length === textsToTranslateMap.length) {
+            result.translatedTexts.forEach((translatedText, index) => {
+                const originalItem = textsToTranslateMap[index];
+                if (translatedText && typeof translatedText === 'string' && translatedText.trim() !== "") {
+                    spotData.properties[originalItem.key] = translatedText;
+                } else {
+                    // If translation is null or empty, keep original (or decide on other behavior)
+                    // console.warn(`[Spots-Helper] Received null or empty translation for ${originalItem.key}, keeping original.`);
+                }
+            });
+            console.log("[Spots-Helper] Spot properties updated with translations.");
+        } else {
+            console.error("[Spots-Helper] Translation API response format error or mismatched counts:", result);
+        }
+    } catch (error) {
+        console.error("[Spots-Helper] Error calling translation API:", error);
+        // On error, original texts remain unchanged
+    }
+}
+ 
 // Fetch full place details when a popup is opened
 async function loadPlaceDetails(layer, placeId) {
     try {
@@ -137,7 +215,11 @@ async function loadPlaceDetails(layer, placeId) {
             .replace(regexHD, "")
             .replace(regexRating, "")
             .trim();
-
+ 
+        // Attempt to translate relevant properties before using them
+        // data.properties will be modified in place if translations are successful
+        await translateSpotProperties(data);
+ 
         window.currentPlaceName = data.properties.name;
         window.currentPlaceId = data.properties.id;
         window.currentStrPlacemarkId = data.properties.strPlacemarkId;

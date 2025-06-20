@@ -28,14 +28,16 @@ import kk7ThermalsProxy from './src/api/kk7thermals.js';
 import kk7SkywayaysProxy from './src/api/kk7skyways.js';
 import cron from 'node-cron';
 import { fetchAndStoreAirspaces, fetchAndStoreObstacles } from './src/modules/update-xc-airspaces.js';
-import createUserPreferencesRouter from './src/api/user-preferences.js'; // Import the user preferences router factory
-import OgnAprsClient from './src/modules/ogn-aprs-client.js'; // Import OGN APRS client
-import createOgnLiveRouter from './src/api/ogn-live.js'; // Import OGN Live API router
-import createLookupRouter from './src/api/lookup.js'; // Import the new lookup router factory
-import SrtmElevation from './src/modules/srtm-elevation.js'; // Import SRTM elevation module
-import { initXContestLive } from './src/api/xcontest-live.js'; // Import XContest Live data initializer
-
-
+import createUserPreferencesRouter from './src/api/user-preferences.js'; 
+import OgnAprsClient from './src/modules/ogn-aprs-client.js'; 
+import createOgnLiveRouter from './src/api/ogn-live.js'; 
+import createLookupRouter from './src/api/lookup.js'; 
+import SrtmElevation from './src/modules/srtm-elevation.js';
+import { initXContestLive } from './src/api/xcontest-live.js';
+// mapBrowserLangToDeeplx and TEXT_DELIMITER will be used by the new translate router module
+import createTranslateRouter from './src/api/translate.js'; // Import the new translate router
+ 
+ 
 const { Pool } = pkg;
 
 // Load environment variables
@@ -47,8 +49,6 @@ const app = express();
 cron.schedule('0 4 * * *', async () => {
     console.log('Running scheduled airspace update...');
     try {
-        // Need to ensure pool is available here or passed differently
-        // For now, assuming pool is globally accessible after initialization
         if (pool) {
             await fetchAndStoreObstacles(pool);
             await fetchAndStoreAirspaces(pool);
@@ -90,9 +90,8 @@ function loadConfig() {
         console.log('Configuration loaded successfully:', currentConfig);
     } catch (err) {
         console.error('Error loading or parsing configuration file:', err);
-        // Keep the old config or default to empty if initial load fails
         if (Object.keys(currentConfig).length === 0) {
-            currentConfig = {}; // Ensure it's an object even on error
+            currentConfig = {}; 
         }
     }
 }
@@ -107,7 +106,7 @@ fs.watch(configPath, (eventType, filename) => {
         if (fsWait) return;
         fsWait = setTimeout(() => {
             fsWait = false;
-        }, 100); // Debounce timeout
+        }, 100); 
         console.log(`Configuration file ${filename} changed. Reloading...`);
         loadConfig();
     }
@@ -155,10 +154,11 @@ app.use("/api/airspacesXCdb", createAirspacesXCdbRouter(pool));
 app.use("/api/obstacles", createObstaclesRouter(pool));
 app.get("/api/kk7thermals/:z/:x/:y.png", kk7ThermalsProxy);
 app.get("/api/kk7skyways/:z/:x/:y.png", kk7SkywayaysProxy);
-app.use("/api/user", createUserPreferencesRouter(pool)); // Pass pool to the factory function
-app.use("/api/ogn", createOgnLiveRouter(pool, ognClient)); // Use the OGN Live API router
-app.use("/api/lookup", createLookupRouter(pool)); // Pass pool to the factory function
-
+app.use("/api/user", createUserPreferencesRouter(pool)); 
+app.use("/api/ogn", createOgnLiveRouter(pool, ognClient));
+app.use("/api/lookup", createLookupRouter(pool));
+app.use("/api", createTranslateRouter()); // Register the new translate router
+ 
 // --- Configuration Endpoint ---
 app.get("/api/config", (req, res) => {
     res.json(currentConfig);
@@ -169,7 +169,7 @@ app.get("/api/config", (req, res) => {
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
-        origin: "*", // Allow all origins in development
+        origin: "*", 
         methods: ["GET", "POST"]
     }
 });
@@ -205,54 +205,42 @@ async function startServer() {
         console.log('- scripts/import-srtm-raster2pgsql.js (PostGIS implementation, recommended for large datasets)');
 
         console.log('Initializing OGN APRS Client (DB, data refresh, timers, connection)...');
-        // Pass Socket.IO instance to OGN APRS client
         ognClient.setSocketIO(io);
-        await ognClient.initializeAndStart(); // Use the new combined initialization method
+        await ognClient.initializeAndStart(); 
         console.log('OGN APRS Client started successfully.');
 
-        // Initialize XContest Live data fetching
         console.log('Initializing XContest Live data fetching...');
-        initXContestLive(io); // Call the initializer function, passing the Socket.IO instance
+        initXContestLive(io); 
         console.log('XContest Live data fetching initialized.');
 
-        // --- Ensure xcm_pilots table exists (Added) ---
         try {
             console.log('Ensuring xcm_pilots table exists...');
             await pool.query(`
                 CREATE TABLE IF NOT EXISTS xcm_pilots (
                     id SERIAL PRIMARY KEY,
-                    user_id VARCHAR(255) NOT NULL, -- Keycloak user ID
+                    user_id VARCHAR(255) NOT NULL, 
                     pilot_name VARCHAR(255) NOT NULL,
                     device_id VARCHAR(50) NOT NULL,
-                    -- xcontest_uuid VARCHAR(255), -- REMOVED - Store in Keycloak attributes
                     consent_timestamp TIMESTAMPTZ NOT NULL,
                     last_updated TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (user_id, device_id) -- Ensure a user can only add a device once
-                    -- Consider adding FOREIGN KEY constraint if you have a users table:
-                    -- FOREIGN KEY (user_id) REFERENCES your_user_table(id)
+                    UNIQUE (user_id, device_id) 
                 );
             `);
-// Drop xcontest_uuid column if it exists (moving to Keycloak attributes)
-await pool.query(`
-    ALTER TABLE xcm_pilots
-    DROP COLUMN IF EXISTS xcontest_uuid;
-`);
-// Optional: Add indexes if not already handled by UNIQUE constraint or for other lookups
-await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilots(user_id);`);
+            await pool.query(`
+                ALTER TABLE xcm_pilots
+                DROP COLUMN IF EXISTS xcontest_uuid;
+            `);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilots(user_id);`);
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_device_id ON xcm_pilots(device_id);`);
             console.log('xcm_pilots table check/creation complete.');
         } catch (tableError) {
             console.error('Error ensuring xcm_pilots table exists:', tableError);
-            // Decide if this is a fatal error - probably should be?
             throw new Error('Failed to initialize xcm_pilots table.');
         }
-        // --- End Ensure xcm_pilots table ---
 
-        // --- Ensure aircraft and aircraft_tracks tables exist ---
         try {
             console.log('Ensuring aircraft and aircraft_tracks tables exist...');
             
-            // Create aircraft table if it doesn't exist
             await pool.query(`
                 CREATE TABLE IF NOT EXISTS aircraft (
                     device_id VARCHAR(50) PRIMARY KEY,
@@ -270,18 +258,16 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilot
                     last_turn_rate SMALLINT,
                     raw_packet TEXT,
                     pilot_name VARCHAR(100),
-                    aprs_name VARCHAR(255) -- Added for OGN status message names
+                    aprs_name VARCHAR(255) 
                 );
             `);
 
-            // Add aprs_name column if it doesn't exist
             await pool.query(`
                 ALTER TABLE aircraft
                 ADD COLUMN IF NOT EXISTS aprs_name VARCHAR(255);
             `);
             console.log('Ensured aprs_name column exists in aircraft table.');
 
-            // Create tracks table if it doesn't exist
             await pool.query(`
                 CREATE TABLE IF NOT EXISTS aircraft_tracks (
                     id SERIAL PRIMARY KEY,
@@ -299,13 +285,11 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilot
                 );
             `);
 
-            // Add status column if it doesn't exist (for existing tables)
             await pool.query(`
                 ALTER TABLE aircraft_tracks
                 ADD COLUMN IF NOT EXISTS status VARCHAR(20);
             `);
             
-            // Create indexes for faster queries
             await pool.query(`
                 CREATE INDEX IF NOT EXISTS idx_aircraft_tracks_device_id ON aircraft_tracks(aircraft_id);
                 CREATE INDEX IF NOT EXISTS idx_aircraft_tracks_timestamp ON aircraft_tracks(timestamp);
@@ -315,11 +299,8 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilot
         } catch (tableError) {
             console.error('Error ensuring aircraft and aircraft_tracks tables exist:', tableError);
             console.log('Will continue startup process despite aircraft tables error.');
-            // Not throwing error here to allow server to start even if these tables fail
         }
-        // --- End Ensure aircraft and aircraft_tracks tables ---
 
-// --- Ensure aprs_blacklist table exists ---
         try {
             console.log('Ensuring aprs_blacklist table exists...');
             await pool.query(`
@@ -330,11 +311,7 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilot
             console.log('aprs_blacklist table check/creation complete.');
         } catch (tableError) {
             console.error('Error ensuring aprs_blacklist table exists:', tableError);
-            // Decide if this is a fatal error - probably should be?
-            // For now, just log and continue
         }
-        // --- End Ensure aprs_blacklist table ---
-        // --- Manual Trigger ---
         console.log('MANUALLY TRIGGERING PILOT DB REFRESH...');
         try {
             await ognClient.refreshPilotDatabase();
@@ -343,20 +320,15 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilot
         } catch (refreshError) {
             console.error('MANUAL PILOT DB REFRESH FAILED:', refreshError);
         }
-        // --- End Manual Trigger ---
 
-        // Socket.IO connection handler for OGN namespace
         ognNamespace.on('connection', (socket) => {
             console.log('Client connected to OGN namespace:', socket.id);
             
-            // Handle client subscribing to aircraft updates within bounds
             socket.on('subscribe', (bounds) => {
                 console.log(`Client ${socket.id} subscribed to aircraft updates within bounds:`, bounds);
-                // Store bounds in socket object for later use
                 socket.bounds = bounds;
                 socket.join('aircraft-updates');
                 
-                // Send initial aircraft data within bounds
                 if (ognClient && bounds) {
                     ognClient.getAircraftInBounds(bounds)
                         .then(aircraft => {
@@ -368,11 +340,10 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilot
                 }
             });
             
-            // Handle client requesting track data for a specific aircraft
             socket.on('get-track', (aircraftId) => {
                 console.log(`Client ${socket.id} requested track for aircraft:`, aircraftId);
                 if (ognClient && aircraftId) {
-                    ognClient.getAircraftTrack(aircraftId, 720) // 60 minutes of history
+                    ognClient.getAircraftTrack(aircraftId, 720) 
                         .then(track => {
                             socket.emit('track-data', { aircraftId, track });
                         })
@@ -382,25 +353,21 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_xcm_pilots_user_id ON xcm_pilot
                 }
             });
             
-            // Handle client updating their view bounds
             socket.on('update-bounds', (bounds) => {
-                // console.log(`Client ${socket.id} updated bounds:`, bounds);
                 socket.bounds = bounds;
             });
             
-            // Handle disconnection
             socket.on('disconnect', () => {
                 console.log('Client disconnected from OGN namespace:', socket.id);
             });
         });
         
-        // Start the HTTP server
         httpServer.listen(PORT, () => {
             console.log(`Server running on http://localhost:${PORT}`);
         });
     } catch (err) {
         console.error('Failed to initialize OGN or start server:', err);
-        process.exit(1); // Exit if critical initialization fails
+        process.exit(1); 
     }
 }
 
