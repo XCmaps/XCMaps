@@ -42,6 +42,7 @@ import { initSpotHG } from '../../../components/spots-hg.js'; // Assuming simila
 import { initSpotLZ } from '../../../components/spots-lz.js'; // Assuming similar export
 import '../../../components/obstacles.js';
 import '../../../components/rainviewer.js';
+import '../../../components/meteoblue-layer.js'; // Import the new Meteoblue layer
 import { initializeAirspaceXCMapListeners } from './../../../components/airspaces-xc.js';
 import { keycloak, initKeycloak, createUserControl, loadUserPreferences, isUserAuthenticated } from '../../../components/keycloak-auth.js'; // Import necessary functions AND keycloak instance
 
@@ -92,7 +93,8 @@ const OVERLAY_URL_MAP = {
   'landing_zones': 'placesLayerLZ',
   'airspaces': 'airspaceXC',
   'obstacles': 'obstacleLayer',
-  'live': 'aircraftLayer'
+  'live': 'aircraftLayer',
+  'meteoblue': 'meteoblueWeather' // Add Meteoblue to URL map
 };
 
 // Function to parse URL parameters
@@ -215,12 +217,18 @@ var baseTree = {
   var overlayTree = {
       label: 'Overlays',
       children: [
+          { label: 'Weather Maps',
+            children: [
+              { label: 'Meteoblue Maps', layer: window.baseLayers.meteoblueWeather },
+            ]
+          },
+          { html: '<hr class="leaflet-control-layers-separator">' },
           { label: 'Weather Stations',
             children: [
               { label: 'Weather Stations', layer: window.overlayLayers.windStations, checked: true  },
             ]
           },
-          { html: '<hr class="leaflet-control-layers-separator">' },
+          { html: '<hr class="leaflet-control-layers-separator">' },          
           { label: 'Rain Viewer',
             children: [
               { label: 'Radar', layer: window.overlayLayers.rainviewerRadar, checked: true  },
@@ -437,6 +445,9 @@ window.overlayLayers.windStations = L.layerGroup();
     window.overlayLayers.rainviewerRadar = L.layerGroup();
     window.overlayLayers.rainviewerSatellite = L.layerGroup();
   }
+
+  // window.overlayLayers.meteoblueWeather = L.meteoblueWeatherLayer(); // REMOVE: Consolidate to one instance
+  window.baseLayers.meteoblueWeather = L.meteoblueWeatherLayer(); // This will be the single instance used
 
   // Parse URL parameters for initial map state
   const urlParams = parseUrlParameters();
@@ -1187,13 +1198,21 @@ if (window.lc) {
 
   window.map.on('overlayadd', function(e) {
     try {
-      console.log('overlayadd event triggered for layer:', e.name);
-      if (e.layer === window.overlayLayers.rainviewerRadar) {
-        console.log('RainViewer Radar layer added');
+      console.log('overlayadd event triggered for layer:', e.name, e.layer);
+      const logoControlElement = document.querySelector('.leaflet-control-logo');
+      const bottomLeftControls = document.querySelector('.leaflet-bottom.leaflet-left');
+      const bottomRightControls = document.querySelector('.leaflet-bottom.leaflet-right');
+
+      if (e.layer === window.overlayLayers.rainviewerRadar || e.layer === window.overlayLayers.rainviewerSatellite) {
+        console.log('RainViewer layer added/changed');
         debouncedUpdateTimeDimensionControl();
-      } else if (e.layer === window.overlayLayers.rainviewerSatellite) {
-        console.log('RainViewer Satellite layer added');
-        debouncedUpdateTimeDimensionControl();
+      }
+      
+      if (e.layer === window.baseLayers.meteoblueWeather) { // Check against the correct instance
+        if (logoControlElement) logoControlElement.style.display = 'none';
+        if (bottomLeftControls) bottomLeftControls.style.display = 'none';
+        if (bottomRightControls) bottomRightControls.style.display = 'none';
+        console.log('Meteoblue overlay added, hiding logo and bottom controls.');
       }
       updateUrlParameters();
     } catch (error) {
@@ -1203,13 +1222,21 @@ if (window.lc) {
 
   window.map.on('overlayremove', function(e) {
     try {
-      console.log('overlayremove event triggered for layer:', e.name);
-      if (e.layer === window.overlayLayers.rainviewerRadar) {
-        console.log('RainViewer Radar layer removed');
+      console.log('overlayremove event triggered for layer:', e.name, e.layer);
+      const logoControlElement = document.querySelector('.leaflet-control-logo');
+      const bottomLeftControls = document.querySelector('.leaflet-bottom.leaflet-left');
+      const bottomRightControls = document.querySelector('.leaflet-bottom.leaflet-right');
+
+      if (e.layer === window.overlayLayers.rainviewerRadar || e.layer === window.overlayLayers.rainviewerSatellite) {
+        console.log('RainViewer layer removed/changed');
         debouncedUpdateTimeDimensionControl();
-      } else if (e.layer === window.overlayLayers.rainviewerSatellite) {
-        console.log('RainViewer Satellite layer removed');
-        debouncedUpdateTimeDimensionControl();
+      }
+
+      if (e.layer === window.baseLayers.meteoblueWeather) { // Check against the correct instance
+        if (logoControlElement) logoControlElement.style.display = 'block';
+        if (bottomLeftControls) bottomLeftControls.style.display = ''; // Revert to default
+        if (bottomRightControls) bottomRightControls.style.display = ''; // Revert to default
+        console.log('Meteoblue overlay removed, showing logo and bottom controls.');
       }
       updateUrlParameters();
     } catch (error) {
@@ -1218,16 +1245,55 @@ if (window.lc) {
   });
 
   window.map.on('baselayerchange', function(e) {
-      console.log('baselayerchange event triggered for layer:', e.name);
-      updateUrlParameters();
-  });
+        console.log('baselayerchange event triggered for layer:', e.layer);
+        updateUrlParameters();
+  
+        const logoControlElement = document.querySelector('.leaflet-control-logo');
+        const bottomLeftControls = document.querySelector('.leaflet-bottom.leaflet-left');
+        const bottomRightControls = document.querySelector('.leaflet-bottom.leaflet-right');
 
-  window.mapInitialized = true;
+        // When a base layer changes, controls should generally be visible,
+        // unless the Meteoblue overlay is active.
+        if (!window.map.hasLayer(window.baseLayers.meteoblueWeather)) {
+            if (logoControlElement) logoControlElement.style.display = 'block';
+            if (bottomLeftControls) bottomLeftControls.style.display = '';
+            if (bottomRightControls) bottomRightControls.style.display = '';
+            console.log('Base layer changed, Meteoblue overlay NOT active. Showing logo and bottom controls.');
+        } else {
+            // Meteoblue overlay is active, keep them hidden
+            if (logoControlElement) logoControlElement.style.display = 'none';
+            if (bottomLeftControls) bottomLeftControls.style.display = 'none';
+            if (bottomRightControls) bottomRightControls.style.display = 'none';
+            console.log('Base layer changed, but Meteoblue overlay IS active. Keeping logo and bottom controls hidden.');
+        }
+    });
+  
+    window.mapInitialized = true;
   console.log("Map initialization complete");
 
   const mapReadyEvent = new Event('map_initialized');
   document.dispatchEvent(mapReadyEvent);
   console.log("Map initialized event dispatched");
+
+  // Initial check for controls visibility after map setup
+  const logoControlElement = document.querySelector('.leaflet-control-logo');
+  const initialBottomLeftControls = document.querySelector('.leaflet-bottom.leaflet-left');
+  const initialBottomRightControls = document.querySelector('.leaflet-bottom.leaflet-right');
+
+  if (window.baseLayers.meteoblueWeather) {
+    if (window.map.hasLayer(window.baseLayers.meteoblueWeather)) {
+      if (logoControlElement) logoControlElement.style.display = 'none';
+      if (initialBottomLeftControls) initialBottomLeftControls.style.display = 'none';
+      if (initialBottomRightControls) initialBottomRightControls.style.display = 'none';
+      console.log('Initial load: Meteoblue overlay active, hiding logo and bottom controls.');
+    } else {
+      if (logoControlElement) logoControlElement.style.display = 'block';
+      if (initialBottomLeftControls) initialBottomLeftControls.style.display = '';
+      if (initialBottomRightControls) initialBottomRightControls.style.display = '';
+      console.log('Initial load: Meteoblue overlay not active, showing logo and bottom controls.');
+    }
+  }
+
 
   return window.map;
 } // End of initMap function
