@@ -1,6 +1,18 @@
 import axios from 'axios';
 import pgFormat from 'pg-format';
+import { Pool } from 'pg';
+import dotenv from 'dotenv';
 
+dotenv.config(); // Load environment variables from .env file
+
+// Database connection configuration
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+});
 
 /**
  * Formats a date as YYYY-M-D-SR for the API
@@ -629,3 +641,17 @@ export {
   testSingleCountry,
   testSingleCountryObstacles
 };
+// Main execution block
+(async () => {
+  console.log('Starting update-xc-airspaces script...');
+  try {
+    await fetchAndStoreAll(pool);
+    console.log('update-xc-airspaces script completed successfully.');
+  } catch (error) {
+    console.error('update-xc-airspaces script failed:', error);
+  } finally {
+    await pool.end(); // Close the database connection pool
+    console.log('Database connection pool closed.');
+    process.exit(0); // Exit the process cleanly
+  }
+})();
