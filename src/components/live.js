@@ -120,12 +120,34 @@ const LiveControl = L.Control.extend({
                 L.DomEvent.stop(e);
                 this._hideAltitudeChart(); // Visually hide the chart container
 
-                // Close all aircraft popups
-                Object.values(this.markers).forEach(marker => {
-                    if (marker.isPopupOpen()) {
-                        marker.closePopup();
+                // Close all custom aircraft popups
+                const customPopups = document.querySelectorAll('.aircraft-popup');
+                customPopups.forEach(popup => {
+                    const normalizedId = popup.getAttribute('data-aircraft-id');
+                    if (normalizedId) {
+                        // Clean up state associated with this popup
+                        const index = this.activePopupOrder.indexOf(normalizedId);
+                        if (index > -1) {
+                            this.activePopupOrder.splice(index, 1);
+                        }
+                        const assignedColor = this.activePopupColors[normalizedId];
+                        if (assignedColor) {
+                            this.availableColors.push(assignedColor);
+                            delete this.activePopupColors[normalizedId];
+                        }
+                        if (this.tracks[normalizedId] && this.tracks[normalizedId].layer) {
+                            this.trackLayer.removeLayer(this.tracks[normalizedId].layer);
+                        }
+                        delete this.tracks[normalizedId];
+                        this._removePilotDataFromChart(normalizedId);
                     }
+                    popup.parentNode.removeChild(popup);
                 });
+
+                // Reset selected aircraft and active popup tracking
+                this.selectedAircraft = null;
+                this.activePopupOrder = [];
+                this.activePopupColors = {};
 
                 // Clear all tracks from the map and internal state
                 if (this.trackLayer) {
